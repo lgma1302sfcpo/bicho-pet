@@ -1,0 +1,31 @@
+import { NextRequest } from "next/server";
+
+import { created, errorResponse, ok } from "@/lib/api-response";
+import { AUTH_PERMISSIONS } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
+import { createSaleSchema } from "@/schemas/commerce/sale.schemas";
+import { commerceService } from "@/services/commerce";
+
+export async function GET() {
+  try {
+    const session = await requirePermission(AUTH_PERMISSIONS.SALES_READ);
+    const sales = await commerceService.listSales(session.user.currentTenantId);
+
+    return ok(sales);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await requirePermission(AUTH_PERMISSIONS.SALES_WRITE);
+    const payload = await request.json();
+    const input = createSaleSchema.parse(payload);
+    const sale = await commerceService.createSale(session.user.currentTenantId, session.user.id, input);
+
+    return created(sale);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

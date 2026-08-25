@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-08-24",
+  "schemaPackage": "PL_010e_v1.02",
+  "schemaPublishedAt": "2026-07-10",
+  "eventPackage": "Eventos_NT_2025.002_v1.40",
+  "eventPackagePublishedAt": "2026-07-27",
+  "qrCodeVersion": "3",
+  "danfeNfceManualVersion": "6.0",
+  "technicalNotes": [
+    "NT_2025.001",
+    "NT_2025.002_v1.51",
+    "NT_2026.002_v1.10",
+    "NT_2026.003_v1.0",
+    "NT_2026.007_v1.00",
+    "NT_2014.001_v1.41"
+  ],
+  "officialSources": {
+    "schemas": "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=BMPFMBoln3w=",
+    "nfeSpWebServices": "https://portal.fazenda.sp.gov.br/servicos/nfe/Paginas/URL-WEBSERVICES.aspx",
+    "nfceSpWebServices": "https://portal.fazenda.sp.gov.br/servicos/nfce/Paginas/WebServices.aspx",
+    "nfceContingency": "https://portal.fazenda.sp.gov.br/servicos/nfce/Paginas/Conting%C3%AAncia.aspx",
+    "technicalNotes": "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=04BIflQt1aY="
+  }
+}

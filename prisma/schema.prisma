@@ -1,0 +1,673 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum PasswordResetStatus {
+  PENDING
+  USED
+  EXPIRED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum SaleStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  STORE_CREDIT
+  VOUCHER
+  MIXED
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+}
+
+enum PetSpecies {
+  ALL
+  DOG
+  CAT
+  BIRD
+  FISH
+  RODENT
+  OTHER
+}
+
+enum InventoryMovementType {
+  ENTRY
+  EXIT
+  ADJUSTMENT
+}
+
+enum FinancialEntryType {
+  REVENUE
+  EXPENSE
+}
+
+enum FinancialEntryStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum FiscalEnvironment {
+  HOMOLOGATION
+  PRODUCTION
+}
+
+enum FiscalProviderType {
+  SANDBOX
+  DIRECT_SEFAZ_SP
+  EXTERNAL_API
+  NOT_CONFIGURED
+}
+
+enum FiscalDocumentType {
+  NFE
+  NFCE
+  NFSE
+}
+
+enum FiscalDocumentStatus {
+  PROCESSING
+  CONTINGENCY_PENDING
+  AUTHORIZED
+  REJECTED
+  CANCELLED
+  ERROR
+}
+
+enum FiscalEventType {
+  ISSUE
+  QUERY
+  CANCEL
+  VOID_NUMBER
+  REPLACE
+  EMAIL
+  RETRY
+}
+
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  legalName String?
+  document  String       @unique
+  email     String?
+  phone     String?
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  branches            Branch[]
+  roles               Role[]
+  memberships         UserTenantRole[]
+  auditLogs           AuditLog[]
+  customers           Customer[]
+  sales               Sale[]
+  products            Product[]
+  inventoryMovements  InventoryMovement[]
+  financialEntries    FinancialEntry[]
+  fiscalConfiguration FiscalConfiguration?
+  fiscalSequences     FiscalSequence[]
+  fiscalDocuments     FiscalDocument[]
+  fiscalEvents        FiscalEvent[]
+  fiscalNumberVoids   FiscalNumberVoid[]
+
+  @@map("tenants")
+}
+
+model Branch {
+  id        String       @id @default(cuid())
+  tenantId  String
+  name      String
+  document  String?
+  isMain    Boolean      @default(false)
+  status    BranchStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships UserTenantRole[]
+
+  @@unique([tenantId, document])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  passwordHash  String?
+  phone         String?
+  status        UserStatus @default(ACTIVE)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  memberships         UserTenantRole[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
+  sales               Sale[]
+  inventoryMovements  InventoryMovement[]
+  accounts            Account[]
+  sessions            Session[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  users       UserTenantRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  module      String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  assignedAt   DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserTenantRole {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  roleId    String
+  branchId  String?
+  isOwner   Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role   Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, tenantId, roleId])
+  @@index([tenantId, roleId])
+  @@index([userId])
+  @@map("user_tenant_roles")
+}
+
+model PasswordResetToken {
+  id        String              @id @default(cuid())
+  userId    String
+  tokenHash String              @unique
+  status    PasswordResetStatus @default(PENDING)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("password_reset_tokens")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model Customer {
+  id                String         @id @default(cuid())
+  tenantId          String
+  name              String
+  document          String?
+  email             String?
+  phone             String?
+  whatsapp          String?
+  birthDate         DateTime?
+  address           String?
+  street            String?
+  addressNumber     String?
+  complement        String?
+  district          String?
+  city              String?
+  cityCode          String?
+  state             String?
+  zipCode           String?
+  stateRegistration String?
+  creditLimit       Decimal        @default(0) @db.Decimal(12, 2)
+  notes             String?
+  tags              String[]       @default([])
+  status            CustomerStatus @default(ACTIVE)
+  firstPurchaseAt   DateTime?
+  lastPurchaseAt    DateTime?
+  purchaseCount     Int            @default(0)
+  totalSpent        Decimal        @default(0) @db.Decimal(12, 2)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales  Sale[]
+
+  @@unique([tenantId, document])
+  @@index([tenantId, name])
+  @@index([tenantId, lastPurchaseAt])
+  @@index([tenantId, purchaseCount])
+  @@map("customers")
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  tenantId      String
+  customerId    String?
+  userId        String?
+  code          String
+  status        SaleStatus    @default(COMPLETED)
+  paymentMethod PaymentMethod
+  subtotal      Decimal       @db.Decimal(12, 2)
+  discount      Decimal       @default(0) @db.Decimal(12, 2)
+  surcharge     Decimal       @default(0) @db.Decimal(12, 2)
+  total         Decimal       @db.Decimal(12, 2)
+  notes         String?
+  soldAt        DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer         Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  user             User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items            SaleItem[]
+  financialEntries FinancialEntry[]
+  fiscalDocuments  FiscalDocument[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, soldAt])
+  @@index([customerId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id          String   @id @default(cuid())
+  saleId      String
+  productId   String?
+  description String
+  quantity    Decimal  @db.Decimal(12, 3)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  costPrice   Decimal  @default(0) @db.Decimal(12, 2)
+  category    String?
+  brand       String?
+  supplier    String?
+  total       Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+}
+
+model Product {
+  id                    String        @id @default(cuid())
+  tenantId              String
+  name                  String
+  code                  String?
+  sku                   String?
+  barcode               String?
+  category              String
+  subcategory           String?
+  brand                 String?
+  supplier              String?
+  unit                  String        @default("UN")
+  species               PetSpecies    @default(ALL)
+  description           String?
+  costPrice             Decimal       @default(0) @db.Decimal(12, 2)
+  salePrice             Decimal       @db.Decimal(12, 2)
+  marginPercent         Decimal       @default(0) @db.Decimal(8, 2)
+  stockQuantity         Decimal       @default(0) @db.Decimal(12, 3)
+  minStock              Decimal       @default(0) @db.Decimal(12, 3)
+  maxStock              Decimal       @default(0) @db.Decimal(12, 3)
+  location              String?
+  imageUrl              String?
+  fiscalItemType        String        @default("GOOD")
+  ncm                   String?
+  cest                  String?
+  originCode            String?
+  defaultCfop           String?
+  icmsCode              String?
+  pisCode               String?
+  cofinsCode            String?
+  ibsCbsCode            String?
+  taxClassificationCode String?
+  serviceCode           String?
+  issRate               Decimal?      @db.Decimal(7, 4)
+  fiscalApproved        Boolean       @default(false)
+  status                ProductStatus @default(ACTIVE)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleItems          SaleItem[]
+  inventoryMovements InventoryMovement[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, sku])
+  @@unique([tenantId, barcode])
+  @@index([tenantId, name])
+  @@index([tenantId, category])
+  @@index([tenantId, supplier])
+  @@index([tenantId, species])
+  @@index([tenantId, status])
+  @@map("products")
+}
+
+model FiscalConfiguration {
+  id                           String             @id @default(cuid())
+  tenantId                     String             @unique
+  legalName                    String?
+  tradeName                    String?
+  cnpj                         String?
+  stateRegistration            String?
+  municipalRegistration        String?
+  taxRegime                    String?
+  cnae                         String?
+  street                       String?
+  number                       String?
+  complement                   String?
+  district                     String?
+  city                         String?
+  cityCode                     String?
+  state                        String?
+  zipCode                      String?
+  phone                        String?
+  email                        String?
+  environment                  FiscalEnvironment  @default(HOMOLOGATION)
+  provider                     FiscalProviderType @default(SANDBOX)
+  providerBaseUrl              String?
+  providerTokenEncrypted       String?
+  certificateType              String             @default("NONE")
+  certificateExpiresAt         DateTime?
+  certificateName              String?
+  certificateDataEncrypted     String?
+  certificatePasswordEncrypted String?
+  nfceSecurityCodeId           String?
+  nfceSecurityCodeEncrypted    String?
+  enableNfe                    Boolean            @default(false)
+  enableNfce                   Boolean            @default(false)
+  enableNfse                   Boolean            @default(false)
+  autoEmail                    Boolean            @default(false)
+  directTransmissionEnabled    Boolean            @default(false)
+  schemaPackage                String             @default("010e_v1.02")
+  accountantApprovedAt         DateTime?
+  createdAt                    DateTime           @default(now())
+  updatedAt                    DateTime           @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_configurations")
+}
+
+model FiscalSequence {
+  id          String             @id @default(cuid())
+  tenantId    String
+  type        FiscalDocumentType
+  environment FiscalEnvironment
+  series      Int
+  nextNumber  Int                @default(1)
+  updatedAt   DateTime           @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type, environment, series])
+  @@index([tenantId, type])
+  @@map("fiscal_sequences")
+}
+
+model FiscalDocument {
+  id                     String               @id @default(cuid())
+  tenantId               String
+  saleId                 String
+  type                   FiscalDocumentType
+  environment            FiscalEnvironment
+  provider               FiscalProviderType
+  series                 Int
+  number                 Int
+  status                 FiscalDocumentStatus @default(PROCESSING)
+  accessKey              String?
+  protocol               String?
+  cancellationProtocol   String?
+  providerId             String?
+  rejectionCode          String?
+  rejectionReason        String?
+  xmlContent             String?              @db.Text
+  cancellationXmlContent String?              @db.Text
+  pdfContent             Bytes?
+  authorizedAt           DateTime?
+  cancelledAt            DateTime?
+  emailedAt              DateTime?
+  createdById            String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale   Sale          @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  events FiscalEvent[]
+
+  @@unique([tenantId, saleId, type])
+  @@unique([tenantId, type, environment, series, number])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@map("fiscal_documents")
+}
+
+model FiscalEvent {
+  id               String          @id @default(cuid())
+  tenantId         String
+  fiscalDocumentId String?
+  userId           String?
+  type             FiscalEventType
+  success          Boolean
+  message          String
+  details          Json?
+  createdAt        DateTime        @default(now())
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document FiscalDocument? @relation(fields: [fiscalDocumentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([fiscalDocumentId, createdAt])
+  @@map("fiscal_events")
+}
+
+model FiscalNumberVoid {
+  id              String             @id @default(cuid())
+  tenantId        String
+  type            FiscalDocumentType
+  environment     FiscalEnvironment
+  provider        FiscalProviderType
+  series          Int
+  numberFrom      Int
+  numberTo        Int
+  reason          String
+  status          String
+  protocol        String?
+  rejectionCode   String?
+  rejectionReason String?
+  xmlContent      String?            @db.Text
+  createdById     String?
+  createdAt       DateTime           @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, type, environment, series])
+  @@map("fiscal_number_voids")
+}
+
+model InventoryMovement {
+  id              String                @id @default(cuid())
+  tenantId        String
+  productId       String
+  userId          String?
+  type            InventoryMovementType
+  quantity        Decimal               @db.Decimal(12, 3)
+  previousBalance Decimal               @db.Decimal(12, 3)
+  newBalance      Decimal               @db.Decimal(12, 3)
+  reason          String
+  reference       String?
+  createdAt       DateTime              @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([productId, createdAt])
+  @@map("inventory_movements")
+}
+
+model FinancialEntry {
+  id            String               @id @default(cuid())
+  tenantId      String
+  saleId        String?
+  type          FinancialEntryType
+  status        FinancialEntryStatus @default(PENDING)
+  description   String
+  category      String
+  amount        Decimal              @db.Decimal(12, 2)
+  dueDate       DateTime
+  paidAt        DateTime?
+  paymentMethod PaymentMethod?
+  notes         String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale   Sale?  @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, dueDate])
+  @@index([tenantId, status])
+  @@index([saleId])
+  @@map("financial_entries")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}

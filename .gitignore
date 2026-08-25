@@ -1,0 +1,27 @@
+.next/
+node_modules/
+coverage/
+dist/
+tmp/
+backups/
+
+# Segredos e configuracoes locais. Somente o modelo documentado vai ao Git.
+.env*
+!.env.example
+.npmrc.local
+
+# Certificados e chaves nunca devem ser versionados.
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+
+# Bancos, copias e artefatos locais.
+.postgres-data/
+public/uploads/
+*.dump
+*.backup
+*.log
+*.tsbuildinfo
