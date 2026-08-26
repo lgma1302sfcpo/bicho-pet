@@ -79,7 +79,7 @@ export function CustomerCreateForm({ customer, onCancel, onSuccess }: CustomerFo
 
   return (
     <div>
-      <form className="space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
+      <form className="erp-form space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
         <Input label="Nome completo" mask="letters" error={form.formState.errors.name?.message} {...form.register("name")} />
         <div className="grid gap-3 md:grid-cols-2">
           <Input label="Documento" help="Informe o Cadastro de Pessoa Física ou o Cadastro Nacional da Pessoa Jurídica. A pontuação é colocada automaticamente." mask="document" error={form.formState.errors.document?.message} {...form.register("document")} />
@@ -131,7 +131,7 @@ export function CustomerCreateForm({ customer, onCancel, onSuccess }: CustomerFo
           </div>
         ) : null}
 
-        <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-border bg-white/95 px-4 pb-1 pt-3 backdrop-blur sm:static sm:mx-0 sm:flex-row sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="erp-form-actions sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-border bg-white/95 px-4 pb-1 pt-3 backdrop-blur sm:mx-0 sm:flex-row sm:justify-end sm:p-0">
           <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
           <Button type="submit" className="sm:min-w-48" disabled={createCustomer.isPending || updateCustomer.isPending}>
             <Save size={18} />

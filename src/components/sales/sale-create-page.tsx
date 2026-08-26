@@ -113,13 +113,15 @@ export function SaleCreatePage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Cadastrar venda</h1>
-        <p className="text-sm text-subdued">Venda simples para alimentar o histórico e os filtros de clientes.</p>
+    <div className="erp-page">
+      <div className="erp-page-header">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Cadastrar venda</h1>
+          <p className="text-sm text-subdued">Venda simples para alimentar o histórico e os filtros de clientes.</p>
+        </div>
       </div>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
+      <section className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card className="p-4">
           <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
             <div className="grid gap-3 md:grid-cols-3">
@@ -198,7 +200,7 @@ export function SaleCreatePage() {
                     {...form.register(`items.${index}.unitPrice`)}
                   />
                   <Button
-                    className="mt-6 h-10 px-0"
+                    className="sale-item-remove mt-6 h-10 px-0"
                     variant="ghost"
                     title="Remover item"
                     onClick={() => items.fields.length > 1 && items.remove(index)}
@@ -234,8 +236,8 @@ export function SaleCreatePage() {
           </form>
         </Card>
 
-        <div className="space-y-5">
-          <Card className="p-4">
+        <div className="erp-side-stack space-y-5">
+          <Card className="erp-side-card p-4">
             <div className="mb-3 flex items-center gap-2">
               <ReceiptText size={18} className="text-brand-700" />
               <h2 className="font-semibold">Resumo</h2>

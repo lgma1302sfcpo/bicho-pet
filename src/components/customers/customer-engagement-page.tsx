@@ -97,19 +97,19 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="erp-page">
+      <div className="erp-page-header">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Clientes</h1>
           <p className="text-sm text-subdued">Localize clientes e prepare mensagens de relacionamento pelo WhatsApp.</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="erp-page-header__actions flex flex-col gap-2 sm:flex-row">
           {canManage ? <Button onClick={() => setCreatingCustomer(true)}><Plus size={18} />Cadastrar cliente</Button> : null}
           <Link href="/vendas/nova"><Button variant="secondary" className="w-full"><Gift size={18} />Cadastrar venda</Button></Link>
         </div>
       </div>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="erp-metrics erp-metrics--five grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
           ["Clientes", summary?.totalCustomers ?? 0],
           ["Filtrados", summary?.totalFiltered ?? 0],
@@ -124,9 +124,9 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
         ))}
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
+      <section className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
-          <Card className="p-4">
+          <Card className="erp-filter-card p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
               <SlidersHorizontal size={18} className="text-brand-700" />
@@ -134,7 +134,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
               </div>
               <Button variant="ghost" onClick={() => setFilters({ includeNeverPurchased: true, contactableOnly: false })}>Limpar filtros</Button>
             </div>
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="erp-filter-presets mb-4 flex flex-wrap gap-2">
               <Button
                 variant="secondary"
                 onClick={() => applyPreset({ inactiveDays: 60, includeNeverPurchased: true, contactableOnly: true })}
@@ -274,7 +274,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
             </div>
           </Card>
 
-          <Card className="overflow-hidden">
+          <Card className="erp-table-card overflow-hidden">
             <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold">Clientes para campanha</h2>
@@ -304,7 +304,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
               ))}
               {customers.length === 0 ? <p className="p-6 text-center text-sm text-subdued">Nenhum cliente encontrado para os filtros atuais.</p> : null}
             </div>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="erp-table-scroll hidden overflow-x-auto md:block">
               <table className="w-full min-w-[860px] text-left text-sm">
                 <thead className="bg-muted text-xs uppercase text-subdued">
                   <tr>
@@ -384,7 +384,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
           </Card>
         </div>
 
-        <div className="space-y-5">
+        <div className="erp-side-stack space-y-5">
           {whatsappCustomer ? (
             <Card className="p-4">
               <div className="mb-4 flex items-start justify-between gap-2">
@@ -486,6 +486,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
 
       <Modal
         open={creatingCustomer || Boolean(editingCustomer)}
+        className="erp-modal--customer"
         title={editingCustomer ? "Editar cliente" : "Cadastrar cliente"}
         description="Preencha os dados de contato e endereço do cliente."
         onClose={() => { setCreatingCustomer(false); setEditingCustomer(null); }}

@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 
 export default function AccessDeniedPage() {
   return (
-    <div className="mx-auto grid min-h-[60vh] max-w-xl place-items-center">
+    <div className="erp-page mx-auto grid min-h-[60vh] max-w-xl place-items-center">
       <Card className="w-full p-6 text-center sm:p-8">
         <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-700">
           <ShieldX size={28} />

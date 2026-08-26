@@ -18,9 +18,12 @@ const config: Config = {
         brand: {
           50: "#eef3ff",
           100: "#dce7ff",
+          200: "#bfd1ff",
+          300: "#91b1f6",
           500: "#2458bd",
           600: "#1d4ca8",
-          700: "#173e91"
+          700: "#173e91",
+          800: "#153575"
         },
         "pet-yellow": "#f2e832",
         success: "#16875a",

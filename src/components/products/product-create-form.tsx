@@ -76,7 +76,7 @@ export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormP
 
   return (
     <div>
-      <form className="space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
+      <form className="erp-form space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
         <Input label="Nome do produto" error={form.formState.errors.name?.message} {...form.register("name")} />
         <div className="grid gap-3 md:grid-cols-3">
           <Input label="Código do produto" help="Código usado pela própria loja para localizar o produto." error={form.formState.errors.code?.message} {...form.register("code")} />
@@ -147,7 +147,7 @@ export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormP
         </div>
         <Select label="Localização no estoque" error={form.formState.errors.location?.message} {...form.register("location")}><option value="">Não informada</option><option>Balcão</option><option>Depósito</option><option>Prateleira A</option><option>Prateleira B</option><option>Prateleira C</option><option>Área de medicamentos</option><option>Área de banho e tosa</option></Select>
         <Input label="Descrição" error={form.formState.errors.description?.message} {...form.register("description")} />
-        <div className="rounded-md border border-border bg-slate-50 p-3">
+        <div className="erp-form-section rounded-md border border-border bg-slate-50 p-3 sm:p-4">
           <div className="mb-3">
             <h3 className="font-semibold">Dados fiscais</h3>
             <p className="text-xs text-subdued">Preencha somente com a matriz validada pelo contador. A aprovação fiscal é obrigatória antes da emissão.</p>
@@ -190,7 +190,7 @@ export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormP
           </div>
         ) : null}
 
-        <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-border bg-white/95 px-4 pb-1 pt-3 backdrop-blur sm:static sm:mx-0 sm:flex-row sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="erp-form-actions sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-border bg-white/95 px-4 pb-1 pt-3 backdrop-blur sm:mx-0 sm:flex-row sm:justify-end sm:p-0">
           <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
           <Button type="submit" className="sm:min-w-48" disabled={createProduct.isPending || updateProduct.isPending}>
           <Save size={18} />

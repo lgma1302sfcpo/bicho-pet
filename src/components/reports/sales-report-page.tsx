@@ -63,9 +63,9 @@ function aggregateItems(sales: SaleListItemDTO[], key: (item: SaleListItemDTO["i
 
 function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) {
   return (
-    <Card className="overflow-hidden">
+    <Card className="erp-table-card overflow-hidden">
       <div className="border-b border-border px-4 py-3"><h2 className="font-semibold">{title}</h2></div>
-      <div className="overflow-x-auto">
+      <div className="erp-table-scroll overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Grupo</th><th className="px-4 py-3">Quantidade</th><th className="px-4 py-3">Custo</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Lucro</th><th className="px-4 py-3">Margem</th></tr></thead>
           <tbody className="divide-y divide-border">
@@ -120,13 +120,13 @@ export function SalesReportPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="erp-page">
+      <div className="erp-page-header">
         <div><h1 className="text-2xl font-semibold text-ink">Relatórios gerenciais</h1><p className="text-sm text-subdued">Vendas, lucratividade, pagamentos, produtos e fornecedores.</p></div>
-        <Button onClick={exportSpreadsheet} disabled={!sales.length}><Download size={18} /> Exportar Excel</Button>
+        <div className="erp-page-header__actions"><Button onClick={exportSpreadsheet} disabled={!sales.length}><Download size={18} /> Exportar Excel</Button></div>
       </div>
 
-      <Card className="p-4">
+      <Card className="erp-filter-card p-4">
         <div className="mb-4 flex items-center gap-2"><FileBarChart size={18} className="text-brand-700" /><h2 className="font-semibold">Período e busca</h2></div>
         <div className="grid gap-3 md:grid-cols-4">
           <Select label="Período" value={period} onChange={(event) => setPeriod(event.target.value)}><option value="all">Todo o período</option><option value="today">Hoje</option><option value="yesterday">Ontem</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="year">Este ano</option><option value="custom">Escolher período</option></Select>
@@ -136,11 +136,11 @@ export function SalesReportPage() {
         </div>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="erp-metrics erp-metrics--five grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[["Vendas", sales.length.toLocaleString("pt-BR")], ["Faturamento", money(revenue)], ["Custo", money(cost)], ["Lucro bruto", money(profit)], ["Ticket médio", money(ticket)]].map(([label, value]) => <Card key={label} className="p-4"><p className="text-sm text-subdued">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></Card>)}
       </section>
 
-      <Card className="overflow-hidden">
+      <Card className="erp-table-card overflow-hidden">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3"><TrendingUp size={18} className="text-brand-700" /><h2 className="font-semibold">Vendas por meio de pagamento</h2></div>
         <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Meio de pagamento</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Total</th></tr></thead><tbody className="divide-y divide-border">{byPayment.map((row) => <tr key={row.name}><td className="px-4 py-3"><Badge>{row.name}</Badge></td><td className="px-4 py-3">{row.sales}</td><td className="px-4 py-3 font-semibold">{money(row.revenue)}</td></tr>)}{!byPayment.length ? <tr><td colSpan={3} className="px-4 py-8 text-center text-subdued">Nenhuma venda encontrada.</td></tr> : null}</tbody></table></div>
       </Card>

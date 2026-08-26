@@ -51,16 +51,16 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="erp-page">
+      <div className="erp-page-header">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Produtos</h1>
           <p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p>
         </div>
-        {canManage ? <Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button> : null}
+        {canManage ? <div className="erp-page-header__actions"><Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button></div> : null}
       </div>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="erp-metrics grid gap-3 sm:grid-cols-3">
         {[
           ["Produtos", summary?.totalProducts ?? 0],
           ["Ativos", summary?.activeProducts ?? 0],
@@ -75,7 +75,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
 
       <section className="space-y-5">
         <div className="space-y-5 min-w-0">
-          <Card className="p-4">
+          <Card className="erp-filter-card p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
               <SlidersHorizontal size={18} className="text-brand-700" />
@@ -83,7 +83,6 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               </div>
               <Button variant="ghost" onClick={() => setFilters({ lowStockOnly: false })}>Limpar filtros</Button>
             </div>
-            <div className="mt-4 rounded-md border border-brand-100 bg-brand-50 p-3 text-sm text-brand-700">{activeFilters.length ? <><strong>Filtros aplicados:</strong> {activeFilters.join(" · ")}. Foram encontrados {products.length} produto(s).</> : <span>Nenhum filtro específico aplicado. Exibindo todos os produtos.</span>}</div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Input
                 label="Buscar"
@@ -134,9 +133,10 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                 <option value="DISCONTINUED">Descontinuado</option>
               </Select>
             </div>
+            <div className="mt-4 rounded-md border border-brand-100 bg-brand-50 p-3 text-sm text-brand-700">{activeFilters.length ? <><strong>Filtros aplicados:</strong> {activeFilters.join(" · ")}. Foram encontrados {products.length} produto(s).</> : <span>Nenhum filtro específico aplicado. Exibindo todos os produtos.</span>}</div>
           </Card>
 
-          <Card className="overflow-hidden">
+          <Card className="erp-table-card overflow-hidden">
             <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold">Lista de produtos</h2>
@@ -165,7 +165,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               ))}
               {products.length === 0 ? <p className="p-6 text-center text-sm text-subdued">Nenhum produto encontrado.</p> : null}
             </div>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="erp-table-scroll hidden overflow-x-auto md:block">
               <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="bg-muted text-xs uppercase text-subdued">
                   <tr>
@@ -276,6 +276,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
 
       <Modal
         open={creatingProduct || Boolean(editingProduct)}
+        className="erp-modal--product"
         title={editingProduct ? "Editar produto" : "Cadastrar produto"}
         description="Preencha os dados comerciais, de estoque e fiscais do produto."
         onClose={() => { setCreatingProduct(false); setEditingProduct(null); }}

@@ -88,9 +88,9 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-muted text-ink lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="border-b border-border bg-white lg:min-h-screen lg:border-b-0 lg:border-r">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 lg:block">
+    <div className="erp-shell min-h-screen bg-muted text-ink lg:grid lg:grid-cols-[260px_1fr]">
+      <aside className="erp-sidebar border-b border-border bg-white lg:min-h-screen lg:border-b-0 lg:border-r">
+        <div className="erp-sidebar__brand flex items-center justify-between gap-3 border-b border-border px-4 py-4 lg:block">
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-white p-0.5 shadow-sm ring-1 ring-border">
               <BrandLogo className="h-10 w-10" />
@@ -110,7 +110,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
           </Button>
         </div>
 
-        <div className="border-b border-border px-4 py-3">
+        <div className="erp-sidebar__branch border-b border-border px-4 py-3">
           {user.canAccessAllBranches && branches.length > 1 ? (
             <Select
               label={switchingBranch ? "Alterando loja..." : "Loja em uso"}
@@ -131,7 +131,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
           {branchSwitchError ? <p className="mt-2 text-xs font-medium text-danger">{branchSwitchError}</p> : null}
         </div>
 
-        <nav className={cn("px-3 py-3 lg:block lg:space-y-1", mobileMenuOpen ? "grid grid-cols-2 gap-2" : "hidden")}>
+        <nav className={cn("erp-nav px-3 py-3 lg:block lg:space-y-1", mobileMenuOpen ? "grid grid-cols-2 gap-2" : "hidden")}>
           {availableNavItems.map((item) => {
             const Icon = item.icon;
             const active = item.enabled && pathname === item.href;
@@ -148,7 +148,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  "inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition lg:flex",
+                  "erp-nav__item inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition lg:flex",
                   active ? "bg-brand-50 text-brand-700" : "text-subdued hover:bg-muted hover:text-ink"
                 )}
               >
@@ -161,7 +161,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
           </Button>
         </nav>
 
-        <div className="hidden border-t border-border p-4 lg:block">
+        <div className="erp-sidebar__footer hidden border-t border-border p-4 lg:block">
           <div className="mb-3 flex items-center gap-2 text-sm">
             <ShieldCheck className="text-success" size={18} />
             <div className="min-w-0">
@@ -176,7 +176,9 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
         </div>
       </aside>
 
-      <main className="min-w-0 overflow-x-hidden px-3 py-4 sm:px-6 lg:px-8 lg:py-6">{children}</main>
+      <main className="erp-main min-w-0 overflow-x-hidden px-3 py-4 sm:px-6 lg:px-8 lg:py-6">
+        <div className="erp-content">{children}</div>
+      </main>
     </div>
   );
 }
