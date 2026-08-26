@@ -52,14 +52,16 @@ export interface ProductRepository {
   ): Promise<string | null>;
   createProduct(
     tenantId: string,
+    branchId: string,
     data: CreateProductDTO & { marginPercent: number }
   ): Promise<ProductRecord>;
   updateProduct(
     tenantId: string,
+    branchId: string,
     productId: string,
     data: UpdateProductDTO & { marginPercent: number }
   ): Promise<ProductRecord | null>;
   deleteProduct(tenantId: string, productId: string): Promise<boolean>;
-  listProducts(tenantId: string, filters: ProductFiltersDTO): Promise<ProductRecord[]>;
-  getProductSummary(tenantId: string): Promise<ProductSummaryRecord>;
+  listProducts(tenantId: string, branchId: string | null, filters: ProductFiltersDTO): Promise<ProductRecord[]>;
+  getProductSummary(tenantId: string, branchId: string | null): Promise<ProductSummaryRecord>;
 }

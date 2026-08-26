@@ -26,7 +26,7 @@ describe("ProductService", () => {
 
   it("calcula margem ao cadastrar produto", async () => {
     vi.mocked(repository.productIdentifierExists).mockResolvedValue(null);
-    vi.mocked(repository.createProduct).mockImplementation(async (_tenantId, data) => ({
+    vi.mocked(repository.createProduct).mockImplementation(async (_tenantId, _branchId, data) => ({
       id: "product-1",
       name: data.name,
       code: data.code,
@@ -48,7 +48,7 @@ describe("ProductService", () => {
       status: "ACTIVE"
     }));
 
-    const result = await service.createProduct("tenant-1", {
+    const result = await service.createProduct("tenant-1", "branch-1", {
       name: "Racao Premium 10kg",
       code: "RAC-10",
       category: "Racao",
@@ -63,6 +63,7 @@ describe("ProductService", () => {
 
     expect(repository.createProduct).toHaveBeenCalledWith(
       "tenant-1",
+      "branch-1",
       expect.objectContaining({ marginPercent: 50 })
     );
     expect(result.isLowStock).toBe(true);
@@ -72,7 +73,7 @@ describe("ProductService", () => {
     vi.mocked(repository.productIdentifierExists).mockResolvedValue("codigo");
 
     await expect(
-      service.createProduct("tenant-1", {
+      service.createProduct("tenant-1", "branch-1", {
         name: "Petisco",
         code: "PET-1",
         category: "Petisco",
@@ -89,12 +90,12 @@ describe("ProductService", () => {
 
   it("edita produto e recalcula a margem", async () => {
     vi.mocked(repository.productIdentifierExists).mockResolvedValue(null);
-    vi.mocked(repository.updateProduct).mockImplementation(async (_tenantId, _productId, data) => ({
+    vi.mocked(repository.updateProduct).mockImplementation(async (_tenantId, _branchId, _productId, data) => ({
       id: "product-1",
       ...data
     }));
 
-    const result = await service.updateProduct("tenant-1", "product-1", {
+    const result = await service.updateProduct("tenant-1", "branch-1", "product-1", {
       name: "Racao Premium Editada",
       code: "RAC-10",
       category: "Racao",

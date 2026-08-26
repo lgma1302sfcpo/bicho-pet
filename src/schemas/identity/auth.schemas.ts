@@ -70,5 +70,23 @@ export const createUserSchema = z.object({
   phone: optionalPhoneSchema,
   password: passwordSchema,
   roleId: z.string().trim().min(1, "Selecione um cargo."),
-  branchId: z.string().trim().optional()
+  branchId: z.string().trim().min(1, "Selecione uma loja.")
 });
+
+export const inviteEmployeeSchema = z.object({
+  email: z.string().trim().email("Informe um email valido.").toLowerCase(),
+  branchId: z.string().trim().min(1, "Selecione uma loja."),
+  permissionKeys: z.array(z.nativeEnum(AUTH_PERMISSIONS)).min(1, "Selecione pelo menos um acesso.")
+});
+
+export const acceptEmployeeInvitationSchema = z
+  .object({
+    token: z.string().trim().min(32, "Convite invalido."),
+    name: z.string().trim().min(2, "Informe seu nome."),
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Confirme a senha.")
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "As senhas nao conferem."
+  });

@@ -9,7 +9,7 @@ import { fiscalService } from "@/services/fiscal";
 export async function GET() {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.FISCAL_READ);
-    return ok(await fiscalService.getOverview(session.user.currentTenantId));
+    return ok(await fiscalService.getOverview(session.user.currentTenantId, session.user.currentBranchId ?? null));
   } catch (error) {
     return errorResponse(error);
   }

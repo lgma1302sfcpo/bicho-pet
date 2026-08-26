@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 
 import type { AuthenticatedUserDTO } from "@/dtos/identity/auth.dto";
 import { loginSchema } from "@/schemas/identity/auth.schemas";
+import { prisma } from "@/lib/prisma";
 import { identityService } from "@/services/identity";
 
 export const authOptions: NextAuthOptions = {
@@ -37,7 +38,7 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         const identityUser = user as AuthenticatedUserDTO;
 
@@ -48,9 +49,38 @@ export const authOptions: NextAuthOptions = {
         token.currentTenantName = identityUser.currentTenantName;
         token.currentBranchId = identityUser.currentBranchId;
         token.currentBranchName = identityUser.currentBranchName;
+        token.canAccessAllBranches = identityUser.canAccessAllBranches;
         token.roleId = identityUser.roleId;
         token.roleName = identityUser.roleName;
         token.permissions = identityUser.permissions;
+      }
+
+      if (trigger === "update" && token.currentTenantId) {
+        const requestedBranchId = typeof session?.currentBranchId === "string" && session.currentBranchId
+          ? session.currentBranchId
+          : null;
+
+        if (token.canAccessAllBranches && requestedBranchId === null) {
+          token.currentBranchId = null;
+          token.currentBranchName = "Todas as lojas";
+        } else if (requestedBranchId) {
+          const allowedBranch = await prisma.branch.findFirst({
+            where: {
+              id: requestedBranchId,
+              tenantId: token.currentTenantId,
+              status: "ACTIVE",
+              ...(token.canAccessAllBranches
+                ? {}
+                : { memberships: { some: { userId: token.userId, isActive: true } } })
+            },
+            select: { id: true, name: true }
+          });
+
+          if (allowedBranch) {
+            token.currentBranchId = allowedBranch.id;
+            token.currentBranchName = allowedBranch.name;
+          }
+        }
       }
 
       return token;
@@ -62,6 +92,7 @@ export const authOptions: NextAuthOptions = {
         session.user.currentTenantName = token.currentTenantName as string;
         session.user.currentBranchId = token.currentBranchId as string | null | undefined;
         session.user.currentBranchName = token.currentBranchName as string | null | undefined;
+        session.user.canAccessAllBranches = Boolean(token.canAccessAllBranches);
         session.user.roleId = token.roleId as string;
         session.user.roleName = token.roleName as string;
         session.user.permissions = (token.permissions as string[]) ?? [];

@@ -107,6 +107,29 @@ export type CreateUserData = {
   branchId?: string;
 };
 
+export type EmployeeInvitationRecord = {
+  id: string;
+  email: string;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  expiresAt: Date;
+  tenantId: string;
+  tenantName: string;
+  branchId: string;
+  branchName: string;
+  roleId: string;
+  permissionKeys: string[];
+};
+
+export type CreateEmployeeInvitationData = {
+  tenantId: string;
+  branchId: string;
+  invitedById: string;
+  email: string;
+  tokenHash: string;
+  expiresAt: Date;
+  permissionKeys: string[];
+};
+
 export interface IdentityRepository {
   findAuthIdentityByEmail(email: string): Promise<AuthIdentityRecord | null>;
   emailExists(email: string): Promise<boolean>;
@@ -131,4 +154,8 @@ export interface IdentityRepository {
   createRole(data: CreateRoleData): Promise<RoleRecord>;
   listUsers(tenantId: string): Promise<UserRecord[]>;
   createUserWithRole(data: CreateUserData): Promise<UserRecord>;
+  createEmployeeInvitation(data: CreateEmployeeInvitationData): Promise<EmployeeInvitationRecord>;
+  listEmployeeInvitations(tenantId: string): Promise<EmployeeInvitationRecord[]>;
+  findEmployeeInvitation(tokenHash: string): Promise<EmployeeInvitationRecord | null>;
+  acceptEmployeeInvitation(data: { tokenHash: string; name: string; passwordHash: string }): Promise<UserRecord | null>;
 }

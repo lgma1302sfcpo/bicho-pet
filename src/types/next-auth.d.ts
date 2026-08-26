@@ -8,6 +8,7 @@ declare module "next-auth" {
       currentTenantName: string;
       currentBranchId?: string | null;
       currentBranchName?: string | null;
+      canAccessAllBranches: boolean;
       roleId: string;
       roleName: string;
       permissions: string[];
@@ -22,6 +23,7 @@ declare module "next-auth/jwt" {
     currentTenantName?: string;
     currentBranchId?: string | null;
     currentBranchName?: string | null;
+    canAccessAllBranches?: boolean;
     roleId?: string;
     roleName?: string;
     permissions?: string[];

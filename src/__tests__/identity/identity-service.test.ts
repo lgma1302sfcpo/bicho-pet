@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RegisterOwnerDTO } from "@/dtos/identity/auth.dto";
 import type { IdentityRepository } from "@/interfaces/identity/identity-repository.interface";
+import type { EmailSender } from "@/interfaces/messaging/email-sender.interface";
 import { AppError } from "@/lib/errors";
 import { AUTH_PERMISSIONS } from "@/lib/permissions";
 import type { PasswordHasher } from "@/lib/password";
@@ -23,7 +24,11 @@ function createRepositoryMock(): IdentityRepository {
     listRoles: vi.fn(),
     createRole: vi.fn(),
     listUsers: vi.fn(),
-    createUserWithRole: vi.fn()
+    createUserWithRole: vi.fn(),
+    createEmployeeInvitation: vi.fn(),
+    listEmployeeInvitations: vi.fn(),
+    findEmployeeInvitation: vi.fn(),
+    acceptEmployeeInvitation: vi.fn()
   };
 }
 
@@ -155,6 +160,110 @@ describe("IdentityService", () => {
         tokenId: "token-1",
         passwordHash: "hash:Senha123"
       })
+    );
+  });
+
+  it("impede que um administrador conceda uma permissao que nao possui", async () => {
+    vi.mocked(repository.emailExists).mockResolvedValue(false);
+    vi.mocked(repository.branchBelongsToTenant).mockResolvedValue(true);
+
+    await expect(
+      service.inviteEmployee({
+        tenantId: "tenant-1",
+        invitedById: "admin-1",
+        inviterPermissions: [AUTH_PERMISSIONS.DASHBOARD_READ],
+        canAccessAllBranches: true,
+        currentBranchId: null,
+        invitation: {
+          email: "funcionario@exemplo.com",
+          branchId: "branch-1",
+          permissionKeys: [AUTH_PERMISSIONS.FINANCE_READ]
+        }
+      })
+    ).rejects.toMatchObject({ code: "PERMISSION_ESCALATION_DENIED" });
+  });
+
+  it("cria convite individual e envia o link por email", async () => {
+    const emailSender: EmailSender = { send: vi.fn(async () => ({ id: "email-1" })) };
+    service = new IdentityService(repository, passwordHasher, emailSender);
+    vi.mocked(repository.emailExists).mockResolvedValue(false);
+    vi.mocked(repository.branchBelongsToTenant).mockResolvedValue(true);
+    vi.mocked(repository.findPermissionsByKeys).mockResolvedValue([
+      {
+        id: "permission-1",
+        key: AUTH_PERMISSIONS.DASHBOARD_READ,
+        name: "Visualizar painel",
+        module: "dashboard"
+      }
+    ]);
+    vi.mocked(repository.createEmployeeInvitation).mockResolvedValue({
+      id: "invitation-1",
+      email: "funcionario@exemplo.com",
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 60_000),
+      tenantId: "tenant-1",
+      tenantName: "Pet Shop",
+      branchId: "branch-1",
+      branchName: "Loja Tupi",
+      roleId: "role-1",
+      permissionKeys: [AUTH_PERMISSIONS.DASHBOARD_READ]
+    });
+
+    const result = await service.inviteEmployee({
+      tenantId: "tenant-1",
+      invitedById: "admin-1",
+      inviterPermissions: [AUTH_PERMISSIONS.DASHBOARD_READ],
+      canAccessAllBranches: true,
+      currentBranchId: null,
+      invitation: {
+        email: "funcionario@exemplo.com",
+        branchId: "branch-1",
+        permissionKeys: [AUTH_PERMISSIONS.DASHBOARD_READ]
+      }
+    });
+
+    expect(result.emailSent).toBe(true);
+    expect(result.invitationUrl).toContain("/aceitar-convite?token=");
+    expect(emailSender.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "funcionario@exemplo.com" })
+    );
+  });
+
+  it("aceita um convite valido e ativa o login do funcionario", async () => {
+    vi.mocked(repository.findEmployeeInvitation).mockResolvedValue({
+      id: "invitation-1",
+      email: "funcionario@exemplo.com",
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 60_000),
+      tenantId: "tenant-1",
+      tenantName: "Pet Shop",
+      branchId: "branch-1",
+      branchName: "Loja Tupi",
+      roleId: "role-1",
+      permissionKeys: [AUTH_PERMISSIONS.DASHBOARD_READ]
+    });
+    vi.mocked(repository.emailExists).mockResolvedValue(false);
+    vi.mocked(repository.acceptEmployeeInvitation).mockResolvedValue({
+      id: "user-2",
+      name: "Funcionario",
+      email: "funcionario@exemplo.com",
+      status: "ACTIVE",
+      roleId: "role-1",
+      roleName: "Funcionario",
+      branchId: "branch-1",
+      branchName: "Loja Tupi"
+    });
+
+    const result = await service.acceptEmployeeInvitation({
+      token: "a".repeat(64),
+      name: "Funcionario",
+      password: "Senha123",
+      confirmPassword: "Senha123"
+    });
+
+    expect(result.email).toBe("funcionario@exemplo.com");
+    expect(repository.acceptEmployeeInvitation).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Funcionario", passwordHash: "hash:Senha123" })
     );
   });
 });

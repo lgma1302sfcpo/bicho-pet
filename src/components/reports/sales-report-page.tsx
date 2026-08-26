@@ -87,7 +87,7 @@ export function SalesReportPage() {
 
   const sales = useMemo(() => (salesQuery.data ?? []).filter((sale) => {
     const soldAt = new Date(sale.soldAt);
-    const term = `${sale.code} ${sale.customerName ?? ""} ${sale.items.map((item) => item.description).join(" ")}`.toLowerCase();
+    const term = `${sale.code} ${sale.branchName} ${sale.customerName ?? ""} ${sale.items.map((item) => item.description).join(" ")}`.toLowerCase();
     const periodStart = getPeriodStart(period);
     const yesterdayEnd = period === "yesterday" ? new Date(startOfDay(new Date()).getTime() - 1) : null;
     const matchesFrom = period !== "custom" || !from || soldAt >= new Date(`${from}T00:00:00`);
@@ -112,7 +112,7 @@ export function SalesReportPage() {
 
   function exportSpreadsheet() {
     downloadXlsx(`relatorios-gerenciais-${new Date().toISOString().slice(0, 10)}.xlsx`, [
-      { name: "Vendas", rows: sales.map((sale) => ({ Codigo: sale.code, Data: new Date(sale.soldAt).toLocaleString("pt-BR"), Cliente: sale.customerName ?? "Consumidor final", Pagamento: paymentLabels[sale.paymentMethod] ?? sale.paymentMethod, Itens: sale.itemsCount, Custo: sale.items.reduce((sum, item) => sum + item.costPrice * item.quantity, 0), Total: sale.total })) },
+      { name: "Vendas", rows: sales.map((sale) => ({ Loja: sale.branchName, Codigo: sale.code, Data: new Date(sale.soldAt).toLocaleString("pt-BR"), Cliente: sale.customerName ?? "Consumidor final", Pagamento: paymentLabels[sale.paymentMethod] ?? sale.paymentMethod, Itens: sale.itemsCount, Custo: sale.items.reduce((sum, item) => sum + item.costPrice * item.quantity, 0), Total: sale.total })) },
       { name: "Pagamentos", rows: byPayment },
       { name: "Categoria e produto", rows: byCategory },
       { name: "Fornecedores", rows: bySupplier }

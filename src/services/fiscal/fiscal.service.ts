@@ -47,20 +47,20 @@ function safeConfiguration(configuration: Awaited<ReturnType<typeof prisma.fisca
 export class FiscalService {
   constructor(private readonly emailSender?: EmailSender) {}
 
-  async getOverview(tenantId: string) {
+  async getOverview(tenantId: string, branchId: string | null = null) {
     const [configuration, sequences, documents, numberVoids, sales] = await Promise.all([
       prisma.fiscalConfiguration.findUnique({ where: { tenantId } }),
       prisma.fiscalSequence.findMany({ where: { tenantId }, orderBy: [{ type: "asc" }, { series: "asc" }] }),
       prisma.fiscalDocument.findMany({
-        where: { tenantId },
-        include: { sale: { select: { code: true, total: true, customer: { select: { name: true, email: true } } } }, events: { orderBy: { createdAt: "desc" }, take: 8 } },
+        where: { tenantId, ...(branchId ? { sale: { branchId } } : {}) },
+        include: { sale: { select: { code: true, total: true, branch: { select: { name: true } }, customer: { select: { name: true, email: true } } } }, events: { orderBy: { createdAt: "desc" }, take: 8 } },
         orderBy: { createdAt: "desc" },
         take: 100
       }),
       prisma.fiscalNumberVoid.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: 100 }),
       prisma.sale.findMany({
-        where: { tenantId, status: "COMPLETED" },
-        select: { id: true, code: true, total: true, soldAt: true, customer: { select: { name: true } }, fiscalDocuments: { select: { type: true, status: true } } },
+        where: { tenantId, ...(branchId ? { branchId } : {}), status: "COMPLETED" },
+        select: { id: true, code: true, total: true, soldAt: true, branch: { select: { name: true } }, customer: { select: { name: true } }, fiscalDocuments: { select: { type: true, status: true } } },
         orderBy: { soldAt: "desc" },
         take: 100
       })
@@ -78,7 +78,7 @@ export class FiscalService {
         hasPdf: Boolean(document.pdfContent),
         sale: { ...document.sale, total: number(document.sale.total) }
       })),
-      sales: sales.map((sale) => ({ ...sale, total: number(sale.total), customerName: sale.customer?.name ?? "Consumidor final" }))
+      sales: sales.map((sale) => ({ ...sale, branchName: sale.branch.name, total: number(sale.total), customerName: sale.customer?.name ?? "Consumidor final" }))
     };
   }
 
@@ -141,7 +141,7 @@ export class FiscalService {
     return safeConfiguration(saved);
   }
 
-  async issue(tenantId: string, userId: string, input: IssueInput) {
+  async issue(tenantId: string, branchId: string, userId: string, input: IssueInput) {
     const configuration = await prisma.fiscalConfiguration.findUnique({ where: { tenantId } });
     if (!configuration) throw new AppError("Preencha a configuracao fiscal antes da emissao.", "FISCAL_CONFIGURATION_MISSING", 422);
     if (configuration.environment === "PRODUCTION" && (configuration.provider !== "DIRECT_SEFAZ_SP" || !configuration.directTransmissionEnabled)) {
@@ -153,7 +153,7 @@ export class FiscalService {
     if (configuration.provider !== "SANDBOX" && configuration.provider !== "DIRECT_SEFAZ_SP") throw new AppError("Selecione o simulador ou a transmissao direta para a Secretaria da Fazenda de Sao Paulo.", "FISCAL_PROVIDER_NOT_READY", 422);
 
     const sale = await prisma.sale.findFirst({
-      where: { id: input.saleId, tenantId, status: "COMPLETED" },
+      where: { id: input.saleId, tenantId, branchId, status: "COMPLETED" },
       include: { customer: true, items: { include: { product: true } } }
     });
     if (!sale) throw new AppError("Venda concluida nao encontrada.", "SALE_NOT_FOUND", 404);
@@ -260,7 +260,9 @@ export class FiscalService {
     const original = await this.document(tenantId, id);
     if (original.type !== "NFSE" || original.status !== "AUTHORIZED") throw new AppError("Somente uma Nota Fiscal de Servico Eletronica autorizada pode ser substituida.", "FISCAL_REPLACEMENT_NOT_ALLOWED", 422);
     if (original.environment !== "HOMOLOGATION" || original.provider !== "SANDBOX") throw new AppError("A substituicao real depende das regras e da interface do provedor escolhido.", "FISCAL_REPLACEMENT_PROVIDER_REQUIRED", 422);
-    const replacement = await this.issue(tenantId, userId, { saleId: input.replacementSaleId, type: "NFSE", series: input.series, contingency: false });
+    const replacementSale = await prisma.sale.findFirst({ where: { id: input.replacementSaleId, tenantId }, select: { branchId: true } });
+    if (!replacementSale) throw new AppError("Venda substituta não encontrada.", "SALE_NOT_FOUND", 404);
+    const replacement = await this.issue(tenantId, replacementSale.branchId, userId, { saleId: input.replacementSaleId, type: "NFSE", series: input.series, contingency: false });
     await prisma.fiscalDocument.update({ where: { id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
     await this.event(tenantId, id, userId, "REPLACE", true, `Documento substituido em homologacao por ${replacement.id}. Motivo: ${input.reason}`, { replacementDocumentId: replacement.id });
     await this.event(tenantId, replacement.id, userId, "REPLACE", true, `Documento substituto de ${id}.`, { originalDocumentId: id });

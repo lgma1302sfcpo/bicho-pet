@@ -14,24 +14,29 @@ import {
   Users,
   WalletCards
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type ShellUser = {
   name?: string | null;
   email?: string | null;
   currentTenantName: string;
+  currentBranchId?: string | null;
+  currentBranchName?: string | null;
+  canAccessAllBranches: boolean;
   roleName: string;
 };
 
 type ErpShellProps = {
   user: ShellUser;
+  branches: Array<{ id: string; name: string; isMain: boolean }>;
   children: ReactNode;
 };
 
@@ -55,8 +60,16 @@ const navItems: EnabledNavItem[] = [
   { href: "/configuracoes/usuarios", label: "Configurações", icon: Settings, enabled: true }
 ];
 
-export function ErpShell({ user, children }: ErpShellProps) {
+export function ErpShell({ user, branches, children }: ErpShellProps) {
   const pathname = usePathname();
+  const { update } = useSession();
+  const [switchingBranch, setSwitchingBranch] = useState(false);
+
+  async function switchBranch(branchId: string) {
+    setSwitchingBranch(true);
+    await update({ currentBranchId: branchId === "ALL" ? null : branchId });
+    window.location.assign(pathname);
+  }
 
   return (
     <div className="min-h-screen bg-muted text-ink lg:grid lg:grid-cols-[260px_1fr]">
@@ -79,6 +92,26 @@ export function ErpShell({ user, children }: ErpShellProps) {
           >
             <LogOut size={18} />
           </Button>
+        </div>
+
+        <div className="border-b border-border px-4 py-3">
+          {user.canAccessAllBranches && branches.length > 1 ? (
+            <Select
+              label="Loja em uso"
+              help="As telas e os relatórios mostram somente a loja selecionada. Escolha todas as lojas para consultar os totais gerais."
+              value={user.currentBranchId ?? "ALL"}
+              disabled={switchingBranch}
+              onChange={(event) => void switchBranch(event.target.value)}
+            >
+              <option value="ALL">Todas as lojas</option>
+              {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.isMain ? " (principal)" : ""}</option>)}
+            </Select>
+          ) : (
+            <div className="rounded-md bg-muted px-3 py-2">
+              <p className="text-xs text-subdued">Loja em uso</p>
+              <p className="truncate text-sm font-semibold">{user.currentBranchName ?? branches[0]?.name ?? "Loja não definida"}</p>
+            </div>
+          )}
         </div>
 
         <nav className="flex gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible">

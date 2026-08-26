@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { CreateRoleDTO, CreateUserDTO } from "@/dtos/identity/auth.dto";
+import type { CreateRoleDTO, CreateUserDTO, InviteEmployeeDTO } from "@/dtos/identity/auth.dto";
 import type {
   PermissionRecord,
   RoleRecord,
@@ -14,6 +14,19 @@ type ApiEnvelope<T> = {
   error?: {
     message?: string;
   };
+};
+
+export type BranchOption = { id: string; name: string; isMain: boolean };
+export type EmployeeInvitation = {
+  id: string;
+  email: string;
+  branchName: string;
+  permissionKeys: string[];
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  expiresAt: string;
+  emailSent?: boolean;
+  invitationUrl?: string;
+  deliveryWarning?: string;
 };
 
 async function apiFetch<T>(url: string, init?: RequestInit) {
@@ -54,6 +67,21 @@ export function useUsers() {
   });
 }
 
+export function useBranches() {
+  return useQuery({
+    queryKey: ["identity", "branches"],
+    queryFn: () => apiFetch<BranchOption[]>("/api/identity/branches")
+  });
+}
+
+export function useCreateBranch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => apiFetch<BranchOption>("/api/identity/branches", { method: "POST", body: JSON.stringify({ name }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["identity", "branches"] })
+  });
+}
+
 export function useCreateRole() {
   const queryClient = useQueryClient();
 
@@ -81,5 +109,20 @@ export function useCreateUser() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["identity", "users"] });
     }
+  });
+}
+
+export function useInvitations() {
+  return useQuery({
+    queryKey: ["identity", "invitations"],
+    queryFn: () => apiFetch<EmployeeInvitation[]>("/api/identity/invitations")
+  });
+}
+
+export function useInviteEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: InviteEmployeeDTO) => apiFetch<EmployeeInvitation>("/api/identity/invitations", { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["identity", "invitations"] })
   });
 }

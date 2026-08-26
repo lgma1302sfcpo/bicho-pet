@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   createRoleSchema,
   createUserSchema,
+  inviteEmployeeSchema,
+  acceptEmployeeInvitationSchema,
   loginSchema,
   passwordResetConfirmSchema,
   passwordResetRequestSchema,
@@ -15,6 +17,8 @@ export type PasswordResetRequestDTO = z.infer<typeof passwordResetRequestSchema>
 export type PasswordResetConfirmDTO = z.infer<typeof passwordResetConfirmSchema>;
 export type CreateRoleDTO = z.infer<typeof createRoleSchema>;
 export type CreateUserDTO = z.infer<typeof createUserSchema>;
+export type InviteEmployeeDTO = z.infer<typeof inviteEmployeeSchema>;
+export type AcceptEmployeeInvitationDTO = z.infer<typeof acceptEmployeeInvitationSchema>;
 
 export type AuthenticatedUserDTO = {
   id: string;
@@ -24,6 +28,7 @@ export type AuthenticatedUserDTO = {
   currentTenantName: string;
   currentBranchId?: string | null;
   currentBranchName?: string | null;
+  canAccessAllBranches: boolean;
   roleId: string;
   roleName: string;
   permissions: string[];

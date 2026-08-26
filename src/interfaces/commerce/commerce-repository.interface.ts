@@ -43,6 +43,7 @@ export type CustomerSummaryRecord = {
 export type SaleRecord = {
   id: string;
   code: string;
+  branchName: string;
   customerName?: string | null;
   paymentMethod: string;
   status: string;
@@ -76,11 +77,12 @@ export interface CommerceRepository {
   getCustomerSummary(tenantId: string): Promise<CustomerSummaryRecord>;
   createSale(data: {
     tenantId: string;
+    branchId: string;
     userId: string;
     code: string;
     sale: CreateSaleDTO;
     subtotal: number;
     total: number;
   }): Promise<{ id: string; code: string; total: number; customerId?: string | null }>;
-  listSales(tenantId: string): Promise<SaleRecord[]>;
+  listSales(tenantId: string, branchId: string | null): Promise<SaleRecord[]>;
 }

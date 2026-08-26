@@ -99,7 +99,7 @@ describe("CommerceService", () => {
       customerId: "customer-1"
     });
 
-    const result = await service.createSale("tenant-1", "user-1", {
+    const result = await service.createSale("tenant-1", "branch-1", "user-1", {
       customerId: "customer-1",
       paymentMethod: "PIX",
       discount: 5,
@@ -123,7 +123,7 @@ describe("CommerceService", () => {
     vi.mocked(repository.customerBelongsToTenant).mockResolvedValue(false);
 
     await expect(
-      service.createSale("tenant-1", "user-1", {
+      service.createSale("tenant-1", "branch-1", "user-1", {
         customerId: "customer-2",
         paymentMethod: "PIX",
         discount: 0,

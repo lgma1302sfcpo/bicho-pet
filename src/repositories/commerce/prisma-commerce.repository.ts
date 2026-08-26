@@ -212,6 +212,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
 
   async createSale(data: {
     tenantId: string;
+    branchId: string;
     userId: string;
     code: string;
     sale: import("@/dtos/commerce/sale.dto").CreateSaleDTO;
@@ -222,7 +223,10 @@ export class PrismaCommerceRepository implements CommerceRepository {
       const soldAt = data.sale.soldAt ?? new Date();
       const productIds = Array.from(new Set(data.sale.items.map((item) => item.productId).filter(Boolean))) as string[];
       const products = productIds.length
-        ? await tx.product.findMany({ where: { tenantId: data.tenantId, id: { in: productIds }, status: "ACTIVE" } })
+        ? await tx.product.findMany({
+            where: { tenantId: data.tenantId, id: { in: productIds }, status: "ACTIVE" },
+            include: { branchStocks: { where: { branchId: data.branchId } } }
+          })
         : [];
       const productsById = new Map(products.map((product) => [product.id, product]));
 
@@ -236,7 +240,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
       }
       for (const [productId, quantity] of quantitiesByProduct) {
         const product = productsById.get(productId)!;
-        if (toNumber(product.stockQuantity) < quantity) {
+        if (toNumber(product.branchStocks[0]?.stockQuantity) < quantity) {
           throw new AppError(`Estoque insuficiente para ${product.name}.`, "INSUFFICIENT_STOCK", 422);
         }
       }
@@ -244,6 +248,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
       const sale = await tx.sale.create({
         data: {
           tenantId: data.tenantId,
+          branchId: data.branchId,
           userId: data.userId,
           customerId: data.sale.customerId || undefined,
           code: data.code,
@@ -274,15 +279,16 @@ export class PrismaCommerceRepository implements CommerceRepository {
 
       for (const [productId, quantity] of quantitiesByProduct) {
         const product = productsById.get(productId)!;
-        const previousBalance = toNumber(product.stockQuantity);
+        const previousBalance = toNumber(product.branchStocks[0]?.stockQuantity);
         const newBalance = previousBalance - quantity;
-        await tx.product.update({
-          where: { id: productId },
+        await tx.productBranchStock.update({
+          where: { branchId_productId: { branchId: data.branchId, productId } },
           data: { stockQuantity: { decrement: quantity } }
         });
         await tx.inventoryMovement.create({
           data: {
             tenantId: data.tenantId,
+            branchId: data.branchId,
             productId,
             userId: data.userId,
             type: "EXIT",
@@ -298,6 +304,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
       await tx.financialEntry.create({
         data: {
           tenantId: data.tenantId,
+          branchId: data.branchId,
           saleId: sale.id,
           type: "REVENUE",
           status: data.sale.paymentMethod === "STORE_CREDIT" ? "PENDING" : "PAID",
@@ -338,10 +345,11 @@ export class PrismaCommerceRepository implements CommerceRepository {
     });
   }
 
-  async listSales(tenantId: string) {
+  async listSales(tenantId: string, branchId: string | null) {
     const sales = await this.db.sale.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(branchId ? { branchId } : {}) },
       include: {
+        branch: { select: { name: true } },
         customer: true,
         items: true,
         _count: {
@@ -359,6 +367,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
     return sales.map((sale) => ({
       id: sale.id,
       code: sale.code,
+      branchName: sale.branch.name,
       customerName: sale.customer?.name,
       paymentMethod: sale.paymentMethod,
       status: sale.status,

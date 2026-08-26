@@ -62,7 +62,7 @@ export class PrismaProductRepository implements ProductRepository {
     return "codigo de barras";
   }
 
-  async createProduct(tenantId: string, data: CreateProductDTO & { marginPercent: number }) {
+  async createProduct(tenantId: string, branchId: string, data: CreateProductDTO & { marginPercent: number }) {
     const product = await this.db.product.create({
       data: {
         tenantId,
@@ -98,7 +98,18 @@ export class PrismaProductRepository implements ProductRepository {
         ,serviceCode: data.serviceCode
         ,issRate: data.issRate
         ,fiscalApproved: data.fiscalApproved ?? false
-      }
+        ,branchStocks: {
+          create: {
+            tenantId,
+            branchId,
+            stockQuantity: data.stockQuantity,
+            minStock: data.minStock,
+            maxStock: data.maxStock,
+            location: data.location
+          }
+        }
+      },
+      include: { branchStocks: { where: { branchId } } }
     });
 
     return this.mapProduct(product);
@@ -106,12 +117,14 @@ export class PrismaProductRepository implements ProductRepository {
 
   async updateProduct(
     tenantId: string,
+    branchId: string,
     productId: string,
     data: UpdateProductDTO & { marginPercent: number }
   ) {
-    const updated = await this.db.product.updateMany({
-      where: { id: productId, tenantId },
-      data: {
+    const updated = await this.db.$transaction(async (transaction) => {
+      const result = await transaction.product.updateMany({
+        where: { id: productId, tenantId },
+        data: {
         name: data.name,
         code: data.code ?? null,
         sku: data.sku ?? null,
@@ -126,10 +139,6 @@ export class PrismaProductRepository implements ProductRepository {
         costPrice: data.costPrice,
         salePrice: data.salePrice,
         marginPercent: data.marginPercent,
-        stockQuantity: data.stockQuantity,
-        minStock: data.minStock,
-        maxStock: data.maxStock,
-        location: data.location ?? null,
         imageUrl: data.imageUrl ?? null,
         fiscalItemType: data.fiscalItemType,
         ncm: data.ncm ?? null,
@@ -145,14 +154,41 @@ export class PrismaProductRepository implements ProductRepository {
         issRate: data.issRate ?? null,
         fiscalApproved: data.fiscalApproved,
         status: data.status
+        }
+      });
+
+      if (result.count > 0) {
+        await transaction.productBranchStock.upsert({
+          where: { branchId_productId: { branchId, productId } },
+          create: {
+            tenantId,
+            branchId,
+            productId,
+            stockQuantity: data.stockQuantity,
+            minStock: data.minStock,
+            maxStock: data.maxStock,
+            location: data.location ?? null
+          },
+          update: {
+            stockQuantity: data.stockQuantity,
+            minStock: data.minStock,
+            maxStock: data.maxStock,
+            location: data.location ?? null
+          }
+        });
       }
+
+      return result;
     });
 
     if (updated.count === 0) {
       return null;
     }
 
-    const product = await this.db.product.findFirst({ where: { id: productId, tenantId } });
+    const product = await this.db.product.findFirst({
+      where: { id: productId, tenantId },
+      include: { branchStocks: { where: { branchId } } }
+    });
     return product ? this.mapProduct(product) : null;
   }
 
@@ -161,7 +197,7 @@ export class PrismaProductRepository implements ProductRepository {
     return deleted.count > 0;
   }
 
-  async listProducts(tenantId: string, filters: ProductFiltersDTO) {
+  async listProducts(tenantId: string, branchId: string | null, filters: ProductFiltersDTO) {
     const and: Prisma.ProductWhereInput[] = [{ tenantId }];
 
     if (filters.search) {
@@ -194,29 +230,29 @@ export class PrismaProductRepository implements ProductRepository {
 
     const products = await this.db.product.findMany({
       where: { AND: and },
+      include: { branchStocks: { where: branchId ? { branchId } : {} } },
       orderBy: [{ category: "asc" }, { name: "asc" }],
       take: 300
     });
 
     return products
+      .map((product) => this.mapProduct(product))
       .filter((product) => {
         if (!filters.lowStockOnly) {
           return true;
         }
 
         return toNumber(product.minStock) > 0 && toNumber(product.stockQuantity) <= toNumber(product.minStock);
-      })
-      .map((product) => this.mapProduct(product));
+      });
   }
 
-  async getProductSummary(tenantId: string) {
+  async getProductSummary(tenantId: string, branchId: string | null) {
     const [products, totalProducts, activeProducts] = await Promise.all([
       this.db.product.findMany({
         where: { tenantId, status: { not: "DISCONTINUED" } },
         select: {
           category: true,
-          stockQuantity: true,
-          minStock: true
+          branchStocks: { where: branchId ? { branchId } : {}, select: { stockQuantity: true, minStock: true } }
         }
       }),
       this.db.product.count({ where: { tenantId, status: { not: "DISCONTINUED" } } }),
@@ -226,9 +262,13 @@ export class PrismaProductRepository implements ProductRepository {
     return {
       totalProducts,
       activeProducts,
-      lowStock: products.filter(
-        (product) => toNumber(product.minStock) > 0 && toNumber(product.stockQuantity) <= toNumber(product.minStock)
-      ).length,
+      lowStock: products.filter((product) => {
+        if (branchId) {
+          const stock = product.branchStocks[0];
+          return Boolean(stock && toNumber(stock.minStock) > 0 && toNumber(stock.stockQuantity) <= toNumber(stock.minStock));
+        }
+        return product.branchStocks.some((stock) => toNumber(stock.minStock) > 0 && toNumber(stock.stockQuantity) <= toNumber(stock.minStock));
+      }).length,
       categories: Array.from(new Set(products.map((product) => product.category))).sort()
     };
   }
@@ -268,7 +308,20 @@ export class PrismaProductRepository implements ProductRepository {
     issRate: Prisma.Decimal | null;
     fiscalApproved: boolean;
     status: string;
+    branchStocks?: Array<{
+      stockQuantity: Prisma.Decimal;
+      minStock: Prisma.Decimal;
+      maxStock: Prisma.Decimal;
+      location: string | null;
+    }>;
   }) {
+    const stocks = product.branchStocks ?? [];
+    const branchStock = {
+      stockQuantity: stocks.reduce((total, stock) => total + toNumber(stock.stockQuantity), 0),
+      minStock: stocks.reduce((total, stock) => total + toNumber(stock.minStock), 0),
+      maxStock: stocks.reduce((total, stock) => total + toNumber(stock.maxStock), 0),
+      location: stocks.length === 1 ? stocks[0].location : null
+    };
     return {
       id: product.id,
       name: product.name,
@@ -285,10 +338,10 @@ export class PrismaProductRepository implements ProductRepository {
       costPrice: toNumber(product.costPrice),
       salePrice: toNumber(product.salePrice),
       marginPercent: toNumber(product.marginPercent),
-      stockQuantity: toNumber(product.stockQuantity),
-      minStock: toNumber(product.minStock),
-      maxStock: toNumber(product.maxStock),
-      location: product.location,
+      stockQuantity: branchStock.stockQuantity,
+      minStock: branchStock.minStock,
+      maxStock: branchStock.maxStock,
+      location: branchStock.location,
       imageUrl: product.imageUrl,
       fiscalItemType: product.fiscalItemType,
       ncm: product.ncm,

@@ -6,7 +6,7 @@ const password = "TesteSeguro123";
 const cookies = new Map();
 const prisma = new PrismaClient();
 
-function rememberCookies(response) {
+function rememberCookies(response, cookieJar = cookies) {
   const values = typeof response.headers.getSetCookie === "function"
     ? response.headers.getSetCookie()
     : [response.headers.get("set-cookie")].filter(Boolean);
@@ -14,21 +14,21 @@ function rememberCookies(response) {
   for (const value of values) {
     const [pair] = value.split(";");
     const separator = pair.indexOf("=");
-    cookies.set(pair.slice(0, separator), pair.slice(separator + 1));
+    cookieJar.set(pair.slice(0, separator), pair.slice(separator + 1));
   }
 }
 
-async function request(path, init = {}) {
+async function request(path, init = {}, cookieJar = cookies) {
   const response = await fetch(`${baseUrl}${path}`, {
     redirect: "manual",
     ...init,
     headers: {
-      ...(cookies.size ? { cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; ") } : {}),
+      ...(cookieJar.size ? { cookie: [...cookieJar].map(([key, value]) => `${key}=${value}`).join("; ") } : {}),
       ...(init.body && !(init.body instanceof URLSearchParams) ? { "content-type": "application/json" } : {}),
       ...init.headers
     }
   });
-  rememberCookies(response);
+  rememberCookies(response, cookieJar);
   const text = await response.text();
   const body = text ? JSON.parse(text) : {};
   return { response, body };
@@ -40,13 +40,31 @@ function assert(condition, message, details) {
   }
 }
 
-async function api(path, init = {}, expectedStatus = 200) {
+async function api(path, init = {}, expectedStatus = 200, cookieJar = cookies) {
   const result = await request(path, {
     ...init,
     body: init.body && !(init.body instanceof URLSearchParams) ? JSON.stringify(init.body) : init.body
-  });
+  }, cookieJar);
   assert(result.response.status === expectedStatus, `${init.method ?? "GET"} ${path} retornou ${result.response.status}`, result.body);
   return result.body.data;
+}
+
+async function loginCredentials(loginEmail, loginPassword, cookieJar = cookies) {
+  const csrfResult = await request("/api/auth/csrf", {}, cookieJar);
+  assert(csrfResult.response.status === 200, "Nao foi possivel obter token CSRF", csrfResult.body);
+  const csrf = csrfResult.body;
+  const form = new URLSearchParams({ csrfToken: csrf.csrfToken, email: loginEmail, password: loginPassword, callbackUrl: `${baseUrl}/dashboard`, json: "true" });
+  const signedIn = await request("/api/auth/callback/credentials?json=true", {
+    method: "POST",
+    body: form,
+    headers: { "content-type": "application/x-www-form-urlencoded" }
+  }, cookieJar);
+  assert([200, 302].includes(signedIn.response.status), "Login QA falhou", signedIn.body);
+  const sessionResult = await request("/api/auth/session", {}, cookieJar);
+  assert(sessionResult.response.status === 200, "Nao foi possivel consultar a sessao", sessionResult.body);
+  const session = sessionResult.body;
+  assert(session?.user?.currentTenantId, "Sessao autenticada nao foi criada", session);
+  return session;
 }
 
 async function login() {
@@ -64,20 +82,7 @@ async function login() {
   });
   assert([201, 409].includes(registration.response.status), "Nao foi possivel preparar usuario QA", registration.body);
 
-  const csrfResult = await request("/api/auth/csrf");
-  assert(csrfResult.response.status === 200, "Nao foi possivel obter token CSRF", csrfResult.body);
-  const csrf = csrfResult.body;
-  const form = new URLSearchParams({ csrfToken: csrf.csrfToken, email, password, callbackUrl: `${baseUrl}/dashboard`, json: "true" });
-  const signedIn = await request("/api/auth/callback/credentials?json=true", {
-    method: "POST",
-    body: form,
-    headers: { "content-type": "application/x-www-form-urlencoded" }
-  });
-  assert([200, 302].includes(signedIn.response.status), "Login QA falhou", signedIn.body);
-  const sessionResult = await request("/api/auth/session");
-  assert(sessionResult.response.status === 200, "Nao foi possivel consultar a sessao", sessionResult.body);
-  const session = sessionResult.body;
-  assert(session?.user?.currentTenantId, "Sessao autenticada nao foi criada", session);
+  return loginCredentials(email, password);
 }
 
 async function main() {
@@ -189,6 +194,47 @@ async function main() {
   });
   assert(updatedProduct.salePrice === 75 && updatedProduct.marginPercent === 50, "Edicao de produto nao persistiu", updatedProduct);
 
+  const secondBranch = await api("/api/identity/branches", { method: "POST", body: { name: `Loja QA ${stamp}` } }, 201);
+  const secondEmail = `loja-${stamp.toLowerCase()}@example.invalid`;
+  const employeePermissions = [
+    "dashboard.read",
+    "products.read",
+    "inventory.read",
+    "inventory.write",
+    "sales.read",
+    "finance.read"
+  ];
+  const invitation = await api("/api/identity/invitations", {
+    method: "POST",
+    body: { email: secondEmail, branchId: secondBranch.id, permissionKeys: employeePermissions }
+  }, 201);
+  assert(invitation.invitationUrl, "Convite nao retornou um link de aceite", invitation);
+  const invitationToken = new URL(invitation.invitationUrl).searchParams.get("token");
+  assert(invitationToken, "Token do convite nao foi gerado", invitation);
+  const invitationPreview = await api(`/api/auth/invitations/${invitationToken}`);
+  assert(invitationPreview.email === secondEmail && invitationPreview.branchName === secondBranch.name, "Convite nao ficou vinculado ao email e a loja", invitationPreview);
+  await api(`/api/auth/invitations/${invitationToken}`, {
+    method: "POST",
+    body: { name: `Operador Loja ${stamp}`, password, confirmPassword: password }
+  });
+  const secondCookies = new Map();
+  const secondSession = await loginCredentials(secondEmail, password, secondCookies);
+  assert(secondSession.user.currentBranchId === secondBranch.id && secondSession.user.canAccessAllBranches === false, "Login da segunda loja nao ficou restrito a filial", secondSession);
+  assert(employeePermissions.every((permission) => secondSession.user.permissions.includes(permission)), "Funcionario nao recebeu as permissoes selecionadas", secondSession);
+  assert(!secondSession.user.permissions.includes("finance.write") && !secondSession.user.permissions.includes("fiscal.write"), "Funcionario recebeu acesso total indevidamente", secondSession);
+  const forbiddenFinanceWrite = await request("/api/finance", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "EXPENSE", status: "PENDING", description: "Nao deve criar", category: "Teste", amount: 10, dueDate: new Date().toISOString().slice(0, 10), paymentMethod: "PIX" })
+  }, secondCookies);
+  assert(forbiddenFinanceWrite.response.status === 403, "Funcionario sem permissao conseguiu alterar o financeiro", forbiddenFinanceWrite.body);
+  const secondStoreCatalog = await api(`/api/products?search=${productCode}`, {}, 200, secondCookies);
+  assert(secondStoreCatalog.products[0].stockQuantity === 0, "Segunda loja herdou indevidamente o estoque da principal", secondStoreCatalog);
+  const secondStockEntry = await api("/api/inventory", { method: "POST", body: { productId: product.id, type: "ENTRY", quantity: 3, reason: "Estoque inicial da segunda loja", reference: `FILIAL-${stamp}` } }, 201, secondCookies);
+  assert(secondStockEntry.newBalance === 3, "Estoque da segunda loja nao foi atualizado", secondStockEntry);
+  const mainStoreStillIndependent = await api(`/api/products?search=${productCode}`);
+  assert(mainStoreStillIndependent.products[0].stockQuantity === 10, "Movimento da segunda loja alterou o estoque principal", mainStoreStillIndependent);
+
   const sale = await api("/api/sales", {
     method: "POST",
     body: {
@@ -206,6 +252,12 @@ async function main() {
   assert(recordedSale, "Venda criada nao apareceu no historico");
   assert(recordedSale.items[0].costPrice === 50, "Custo historico nao foi registrado", recordedSale);
   assert(recordedSale.items[0].supplier === "Fornecedor QA", "Fornecedor nao foi registrado na venda", recordedSale);
+  const secondStoreSales = await api("/api/sales", {}, 200, secondCookies);
+  assert(!secondStoreSales.some((item) => item.id === sale.id), "Relatorio da segunda loja exibiu venda da loja principal", secondStoreSales);
+  const secondStoreFinance = await api("/api/finance", {}, 200, secondCookies);
+  assert(!secondStoreFinance.some((entry) => entry.saleId === sale.id), "Financeiro da segunda loja exibiu receita da loja principal", secondStoreFinance);
+  const secondStoreDashboard = await api("/api/dashboard", {}, 200, secondCookies);
+  assert(!secondStoreDashboard.latestSales.some((item) => item.id === sale.id), "Dashboard da segunda loja exibiu venda da loja principal", secondStoreDashboard);
   const stockAfterSale = await api(`/api/products?search=${productCode}`);
   assert(stockAfterSale.products[0].stockQuantity === 8, "Estoque nao foi baixado pela venda", stockAfterSale);
 
@@ -284,13 +336,23 @@ async function main() {
 
   await prisma.financialEntry.deleteMany({ where: { saleId: sale.id } });
   await prisma.fiscalDocument.deleteMany({ where: { saleId: sale.id } });
-  await prisma.inventoryMovement.deleteMany({ where: { OR: [{ reference: sale.code }, { reference: `NF-${stamp}` }] } });
+  await prisma.inventoryMovement.deleteMany({ where: { OR: [{ reference: sale.code }, { reference: `NF-${stamp}` }, { reference: `FILIAL-${stamp}` }] } });
   await prisma.sale.delete({ where: { id: sale.id } });
   await prisma.product.deleteMany({ where: { id: product.id } });
+  const secondUser = await prisma.user.findUnique({ where: { email: secondEmail }, select: { id: true } });
+  if (secondUser) {
+    await prisma.userTenantRole.deleteMany({ where: { userId: secondUser.id } });
+    await prisma.user.delete({ where: { id: secondUser.id } });
+  }
+  await prisma.userInvitation.deleteMany({ where: { id: invitation.id } });
+  await prisma.role.deleteMany({ where: { id: invitation.roleId } });
+  await prisma.branch.deleteMany({ where: { id: secondBranch.id } });
+  await prisma.tenant.deleteMany({ where: { document: "99999999000199" } });
+  await prisma.user.deleteMany({ where: { email } });
 
   console.log(JSON.stringify({
     status: "passed",
-    checks: ["cadastro", "edicao", "filtros", "email-config", "venda", "baixa-estoque", "movimentacao-manual", "custo-historico", "fornecedor", "financeiro", "dashboard-real", "historico", "exclusao", "configuracao-fiscal", "emissao-homologacao", "bloqueio-duplicidade", "armazenamento-xml-pdf", "consulta-fiscal", "cancelamento-fiscal"],
+    checks: ["cadastro", "edicao", "filtros", "email-config", "convite-funcionario", "aceite-convite", "permissoes-limitadas", "bloqueio-acesso-nao-autorizado", "login-por-loja", "estoque-separado-por-loja", "relatorios-separados-por-loja", "financeiro-separado-por-loja", "dashboard-separada-por-loja", "venda", "baixa-estoque", "movimentacao-manual", "custo-historico", "fornecedor", "financeiro", "dashboard-real", "historico", "exclusao", "configuracao-fiscal", "emissao-homologacao", "bloqueio-duplicidade", "armazenamento-xml-pdf", "consulta-fiscal", "cancelamento-fiscal"],
     sale: { id: sale.id, code: sale.code, total: sale.total }
   }, null, 2));
 }

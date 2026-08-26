@@ -30,6 +30,13 @@ enum PasswordResetStatus {
   EXPIRED
 }
 
+enum UserInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 enum CustomerStatus {
   ACTIVE
   INACTIVE
@@ -140,6 +147,7 @@ model Tenant {
   customers           Customer[]
   sales               Sale[]
   products            Product[]
+  productStocks       ProductBranchStock[]
   inventoryMovements  InventoryMovement[]
   financialEntries    FinancialEntry[]
   fiscalConfiguration FiscalConfiguration?
@@ -147,6 +155,7 @@ model Tenant {
   fiscalDocuments     FiscalDocument[]
   fiscalEvents        FiscalEvent[]
   fiscalNumberVoids   FiscalNumberVoid[]
+  userInvitations     UserInvitation[]
 
   @@map("tenants")
 }
@@ -161,8 +170,13 @@ model Branch {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships UserTenantRole[]
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships        UserTenantRole[]
+  productStocks      ProductBranchStock[]
+  sales              Sale[]
+  inventoryMovements InventoryMovement[]
+  financialEntries   FinancialEntry[]
+  userInvitations    UserInvitation[]
 
   @@unique([tenantId, document])
   @@index([tenantId])
@@ -188,6 +202,7 @@ model User {
   inventoryMovements  InventoryMovement[]
   accounts            Account[]
   sessions            Session[]
+  sentInvitations     UserInvitation[]     @relation("InvitationSender")
 
   @@map("users")
 }
@@ -204,6 +219,7 @@ model Role {
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   permissions RolePermission[]
   users       UserTenantRole[]
+  invitations UserInvitation[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -274,6 +290,30 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model UserInvitation {
+  id          String               @id @default(cuid())
+  tenantId    String
+  branchId    String
+  roleId      String
+  invitedById String?
+  email       String
+  tokenHash   String               @unique
+  status      UserInvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  role      Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  invitedBy User?  @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, email, status])
+  @@index([expiresAt, status])
+  @@map("user_invitations")
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   tenantId  String
@@ -337,6 +377,7 @@ model Customer {
 model Sale {
   id            String        @id @default(cuid())
   tenantId      String
+  branchId      String
   customerId    String?
   userId        String?
   code          String
@@ -352,6 +393,7 @@ model Sale {
   updatedAt     DateTime      @updatedAt
 
   tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
   customer         Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   user             User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   items            SaleItem[]
@@ -360,6 +402,7 @@ model Sale {
 
   @@unique([tenantId, code])
   @@index([tenantId, soldAt])
+  @@index([branchId, soldAt])
   @@index([customerId])
   @@map("sales")
 }
@@ -425,9 +468,10 @@ model Product {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   saleItems          SaleItem[]
   inventoryMovements InventoryMovement[]
+  branchStocks       ProductBranchStock[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, sku])
@@ -438,6 +482,28 @@ model Product {
   @@index([tenantId, species])
   @@index([tenantId, status])
   @@map("products")
+}
+
+model ProductBranchStock {
+  id            String   @id @default(cuid())
+  tenantId      String
+  branchId      String
+  productId     String
+  stockQuantity Decimal  @default(0) @db.Decimal(12, 3)
+  minStock      Decimal  @default(0) @db.Decimal(12, 3)
+  maxStock      Decimal  @default(0) @db.Decimal(12, 3)
+  location      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productId])
+  @@index([tenantId, branchId])
+  @@index([productId])
+  @@map("product_branch_stocks")
 }
 
 model FiscalConfiguration {
@@ -586,6 +652,7 @@ model FiscalNumberVoid {
 model InventoryMovement {
   id              String                @id @default(cuid())
   tenantId        String
+  branchId        String
   productId       String
   userId          String?
   type            InventoryMovementType
@@ -597,10 +664,12 @@ model InventoryMovement {
   createdAt       DateTime              @default(now())
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Restrict)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
+  @@index([branchId, createdAt])
   @@index([productId, createdAt])
   @@map("inventory_movements")
 }
@@ -608,6 +677,7 @@ model InventoryMovement {
 model FinancialEntry {
   id            String               @id @default(cuid())
   tenantId      String
+  branchId      String
   saleId        String?
   type          FinancialEntryType
   status        FinancialEntryStatus @default(PENDING)
@@ -622,9 +692,11 @@ model FinancialEntry {
   updatedAt     DateTime             @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
   sale   Sale?  @relation(fields: [saleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, dueDate])
+  @@index([branchId, dueDate])
   @@index([tenantId, status])
   @@index([saleId])
   @@map("financial_entries")

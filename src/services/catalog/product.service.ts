@@ -11,7 +11,7 @@ import { AppError } from "@/lib/errors";
 export class ProductService {
   constructor(private readonly repository: ProductRepository) {}
 
-  async createProduct(tenantId: string, input: CreateProductDTO): Promise<ProductListItemDTO> {
+  async createProduct(tenantId: string, branchId: string, input: CreateProductDTO): Promise<ProductListItemDTO> {
     const duplicatedField = await this.repository.productIdentifierExists(tenantId, {
       code: input.code,
       sku: input.sku,
@@ -22,7 +22,7 @@ export class ProductService {
       throw new AppError(`Ja existe produto com este ${duplicatedField}.`, "PRODUCT_IDENTIFIER_EXISTS", 409);
     }
 
-    const product = await this.repository.createProduct(tenantId, {
+    const product = await this.repository.createProduct(tenantId, branchId, {
       ...input,
       marginPercent: this.calculateMargin(input.costPrice, input.salePrice)
     });
@@ -30,10 +30,10 @@ export class ProductService {
     return this.mapProduct(product);
   }
 
-  async listProducts(tenantId: string, filters: ProductFiltersDTO) {
+  async listProducts(tenantId: string, branchId: string | null, filters: ProductFiltersDTO) {
     const [products, summary] = await Promise.all([
-      this.repository.listProducts(tenantId, filters),
-      this.repository.getProductSummary(tenantId)
+      this.repository.listProducts(tenantId, branchId, filters),
+      this.repository.getProductSummary(tenantId, branchId)
     ]);
 
     return {
@@ -42,7 +42,7 @@ export class ProductService {
     };
   }
 
-  async updateProduct(tenantId: string, productId: string, input: UpdateProductDTO): Promise<ProductListItemDTO> {
+  async updateProduct(tenantId: string, branchId: string, productId: string, input: UpdateProductDTO): Promise<ProductListItemDTO> {
     const duplicatedField = await this.repository.productIdentifierExists(
       tenantId,
       { code: input.code, sku: input.sku, barcode: input.barcode },
@@ -53,7 +53,7 @@ export class ProductService {
       throw new AppError(`Ja existe produto com este ${duplicatedField}.`, "PRODUCT_IDENTIFIER_EXISTS", 409);
     }
 
-    const product = await this.repository.updateProduct(tenantId, productId, {
+    const product = await this.repository.updateProduct(tenantId, branchId, productId, {
       ...input,
       marginPercent: this.calculateMargin(input.costPrice, input.salePrice)
     });

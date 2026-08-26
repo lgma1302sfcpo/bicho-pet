@@ -7,6 +7,7 @@ export type CreateSaleDTO = z.infer<typeof createSaleSchema>;
 export type SaleListItemDTO = {
   id: string;
   code: string;
+  branchName: string;
   customerName?: string | null;
   paymentMethod: string;
   status: string;

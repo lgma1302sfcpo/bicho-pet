@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import type {
+  CreateEmployeeInvitationData,
   CreateRoleData,
   CreateUserData,
   IdentityRepository,
@@ -369,5 +370,140 @@ export class PrismaIdentityRepository implements IdentityRepository {
         branchName: membership.branch?.name
       };
     });
+  }
+
+  async createEmployeeInvitation(data: CreateEmployeeInvitationData) {
+    return this.db.$transaction(async (transaction) => {
+      await transaction.userInvitation.updateMany({
+        where: { tenantId: data.tenantId, email: data.email, status: "PENDING" },
+        data: { status: "REVOKED" }
+      });
+
+      const permissions = await transaction.permission.findMany({ where: { key: { in: data.permissionKeys } } });
+      const role = await transaction.role.create({
+        data: {
+          tenantId: data.tenantId,
+          name: `Funcionario convidado ${data.tokenHash.slice(0, 10)}`,
+          description: `Acesso individual de ${data.email}.`,
+          permissions: { create: permissions.map((permission) => ({ permissionId: permission.id })) }
+        }
+      });
+      const invitation = await transaction.userInvitation.create({
+        data: {
+          tenantId: data.tenantId,
+          branchId: data.branchId,
+          roleId: role.id,
+          invitedById: data.invitedById,
+          email: data.email,
+          tokenHash: data.tokenHash,
+          expiresAt: data.expiresAt
+        },
+        include: {
+          tenant: { select: { name: true } },
+          branch: { select: { name: true } },
+          role: { include: { permissions: { include: { permission: true } } } }
+        }
+      });
+      await transaction.auditLog.create({
+        data: {
+          tenantId: data.tenantId,
+          userId: data.invitedById,
+          action: "identity.user.invited",
+          entity: "UserInvitation",
+          entityId: invitation.id,
+          metadata: { email: data.email, branchId: data.branchId, permissionKeys: data.permissionKeys }
+        }
+      });
+      return this.mapInvitation(invitation);
+    });
+  }
+
+  async listEmployeeInvitations(tenantId: string) {
+    const invitations = await this.db.userInvitation.findMany({
+      where: { tenantId },
+      include: {
+        tenant: { select: { name: true } },
+        branch: { select: { name: true } },
+        role: { include: { permissions: { include: { permission: true } } } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100
+    });
+    return invitations.map((invitation) => this.mapInvitation(invitation));
+  }
+
+  async findEmployeeInvitation(tokenHash: string) {
+    const invitation = await this.db.userInvitation.findUnique({
+      where: { tokenHash },
+      include: {
+        tenant: { select: { name: true } },
+        branch: { select: { name: true } },
+        role: { include: { permissions: { include: { permission: true } } } }
+      }
+    });
+    return invitation ? this.mapInvitation(invitation) : null;
+  }
+
+  async acceptEmployeeInvitation(data: { tokenHash: string; name: string; passwordHash: string }) {
+    return this.db.$transaction(async (transaction) => {
+      const invitation = await transaction.userInvitation.findUnique({
+        where: { tokenHash: data.tokenHash },
+        include: { branch: true, role: true }
+      });
+      if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt <= new Date()) return null;
+      const claimed = await transaction.userInvitation.updateMany({
+        where: { id: invitation.id, status: "PENDING" },
+        data: { status: "ACCEPTED", acceptedAt: new Date() }
+      });
+      if (claimed.count === 0) return null;
+
+      const user = await transaction.user.create({
+        data: { name: data.name, email: invitation.email, passwordHash: data.passwordHash, status: "ACTIVE" }
+      });
+      const membership = await transaction.userTenantRole.create({
+        data: { userId: user.id, tenantId: invitation.tenantId, roleId: invitation.roleId, branchId: invitation.branchId },
+        include: { role: true, branch: true }
+      });
+      await transaction.auditLog.create({
+        data: { tenantId: invitation.tenantId, userId: user.id, action: "identity.invitation.accepted", entity: "UserInvitation", entityId: invitation.id }
+      });
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        status: user.status,
+        roleId: membership.roleId,
+        roleName: membership.role.name,
+        branchId: membership.branchId,
+        branchName: membership.branch?.name
+      };
+    });
+  }
+
+  private mapInvitation(invitation: {
+    id: string;
+    email: string;
+    status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+    expiresAt: Date;
+    tenantId: string;
+    branchId: string;
+    roleId: string;
+    tenant: { name: string };
+    branch: { name: string };
+    role: { permissions: Array<{ permission: { key: string } }> };
+  }) {
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      tenantId: invitation.tenantId,
+      tenantName: invitation.tenant.name,
+      branchId: invitation.branchId,
+      branchName: invitation.branch.name,
+      roleId: invitation.roleId,
+      permissionKeys: invitation.role.permissions.map((item) => item.permission.key)
+    };
   }
 }

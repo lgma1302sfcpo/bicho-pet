@@ -73,7 +73,7 @@ export class CommerceService {
     }
   }
 
-  async createSale(tenantId: string, userId: string, input: CreateSaleDTO): Promise<SaleCreatedDTO> {
+  async createSale(tenantId: string, branchId: string, userId: string, input: CreateSaleDTO): Promise<SaleCreatedDTO> {
     const customerId = input.customerId || undefined;
 
     if (customerId) {
@@ -95,6 +95,7 @@ export class CommerceService {
 
     return this.repository.createSale({
       tenantId,
+      branchId,
       userId,
       code: this.createSaleCode(),
       sale: {
@@ -106,12 +107,13 @@ export class CommerceService {
     });
   }
 
-  async listSales(tenantId: string): Promise<SaleListItemDTO[]> {
-    const sales = await this.repository.listSales(tenantId);
+  async listSales(tenantId: string, branchId: string | null): Promise<SaleListItemDTO[]> {
+    const sales = await this.repository.listSales(tenantId, branchId);
 
     return sales.map((sale) => ({
       id: sale.id,
       code: sale.code,
+      branchName: sale.branchName,
       customerName: sale.customerName,
       paymentMethod: sale.paymentMethod,
       status: sale.status,

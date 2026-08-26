@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { errorResponse, ok } from "@/lib/api-response";
 import { AppError } from "@/lib/errors";
 import { AUTH_PERMISSIONS } from "@/lib/permissions";
+import { requireSelectedBranch } from "@/lib/branch-context";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/require-permission";
 import { financialStatusSchema } from "@/schemas/operations.schemas";
@@ -12,9 +13,10 @@ type Context = { params: Promise<{ id: string }> };
 export async function PATCH(request: NextRequest, context: Context) {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.FINANCE_WRITE);
+    const branchId = requireSelectedBranch(session.user.currentBranchId);
     const { id } = await context.params;
     const input = financialStatusSchema.parse(await request.json());
-    const result = await prisma.financialEntry.updateMany({ where: { id, tenantId: session.user.currentTenantId }, data: { status: input.status, paidAt: input.status === "PAID" ? new Date() : null } });
+    const result = await prisma.financialEntry.updateMany({ where: { id, tenantId: session.user.currentTenantId, branchId }, data: { status: input.status, paidAt: input.status === "PAID" ? new Date() : null } });
     if (!result.count) throw new AppError("Lancamento financeiro nao encontrado.", "FINANCIAL_ENTRY_NOT_FOUND", 404);
     return ok({ updated: true });
   } catch (error) { return errorResponse(error); }
@@ -23,8 +25,9 @@ export async function PATCH(request: NextRequest, context: Context) {
 export async function DELETE(_request: NextRequest, context: Context) {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.FINANCE_WRITE);
+    const branchId = requireSelectedBranch(session.user.currentBranchId);
     const { id } = await context.params;
-    const result = await prisma.financialEntry.deleteMany({ where: { id, tenantId: session.user.currentTenantId, saleId: null } });
+    const result = await prisma.financialEntry.deleteMany({ where: { id, tenantId: session.user.currentTenantId, branchId, saleId: null } });
     if (!result.count) throw new AppError("Lancamento nao encontrado ou gerado por venda.", "FINANCIAL_ENTRY_NOT_DELETABLE", 422);
     return ok({ deleted: true });
   } catch (error) { return errorResponse(error); }
