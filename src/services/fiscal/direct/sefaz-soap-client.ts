@@ -74,6 +74,6 @@ export async function postSefazSoap(input: { url: string; action: string; payloa
       await delay(attempt === 1 ? 300 : 900);
     }
   }
-  const original = lastError instanceof Error ? lastError.message : "Falha de comunicacao com a Secretaria da Fazenda.";
-  throw new AppError(`Nao foi possivel comunicar com a Secretaria da Fazenda de Sao Paulo. ${original}`, "SEFAZ_COMMUNICATION_FAILED", 503);
+  const original = lastError instanceof Error ? lastError.message : "Falha de comunicação com a Secretaria da Fazenda.";
+  throw new AppError(`Não foi possível comunicar com a Secretaria da Fazenda de São Paulo. ${original}`, "SEFAZ_COMMUNICATION_FAILED", 503);
 }

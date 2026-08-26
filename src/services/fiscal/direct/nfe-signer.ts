@@ -32,7 +32,7 @@ export function signNfeXml(xml: string, privateKeyPem: string, certificatePem: s
 export function verifyNfeSignature(xml: string, certificatePem: string) {
   const document = new DOMParser().parseFromString(xml, "application/xml");
   const signature = document.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Signature").item(0);
-  if (!signature) throw new AppError("O XML nao possui assinatura digital.", "FISCAL_SIGNATURE_MISSING", 422);
+  if (!signature) throw new AppError("O XML não possui assinatura digital.", "FISCAL_SIGNATURE_MISSING", 422);
   const verifier = new SignedXml({ publicCert: certificatePem, getCertFromKeyInfo: () => null });
   verifier.loadSignature(new XMLSerializer().serializeToString(signature));
   return verifier.checkSignature(xml);

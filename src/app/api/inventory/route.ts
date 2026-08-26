@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const branchId = requireSelectedBranch(session.user.currentBranchId);
     const movement = await prisma.$transaction(async (transaction) => {
       const product = await transaction.product.findFirst({ where: { id: input.productId, tenantId, status: "ACTIVE" } });
-      if (!product) throw new AppError("Produto nao encontrado.", "PRODUCT_NOT_FOUND", 404);
+      if (!product) throw new AppError("Produto não encontrado.", "PRODUCT_NOT_FOUND", 404);
       const stock = await transaction.productBranchStock.upsert({
         where: { branchId_productId: { branchId, productId: product.id } },
         create: { tenantId, branchId, productId: product.id },
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       });
       const previousBalance = number(stock.stockQuantity);
       const newBalance = input.type === "ENTRY" ? previousBalance + input.quantity : input.type === "EXIT" ? previousBalance - input.quantity : input.quantity;
-      if (newBalance < 0) throw new AppError("A saida e maior que o estoque disponivel.", "INSUFFICIENT_STOCK", 422);
+      if (newBalance < 0) throw new AppError("A saída é maior que o estoque disponível.", "INSUFFICIENT_STOCK", 422);
       await transaction.productBranchStock.update({ where: { id: stock.id }, data: { stockQuantity: newBalance } });
       return transaction.inventoryMovement.create({ data: { tenantId, branchId, productId: product.id, userId: session.user.id, type: input.type, quantity: input.type === "ADJUSTMENT" ? Math.abs(newBalance - previousBalance) : input.quantity, previousBalance, newBalance, reason: input.reason, reference: input.reference }, include: { product: { select: { name: true, unit: true } } } });
     });

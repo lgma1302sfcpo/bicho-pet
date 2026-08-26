@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, PackageSearch, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Boxes, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { ProductCreateForm } from "@/components/products/product-create-form";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import type { ProductFiltersDTO, ProductListItemDTO } from "@/dtos/catalog/product.dto";
 import { useDeleteProduct, useProducts } from "@/hooks/catalog/use-products";
@@ -30,16 +31,17 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-export function ProductManagementPage() {
+export function ProductManagementPage({ canManage = false }: { canManage?: boolean }) {
   const [filters, setFilters] = useState<ProductFiltersDTO>({
     lowStockOnly: false
   });
   const productsQuery = useProducts(filters);
   const deleteProduct = useDeleteProduct();
+  const [creatingProduct, setCreatingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItemDTO | null>(null);
   const products = productsQuery.data?.products ?? [];
   const summary = productsQuery.data?.summary;
-  const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.species ? `Especie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situacao: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
+  const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.species ? `Espécie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
 
   function updateFilter<Key extends keyof ProductFiltersDTO>(key: Key, value: ProductFiltersDTO[Key]) {
     setFilters((current) => ({
@@ -50,9 +52,12 @@ export function ProductManagementPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Produtos</h1>
-        <p className="text-sm text-subdued">Cadastro de produtos para petshop, com alerta de estoque baixo.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Produtos</h1>
+          <p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p>
+        </div>
+        {canManage ? <Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button> : null}
       </div>
 
       <section className="grid gap-3 sm:grid-cols-3">
@@ -68,8 +73,8 @@ export function ProductManagementPage() {
         ))}
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_430px]">
-        <div className="space-y-5">
+      <section className="space-y-5">
+        <div className="space-y-5 min-w-0">
           <Card className="p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -78,11 +83,11 @@ export function ProductManagementPage() {
               </div>
               <Button variant="ghost" onClick={() => setFilters({ lowStockOnly: false })}>Limpar filtros</Button>
             </div>
-            <div className="mt-4 rounded-md border border-brand-100 bg-brand-50 p-3 text-sm text-brand-700">{activeFilters.length ? <><strong>Filtros aplicados:</strong> {activeFilters.join(" · ")}. Foram encontrados {products.length} produto(s).</> : <span>Nenhum filtro especifico aplicado. Exibindo todos os produtos.</span>}</div>
-            <div className="grid gap-3 md:grid-cols-5">
+            <div className="mt-4 rounded-md border border-brand-100 bg-brand-50 p-3 text-sm text-brand-700">{activeFilters.length ? <><strong>Filtros aplicados:</strong> {activeFilters.join(" · ")}. Foram encontrados {products.length} produto(s).</> : <span>Nenhum filtro específico aplicado. Exibindo todos os produtos.</span>}</div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Input
                 label="Buscar"
-                placeholder="nome, codigo, marca, fornecedor"
+                placeholder="nome, código, marca ou fornecedor"
                 value={filters.search ?? ""}
                 onChange={(event) => updateFilter("search", event.target.value)}
               />
@@ -99,7 +104,7 @@ export function ProductManagementPage() {
                 ))}
               </Select>
               <Select
-                label="Especie"
+                label="Espécie"
                 value={filters.species ?? ""}
                 onChange={(event) => updateFilter("species", (event.target.value || undefined) as ProductFiltersDTO["species"])}
               >
@@ -135,21 +140,42 @@ export function ProductManagementPage() {
             <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold">Lista de produtos</h2>
-                <p className="text-sm text-subdued">Itens cadastrados para venda e controle basico.</p>
+                <p className="text-sm text-subdued">Itens cadastrados para venda e controle de estoque.</p>
               </div>
               <Badge className={activeFilters.length ? "border-brand-200 bg-brand-50 text-brand-700" : ""}>{activeFilters.length ? `Resultado filtrado: ${products.length}` : `${products.length} produtos`}</Badge>
             </div>
-            <div className="overflow-x-auto">
+            <div className="divide-y divide-border md:hidden">
+              {products.map((product) => (
+                <article key={product.id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold">{product.name}</h3>
+                      <p className="text-xs text-subdued">{product.category}{product.brand ? ` · ${product.brand}` : ""}</p>
+                    </div>
+                    {product.isLowStock ? <Badge className="shrink-0 border-amber-200 bg-amber-50 text-warning">Estoque baixo</Badge> : null}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Preço de venda</p><p className="font-semibold">{formatCurrency(product.salePrice)}</p></div>
+                    <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Estoque</p><p className="font-semibold">{product.stockQuantity} {unitLabels[product.unit] ?? product.unit}</p></div>
+                    <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Markup</p><p className="font-semibold">{product.marginPercent.toFixed(2)}%</p></div>
+                    <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Lucro unitário</p><p className="font-semibold">{formatCurrency(product.salePrice - product.costPrice)}</p></div>
+                  </div>
+                  {canManage ? <div className="flex gap-2"><Button className="flex-1" variant="secondary" onClick={() => setEditingProduct(product)}><Pencil size={16} />Editar</Button><Button variant="danger" disabled={deleteProduct.isPending} onClick={async () => { if (window.confirm(`Excluir o produto ${product.name}?`)) await deleteProduct.mutateAsync(product.id); }} aria-label={`Excluir ${product.name}`}><Trash2 size={16} /></Button></div> : null}
+                </article>
+              ))}
+              {products.length === 0 ? <p className="p-6 text-center text-sm text-subdued">Nenhum produto encontrado.</p> : null}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="bg-muted text-xs uppercase text-subdued">
                   <tr>
                     <th className="px-4 py-3">Produto</th>
                     <th className="px-4 py-3">Categoria</th>
-                    <th className="px-4 py-3">Especie</th>
-                    <th className="px-4 py-3">Preco</th>
+                    <th className="px-4 py-3">Espécie</th>
+                    <th className="px-4 py-3">Preço</th>
                     <th className="px-4 py-3">Estoque</th>
                     <th className="px-4 py-3">Markup sobre o custo</th>
-                    <th className="px-4 py-3">Acoes</th>
+                    <th className="px-4 py-3">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -159,7 +185,7 @@ export function ProductManagementPage() {
                         <div className="font-medium">{product.name}</div>
                         <div className="text-xs text-subdued">
                           {product.brand ? `${product.brand} · ` : ""}
-                          {product.sku || product.code || product.barcode || "Sem codigo"}
+                          {product.sku || product.code || product.barcode || "Sem código"}
                           {product.supplier ? ` · ${product.supplier}` : ""}
                         </div>
                       </td>
@@ -178,10 +204,11 @@ export function ProductManagementPage() {
                             <Badge className="border-amber-200 bg-amber-50 text-warning">Baixo</Badge>
                           ) : null}
                         </div>
-                        <div className="text-xs text-subdued">Estoque minimo: {product.minStock}</div>
+                        <div className="text-xs text-subdued">Estoque mínimo: {product.minStock}</div>
                       </td>
-                      <td className="px-4 py-3"><strong>{product.marginPercent.toFixed(2)}%</strong><div className="text-xs text-subdued">Lucro unitario {formatCurrency(product.salePrice - product.costPrice)}</div></td>
+                      <td className="px-4 py-3"><strong>{product.marginPercent.toFixed(2)}%</strong><div className="text-xs text-subdued">Lucro unitário {formatCurrency(product.salePrice - product.costPrice)}</div></td>
                       <td className="px-4 py-3">
+                        {canManage ? (
                         <div className="flex gap-2">
                           <Button variant="secondary" onClick={() => setEditingProduct(product)} aria-label={`Editar ${product.name}`}>
                             <Pencil size={16} />
@@ -200,6 +227,7 @@ export function ProductManagementPage() {
                             <Trash2 size={16} />
                           </Button>
                         </div>
+                        ) : <span className="text-xs text-subdued">Somente consulta</span>}
                       </td>
                     </tr>
                   ))}
@@ -216,7 +244,7 @@ export function ProductManagementPage() {
           </Card>
         </div>
 
-        <div className="space-y-5">
+        <div className="grid gap-5 md:grid-cols-2">
           <Card className="p-4">
             <div className="flex items-start gap-3">
               <div className="grid h-10 w-10 place-items-center rounded-md bg-brand-50 text-brand-700">
@@ -225,7 +253,7 @@ export function ProductManagementPage() {
               <div>
                 <h2 className="font-semibold">Rotina de petshop</h2>
                 <p className="mt-1 text-sm text-subdued">
-                  Use estoque minimo para racoes, petiscos e medicamentos. O filtro de baixo estoque mostra o que precisa repor.
+                  Use o estoque mínimo para rações, petiscos e medicamentos. O filtro mostra o que precisa ser reposto.
                 </p>
               </div>
             </div>
@@ -236,16 +264,28 @@ export function ProductManagementPage() {
                 <Boxes size={20} />
               </div>
               <div>
-                <h2 className="font-semibold">Proximo passo</h2>
+                <h2 className="font-semibold">Próximo passo</h2>
                 <p className="mt-1 text-sm text-subdued">
-                  O modulo de estoque registra entradas, saidas e ajustes usando estes produtos.
+                  O módulo de estoque registra entradas, saídas e ajustes usando estes produtos.
                 </p>
               </div>
             </div>
           </Card>
-          <ProductCreateForm product={editingProduct} onCancel={() => setEditingProduct(null)} />
         </div>
       </section>
+
+      <Modal
+        open={creatingProduct || Boolean(editingProduct)}
+        title={editingProduct ? "Editar produto" : "Cadastrar produto"}
+        description="Preencha os dados comerciais, de estoque e fiscais do produto."
+        onClose={() => { setCreatingProduct(false); setEditingProduct(null); }}
+      >
+        <ProductCreateForm
+          product={editingProduct}
+          onCancel={() => { setCreatingProduct(false); setEditingProduct(null); }}
+          onSuccess={() => { setCreatingProduct(false); setEditingProduct(null); }}
+        />
+      </Modal>
     </div>
   );
 }

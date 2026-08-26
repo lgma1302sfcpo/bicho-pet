@@ -13,7 +13,7 @@ export type DashboardData = { metrics: { revenue: number; grossProfit: number; m
 async function api<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error?.message ?? "Nao foi possivel concluir a operacao.");
+  if (!response.ok) throw new Error(body.error?.message ?? "Não foi possível concluir a operação.");
   return body.data as T;
 }
 

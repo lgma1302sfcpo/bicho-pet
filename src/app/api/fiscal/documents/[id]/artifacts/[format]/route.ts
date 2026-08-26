@@ -9,7 +9,7 @@ export async function GET(_request: Request, context: Context) {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.FISCAL_READ);
     const { id, format } = await context.params;
-    if (format !== "xml" && format !== "pdf") return new Response("Formato invalido.", { status: 400 });
+    if (format !== "xml" && format !== "pdf") return new Response("Formato inválido.", { status: 400 });
     const artifact = await fiscalService.artifact(session.user.currentTenantId, id, format);
     return new Response(artifact.content, {
       status: 200,

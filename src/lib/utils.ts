@@ -27,7 +27,7 @@ export function applyInputMask(value: string, mask: InputMask) {
   }
   if (mask === "integer") return onlyDigits(value);
   if (mask === "decimal") {
-    const cleaned = value.replace(/[^\d,]/g, "");
+    const cleaned = value.replace(/\./g, ",").replace(/[^\d,]/g, "");
     const [integer = "", ...decimals] = cleaned.split(",");
     return `${integer}${decimals.length ? `,${decimals.join("").slice(0, 3)}` : ""}`;
   }

@@ -26,4 +26,30 @@ describe("product schemas", () => {
 
     expect(parsed.lowStockOnly).toBe(true);
   });
+
+  it("aceita alíquota com vírgula e campo vazio", () => {
+    const baseProduct = {
+      name: "Banho para cachorro",
+      category: "Servico",
+      species: "DOG" as const,
+      salePrice: "80,00",
+      fiscalItemType: "SERVICE" as const
+    };
+
+    expect(createProductSchema.parse({ ...baseProduct, issRate: "5,00" }).issRate).toBe(5);
+    expect(createProductSchema.parse({ ...baseProduct, issRate: "" }).issRate).toBeUndefined();
+    expect(createProductSchema.parse({ ...baseProduct, issRate: null }).issRate).toBeUndefined();
+  });
+
+  it("explica quando a alíquota é inválida", () => {
+    const result = createProductSchema.safeParse({
+      name: "Banho para cachorro",
+      category: "Servico",
+      salePrice: 80,
+      issRate: "150,00"
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.flatten().fieldErrors.issRate?.[0]).toContain("100%");
+  });
 });

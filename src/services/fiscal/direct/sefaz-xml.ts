@@ -6,7 +6,7 @@ import { AppError } from "@/lib/errors";
 export function parseFiscalXml(xml: string) {
   const document = new DOMParser().parseFromString(xml, "application/xml");
   const parserError = Array.from(document.getElementsByTagName("parsererror"))[0];
-  if (parserError) throw new AppError("A Secretaria da Fazenda retornou um XML invalido.", "SEFAZ_INVALID_XML", 502);
+  if (parserError) throw new AppError("A Secretaria da Fazenda retornou um XML inválido.", "SEFAZ_INVALID_XML", 502);
   return document;
 }
 

@@ -50,7 +50,7 @@ export function RegisterForm() {
 
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as ApiError;
-      setServerError(body.error?.message ?? "Nao foi possivel cadastrar.");
+      setServerError(body.error?.message ?? "Não foi possível cadastrar.");
       return;
     }
 
@@ -65,7 +65,7 @@ export function RegisterForm() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/");
     router.refresh();
   }
 
@@ -85,8 +85,8 @@ export function RegisterForm() {
           {...register("companyDocument")}
         />
       </div>
-      <Input label="Responsavel" autoComplete="name" error={errors.ownerName?.message} {...register("ownerName")} />
-      <Input label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register("email")} />
+      <Input label="Responsável" autoComplete="name" error={errors.ownerName?.message} {...register("ownerName")} />
+      <Input label="E-mail" type="email" autoComplete="email" error={errors.email?.message} {...register("email")} />
       <Input label="Telefone" inputMode="tel" error={errors.phone?.message} {...register("phone")} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Input
@@ -118,7 +118,7 @@ export function RegisterForm() {
 
       <Link className="inline-flex items-center gap-2 text-sm text-subdued hover:text-brand-700" href="/login">
         <Building2 size={16} />
-        Ja tenho conta
+        Já tenho conta
       </Link>
     </form>
   );

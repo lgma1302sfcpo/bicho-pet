@@ -82,7 +82,7 @@ export function SaleCreatePage() {
         items: [{ productId: "", description: "", quantity: 1, unitPrice: 0 }]
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel cadastrar venda.");
+      setError(err instanceof Error ? err.message : "Não foi possível cadastrar a venda.");
     }
   }
 
@@ -91,7 +91,7 @@ export function SaleCreatePage() {
     const { jsPDF } = await import("jspdf");
     const document = new jsPDF({ unit: "mm", format: "a4" });
     document.setFontSize(16);
-    document.text("RECIBO NAO FISCAL", 20, 20);
+    document.text("RECIBO NÃO FISCAL", 20, 20);
     document.setFontSize(10);
     document.text(`Venda: ${lastReceipt.sale.code}`, 20, 30);
     document.text(`Cliente: ${lastReceipt.customerName}`, 20, 36);
@@ -108,7 +108,7 @@ export function SaleCreatePage() {
     document.setFontSize(12);
     document.text(`TOTAL: ${formatCurrency(lastReceipt.sale.total)}`, 190, y + 10, { align: "right" });
     document.setFontSize(9);
-    document.text("Documento gerencial. Nao substitui NFC-e, NF-e ou NFS-e.", 20, y + 22);
+    document.text("Documento gerencial. Não substitui NFC-e, NF-e ou NFS-e.", 20, y + 22);
     document.save(`recibo-${lastReceipt.sale.code}.pdf`);
   }
 
@@ -116,7 +116,7 @@ export function SaleCreatePage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold text-ink">Cadastrar venda</h1>
-        <p className="text-sm text-subdued">Venda simples para alimentar historico e filtros de clientes.</p>
+        <p className="text-sm text-subdued">Venda simples para alimentar o histórico e os filtros de clientes.</p>
       </div>
 
       <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
@@ -138,11 +138,11 @@ export function SaleCreatePage() {
               >
                 <option value="CASH">Dinheiro</option>
                 <option value="PIX">PIX</option>
-                <option value="CREDIT_CARD">Cartao credito</option>
-                <option value="DEBIT_CARD">Cartao debito</option>
-                <option value="STORE_CREDIT">Credito loja</option>
+                <option value="CREDIT_CARD">Cartão de crédito</option>
+                <option value="DEBIT_CARD">Cartão de débito</option>
+                <option value="STORE_CREDIT">Crédito da loja</option>
                 <option value="VOUCHER">Vale</option>
-                <option value="MIXED">Multiplo</option>
+                <option value="MIXED">Múltiplo</option>
               </Select>
               <Input label="Data" type="datetime-local" {...form.register("soldAt")} />
             </div>
@@ -172,7 +172,7 @@ export function SaleCreatePage() {
                       }
                     }}
                   >
-                    <option value="">Item avulso / servico</option>
+                    <option value="">Item avulso / serviço</option>
                     {(productsQuery.data?.products ?? []).map((product) => (
                       <option key={product.id} value={product.id}>
                         {product.name} · estoque {product.stockQuantity} {unitLabels[product.unit] ?? product.unit}
@@ -180,7 +180,7 @@ export function SaleCreatePage() {
                     ))}
                   </Select>
                   <Input
-                    label="Descricao"
+                    label="Descrição"
                     error={form.formState.errors.items?.[index]?.description?.message}
                     {...form.register(`items.${index}.description`)}
                   />
@@ -191,7 +191,7 @@ export function SaleCreatePage() {
                     {...form.register(`items.${index}.quantity`)}
                   />
                   <Input
-                    label="Preco unitario"
+                    label="Preço unitário"
                     help="Valor cobrado por uma unidade deste item."
                     mask="currency"
                     error={form.formState.errors.items?.[index]?.unitPrice?.message}
@@ -211,8 +211,8 @@ export function SaleCreatePage() {
 
             <div className="grid gap-3 md:grid-cols-3">
               <Input label="Desconto" mask="currency" {...form.register("discount")} />
-              <Input label="Acrescimo" mask="currency" {...form.register("surcharge")} />
-              <Input label="Observacoes" {...form.register("notes")} />
+              <Input label="Acréscimo" mask="currency" {...form.register("surcharge")} />
+              <Input label="Observações" {...form.register("notes")} />
             </div>
 
             {error ? (
@@ -250,7 +250,7 @@ export function SaleCreatePage() {
                 <strong>{formatCurrency(discount)}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-subdued">Acrescimo</span>
+                <span className="text-subdued">Acréscimo</span>
                 <strong>{formatCurrency(surcharge)}</strong>
               </div>
               <div className="flex justify-between border-t border-border pt-3 text-base">
@@ -262,7 +262,7 @@ export function SaleCreatePage() {
 
           <Card className="overflow-hidden">
             <div className="border-b border-border px-4 py-3">
-              <h2 className="font-semibold">Ultimas vendas</h2>
+              <h2 className="font-semibold">Últimas vendas</h2>
             </div>
             <div className="divide-y divide-border">
               {(salesQuery.data ?? []).slice(0, 6).map((sale) => (

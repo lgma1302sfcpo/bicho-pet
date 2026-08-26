@@ -26,27 +26,27 @@ export class IdentityService {
     const user = await this.repository.findAuthIdentityByEmail(input.email);
 
     if (!user?.passwordHash) {
-      throw new AppError("Email ou senha invalidos.", "INVALID_CREDENTIALS", 401);
+      throw new AppError("E-mail ou senha inválidos.", "INVALID_CREDENTIALS", 401);
     }
 
     if (user.status !== "ACTIVE") {
-      throw new AppError("Usuario inativo.", "USER_INACTIVE", 403);
+      throw new AppError("Usuário inativo.", "USER_INACTIVE", 403);
     }
 
     const passwordMatches = await this.passwordHasher.verify(input.password, user.passwordHash);
 
     if (!passwordMatches) {
-      throw new AppError("Email ou senha invalidos.", "INVALID_CREDENTIALS", 401);
+      throw new AppError("E-mail ou senha inválidos.", "INVALID_CREDENTIALS", 401);
     }
 
     const membership = user.memberships[0];
 
     if (!membership) {
-      throw new AppError("Usuario sem empresa ativa.", "NO_ACTIVE_TENANT", 403);
+      throw new AppError("Usuário sem empresa ativa.", "NO_ACTIVE_TENANT", 403);
     }
 
     if (!membership.isOwner && !membership.branchId) {
-      throw new AppError("Usuario sem loja definida. Solicite ao administrador a vinculacao a uma loja.", "NO_ACTIVE_BRANCH", 403);
+      throw new AppError("Usuário sem loja definida. Solicite ao administrador a vinculação a uma loja.", "NO_ACTIVE_BRANCH", 403);
     }
 
     return {
@@ -71,11 +71,11 @@ export class IdentityService {
     ]);
 
     if (emailExists) {
-      throw new AppError("Este email ja esta cadastrado.", "EMAIL_ALREADY_EXISTS", 409);
+      throw new AppError("Este e-mail já está cadastrado.", "EMAIL_ALREADY_EXISTS", 409);
     }
 
     if (documentExists) {
-      throw new AppError("Este CPF/CNPJ ja esta vinculado a uma empresa.", "DOCUMENT_ALREADY_EXISTS", 409);
+      throw new AppError("Este CPF/CNPJ já está vinculado a uma empresa.", "DOCUMENT_ALREADY_EXISTS", 409);
     }
 
     const passwordHash = await this.passwordHasher.hash(input.password);
@@ -96,7 +96,7 @@ export class IdentityService {
 
     if (!user) {
       return {
-        message: "Se o email existir, enviaremos as instrucoes de recuperacao."
+        message: "Se o e-mail existir, enviaremos as instruções de recuperação."
       };
     }
 
@@ -111,7 +111,7 @@ export class IdentityService {
     });
 
     return {
-      message: "Se o email existir, enviaremos as instrucoes de recuperacao.",
+      message: "Se o e-mail existir, enviaremos as instruções de recuperação.",
       resetToken: process.env.NODE_ENV === "production" ? undefined : resetToken
     };
   }
@@ -121,7 +121,7 @@ export class IdentityService {
     const reset = await this.repository.findPasswordResetToken(tokenHash);
 
     if (!reset || reset.status !== "PENDING" || reset.expiresAt < new Date()) {
-      throw new AppError("Token invalido ou expirado.", "INVALID_RESET_TOKEN", 400);
+      throw new AppError("Token inválido ou expirado.", "INVALID_RESET_TOKEN", 400);
     }
 
     const passwordHash = await this.passwordHasher.hash(input.password);
@@ -170,11 +170,11 @@ export class IdentityService {
     ]);
 
     if (emailExists) {
-      throw new AppError("Este email ja esta cadastrado.", "EMAIL_ALREADY_EXISTS", 409);
+      throw new AppError("Este e-mail já está cadastrado.", "EMAIL_ALREADY_EXISTS", 409);
     }
 
     if (!roleBelongsToTenant) {
-      throw new AppError("Cargo invalido para esta empresa.", "ROLE_NOT_FOUND", 404);
+      throw new AppError("Cargo inválido para esta empresa.", "ROLE_NOT_FOUND", 404);
     }
 
     if (!branchBelongsToTenant) {
@@ -203,18 +203,18 @@ export class IdentityService {
     invitation: InviteEmployeeDTO;
   }) {
     if (await this.repository.emailExists(input.invitation.email)) {
-      throw new AppError("Este email ja possui acesso ao sistema.", "EMAIL_ALREADY_EXISTS", 409);
+      throw new AppError("Este e-mail já possui acesso ao sistema.", "EMAIL_ALREADY_EXISTS", 409);
     }
     if (!input.canAccessAllBranches && input.invitation.branchId !== input.currentBranchId) {
-      throw new AppError("Voce so pode convidar funcionarios para a sua loja.", "BRANCH_ACCESS_DENIED", 403);
+      throw new AppError("Você só pode convidar funcionários para a sua loja.", "BRANCH_ACCESS_DENIED", 403);
     }
     if (!(await this.repository.branchBelongsToTenant(input.tenantId, input.invitation.branchId))) {
-      throw new AppError("Loja invalida para esta empresa.", "BRANCH_NOT_FOUND", 404);
+      throw new AppError("Loja inválida para esta empresa.", "BRANCH_NOT_FOUND", 404);
     }
     const uniquePermissions = Array.from(new Set(input.invitation.permissionKeys));
     const unauthorized = uniquePermissions.filter((permission) => !input.inviterPermissions.includes(permission));
     if (unauthorized.length > 0) {
-      throw new AppError("Nao e permitido conceder acessos que voce nao possui.", "PERMISSION_ESCALATION_DENIED", 403, { unauthorized });
+      throw new AppError("Não é permitido conceder acessos que você não possui.", "PERMISSION_ESCALATION_DENIED", 403, { unauthorized });
     }
     await this.assertPermissionsExist(uniquePermissions);
 
@@ -238,13 +238,13 @@ export class IdentityService {
         await this.emailSender.send({
           to: record.email,
           subject: `Convite para acessar ${record.tenantName}`,
-          text: `Voce foi convidado para acessar ${record.tenantName}, loja ${record.branchName}. Crie sua senha neste link: ${invitationUrl}`,
-          html: `<p>Voce foi convidado para acessar <strong>${this.escapeHtml(record.tenantName)}</strong>, loja <strong>${this.escapeHtml(record.branchName)}</strong>.</p><p><a href="${invitationUrl}">Aceitar convite e criar senha</a></p><p>Este convite expira em 7 dias.</p>`,
+          text: `Você foi convidado para acessar ${record.tenantName}, loja ${record.branchName}. Crie sua senha neste link: ${invitationUrl}`,
+          html: `<p>Você foi convidado para acessar <strong>${this.escapeHtml(record.tenantName)}</strong>, loja <strong>${this.escapeHtml(record.branchName)}</strong>.</p><p><a href="${invitationUrl}">Aceitar convite e criar senha</a></p><p>Este convite expira em 7 dias.</p>`,
           idempotencyKey: `employee-invitation-${record.id}`
         });
         emailSent = true;
       } catch (error) {
-        deliveryWarning = error instanceof Error ? error.message : "Nao foi possivel enviar o email.";
+        deliveryWarning = error instanceof Error ? error.message : "Não foi possível enviar o e-mail.";
       }
     }
     return { ...record, expiresAt: record.expiresAt.toISOString(), emailSent, invitationUrl, deliveryWarning };
@@ -262,7 +262,7 @@ export class IdentityService {
   async getEmployeeInvitation(token: string) {
     const invitation = await this.repository.findEmployeeInvitation(hashResetToken(token));
     if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt <= new Date()) {
-      throw new AppError("Este convite e invalido, ja foi utilizado ou expirou.", "INVITATION_INVALID", 410);
+      throw new AppError("Este convite é inválido, já foi utilizado ou expirou.", "INVITATION_INVALID", 410);
     }
     return {
       email: invitation.email,
@@ -277,15 +277,15 @@ export class IdentityService {
     const tokenHash = hashResetToken(input.token);
     const invitation = await this.repository.findEmployeeInvitation(tokenHash);
     if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt <= new Date()) {
-      throw new AppError("Este convite e invalido, ja foi utilizado ou expirou.", "INVITATION_INVALID", 410);
+      throw new AppError("Este convite é inválido, já foi utilizado ou expirou.", "INVITATION_INVALID", 410);
     }
     if (await this.repository.emailExists(invitation.email)) {
-      throw new AppError("Este email ja possui acesso ao sistema.", "EMAIL_ALREADY_EXISTS", 409);
+      throw new AppError("Este e-mail já possui acesso ao sistema.", "EMAIL_ALREADY_EXISTS", 409);
     }
     const passwordHash = await this.passwordHasher.hash(input.password);
     const user = await this.repository.acceptEmployeeInvitation({ tokenHash, name: input.name, passwordHash });
-    if (!user) throw new AppError("Este convite nao esta mais disponivel.", "INVITATION_INVALID", 410);
-    return { message: "Acesso ativado. Voce ja pode entrar no sistema.", email: user.email };
+    if (!user) throw new AppError("Este convite não está mais disponível.", "INVITATION_INVALID", 410);
+    return { message: "Acesso ativado. Você já pode entrar no sistema.", email: user.email };
   }
 
   private async assertPermissionsExist(keys: string[]) {

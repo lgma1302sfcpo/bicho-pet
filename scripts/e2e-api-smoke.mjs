@@ -30,7 +30,14 @@ async function request(path, init = {}, cookieJar = cookies) {
   });
   rememberCookies(response, cookieJar);
   const text = await response.text();
-  const body = text ? JSON.parse(text) : {};
+  let body = {};
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { text };
+    }
+  }
   return { response, body };
 }
 
@@ -65,6 +72,25 @@ async function loginCredentials(loginEmail, loginPassword, cookieJar = cookies) 
   const session = sessionResult.body;
   assert(session?.user?.currentTenantId, "Sessao autenticada nao foi criada", session);
   return session;
+}
+
+async function changeCurrentBranch(currentBranchId, cookieJar = cookies) {
+  const csrfResult = await request("/api/auth/csrf", {}, cookieJar);
+  assert(csrfResult.response.status === 200, "Nao foi possivel obter o token para alternar a loja", csrfResult.body);
+
+  const updateResult = await request("/api/auth/session", {
+    method: "POST",
+    body: JSON.stringify({
+      csrfToken: csrfResult.body.csrfToken,
+      data: { currentBranchId }
+    }),
+    headers: { "content-type": "application/json" }
+  }, cookieJar);
+  assert(updateResult.response.status === 200, "Nao foi possivel alternar a loja da sessao", updateResult.body);
+
+  const sessionResult = await request("/api/auth/session", {}, cookieJar);
+  assert(sessionResult.response.status === 200, "Nao foi possivel confirmar a loja selecionada", sessionResult.body);
+  return sessionResult.body;
 }
 
 async function login() {
@@ -195,6 +221,28 @@ async function main() {
   assert(updatedProduct.salePrice === 75 && updatedProduct.marginPercent === 50, "Edicao de produto nao persistiu", updatedProduct);
 
   const secondBranch = await api("/api/identity/branches", { method: "POST", body: { name: `Loja QA ${stamp}` } }, 201);
+  const secondBranchAdminSession = await changeCurrentBranch(secondBranch.id);
+  assert(
+    secondBranchAdminSession.user.currentBranchId === secondBranch.id && secondBranchAdminSession.user.currentBranchName === secondBranch.name,
+    "Administrador nao conseguiu alternar para a segunda loja",
+    secondBranchAdminSession
+  );
+  const allBranchesAdminSession = await changeCurrentBranch(null);
+  assert(
+    allBranchesAdminSession.user.currentBranchId === null && allBranchesAdminSession.user.currentBranchName === "Todas as lojas",
+    "Administrador nao conseguiu alternar para todas as lojas",
+    allBranchesAdminSession
+  );
+  const mainBranch = await prisma.branch.findFirstOrThrow({
+    where: { tenant: { document: "99999999000199" }, isMain: true },
+    select: { id: true, name: true }
+  });
+  const mainBranchAdminSession = await changeCurrentBranch(mainBranch.id);
+  assert(
+    mainBranchAdminSession.user.currentBranchId === mainBranch.id && mainBranchAdminSession.user.currentBranchName === mainBranch.name,
+    "Administrador nao conseguiu voltar para a loja principal",
+    mainBranchAdminSession
+  );
   const secondEmail = `loja-${stamp.toLowerCase()}@example.invalid`;
   const employeePermissions = [
     "dashboard.read",
@@ -222,6 +270,12 @@ async function main() {
   assert(secondSession.user.currentBranchId === secondBranch.id && secondSession.user.canAccessAllBranches === false, "Login da segunda loja nao ficou restrito a filial", secondSession);
   assert(employeePermissions.every((permission) => secondSession.user.permissions.includes(permission)), "Funcionario nao recebeu as permissoes selecionadas", secondSession);
   assert(!secondSession.user.permissions.includes("finance.write") && !secondSession.user.permissions.includes("fiscal.write"), "Funcionario recebeu acesso total indevidamente", secondSession);
+  const allowedProductsPage = await request("/produtos", {}, secondCookies);
+  assert(allowedProductsPage.response.status === 200, "Funcionario nao conseguiu abrir uma tela permitida", { status: allowedProductsPage.response.status });
+  const forbiddenFiscalPage = await request("/fiscal", {}, secondCookies);
+  assert(forbiddenFiscalPage.response.status === 307 && forbiddenFiscalPage.response.headers.get("location")?.includes("/sem-acesso"), "Funcionario abriu a tela fiscal sem permissao", { status: forbiddenFiscalPage.response.status, location: forbiddenFiscalPage.response.headers.get("location") });
+  const forbiddenSettingsPage = await request("/configuracoes/usuarios", {}, secondCookies);
+  assert(forbiddenSettingsPage.response.status === 307 && forbiddenSettingsPage.response.headers.get("location")?.includes("/sem-acesso"), "Funcionario abriu as configuracoes sem permissao", { status: forbiddenSettingsPage.response.status, location: forbiddenSettingsPage.response.headers.get("location") });
   const forbiddenFinanceWrite = await request("/api/finance", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -352,7 +406,7 @@ async function main() {
 
   console.log(JSON.stringify({
     status: "passed",
-    checks: ["cadastro", "edicao", "filtros", "email-config", "convite-funcionario", "aceite-convite", "permissoes-limitadas", "bloqueio-acesso-nao-autorizado", "login-por-loja", "estoque-separado-por-loja", "relatorios-separados-por-loja", "financeiro-separado-por-loja", "dashboard-separada-por-loja", "venda", "baixa-estoque", "movimentacao-manual", "custo-historico", "fornecedor", "financeiro", "dashboard-real", "historico", "exclusao", "configuracao-fiscal", "emissao-homologacao", "bloqueio-duplicidade", "armazenamento-xml-pdf", "consulta-fiscal", "cancelamento-fiscal"],
+    checks: ["cadastro", "edicao", "filtros", "email-config", "alternancia-administrador-entre-lojas", "alternancia-administrador-todas-as-lojas", "retorno-administrador-loja-principal", "convite-funcionario", "aceite-convite", "permissoes-limitadas", "pagina-permitida", "bloqueio-pagina-fiscal", "bloqueio-pagina-configuracoes", "bloqueio-acesso-nao-autorizado", "login-por-loja", "estoque-separado-por-loja", "relatorios-separados-por-loja", "financeiro-separado-por-loja", "dashboard-separada-por-loja", "venda", "baixa-estoque", "movimentacao-manual", "custo-historico", "fornecedor", "financeiro", "dashboard-real", "historico", "exclusao", "configuracao-fiscal", "emissao-homologacao", "bloqueio-duplicidade", "armazenamento-xml-pdf", "consulta-fiscal", "cancelamento-fiscal"],
     sale: { id: sale.id, code: sale.code, total: sale.total }
   }, null, 2));
 }

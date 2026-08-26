@@ -8,7 +8,7 @@ export class ResendEmailSender implements EmailSender {
 
     if (!apiKey || !from) {
       throw new AppError(
-        "Envio de email ainda nao foi configurado. Informe RESEND_API_KEY e EMAIL_FROM.",
+        "O envio por e-mail não está disponível. Copie o link e compartilhe pelo WhatsApp.",
         "EMAIL_NOT_CONFIGURED",
         503
       );
@@ -33,7 +33,7 @@ export class ResendEmailSender implements EmailSender {
 
     const body = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
     if (!response.ok || !body.id) {
-      throw new AppError(body.message ?? "O provedor recusou o envio do email.", "EMAIL_SEND_FAILED", 502);
+      throw new AppError("Não foi possível enviar o e-mail agora. Tente novamente mais tarde.", "EMAIL_SEND_FAILED", 502);
     }
 
     return { id: body.id };

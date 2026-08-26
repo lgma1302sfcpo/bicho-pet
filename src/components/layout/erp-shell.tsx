@@ -8,11 +8,13 @@ import {
   Package,
   ReceiptText,
   Landmark,
+  Menu,
   Settings,
   ShieldCheck,
   ShoppingCart,
   Users,
-  WalletCards
+  WalletCards,
+  X
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import type { Route } from "next";
@@ -23,6 +25,7 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { Select } from "@/components/ui/select";
+import { AUTH_PERMISSIONS, hasPermission, type PermissionKey } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 type ShellUser = {
@@ -33,6 +36,7 @@ type ShellUser = {
   currentBranchName?: string | null;
   canAccessAllBranches: boolean;
   roleName: string;
+  permissions: string[];
 };
 
 type ErpShellProps = {
@@ -45,31 +49,42 @@ type EnabledNavItem = {
   href: Route;
   label: string;
   icon: typeof BarChart3;
+  permission: PermissionKey;
   enabled: true;
 };
 
 const navItems: EnabledNavItem[] = [
-  { href: "/dashboard", label: "Visao geral", icon: BarChart3, enabled: true },
-  { href: "/clientes", label: "Clientes", icon: Users, enabled: true },
-  { href: "/produtos", label: "Produtos", icon: Package, enabled: true },
-  { href: "/vendas/nova", label: "Vendas", icon: ReceiptText, enabled: true },
-  { href: "/estoque", label: "Estoque", icon: Boxes, enabled: true },
-  { href: "/ponto-de-venda", label: "Ponto de venda", icon: ShoppingCart, enabled: true },
-  { href: "/financeiro", label: "Financeiro", icon: WalletCards, enabled: true },
-  { href: "/relatorios", label: "Relatórios", icon: ClipboardList, enabled: true },
-  { href: "/fiscal", label: "Fiscal", icon: Landmark, enabled: true },
-  { href: "/configuracoes/usuarios", label: "Configurações", icon: Settings, enabled: true }
+  { href: "/dashboard", label: "Visão geral", icon: BarChart3, permission: AUTH_PERMISSIONS.DASHBOARD_READ, enabled: true },
+  { href: "/clientes", label: "Clientes", icon: Users, permission: AUTH_PERMISSIONS.CUSTOMERS_READ, enabled: true },
+  { href: "/produtos", label: "Produtos", icon: Package, permission: AUTH_PERMISSIONS.PRODUCTS_READ, enabled: true },
+  { href: "/vendas/nova", label: "Vendas", icon: ReceiptText, permission: AUTH_PERMISSIONS.SALES_WRITE, enabled: true },
+  { href: "/estoque", label: "Estoque", icon: Boxes, permission: AUTH_PERMISSIONS.INVENTORY_READ, enabled: true },
+  { href: "/ponto-de-venda", label: "Ponto de venda", icon: ShoppingCart, permission: AUTH_PERMISSIONS.SALES_PDV, enabled: true },
+  { href: "/financeiro", label: "Financeiro", icon: WalletCards, permission: AUTH_PERMISSIONS.FINANCE_READ, enabled: true },
+  { href: "/relatorios", label: "Relatórios", icon: ClipboardList, permission: AUTH_PERMISSIONS.REPORTS_READ, enabled: true },
+  { href: "/fiscal", label: "Fiscal", icon: Landmark, permission: AUTH_PERMISSIONS.FISCAL_READ, enabled: true },
+  { href: "/configuracoes/usuarios", label: "Configurações", icon: Settings, permission: AUTH_PERMISSIONS.IDENTITY_USERS_READ, enabled: true }
 ];
 
 export function ErpShell({ user, branches, children }: ErpShellProps) {
   const pathname = usePathname();
   const { update } = useSession();
   const [switchingBranch, setSwitchingBranch] = useState(false);
+  const [branchSwitchError, setBranchSwitchError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const availableNavItems = navItems.filter((item) => hasPermission(user.permissions, item.permission));
 
   async function switchBranch(branchId: string) {
     setSwitchingBranch(true);
-    await update({ currentBranchId: branchId === "ALL" ? null : branchId });
-    window.location.assign(pathname);
+    setBranchSwitchError(null);
+    try {
+      const updatedSession = await update({ currentBranchId: branchId === "ALL" ? null : branchId });
+      if (!updatedSession) throw new Error("SESSION_UPDATE_FAILED");
+      window.location.assign(pathname);
+    } catch {
+      setSwitchingBranch(false);
+      setBranchSwitchError("Não foi possível alterar a loja. Atualize a página e tente novamente.");
+    }
   }
 
   return (
@@ -88,17 +103,17 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
           <Button
             className="lg:hidden"
             variant="ghost"
-            title="Sair"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            onClick={() => setMobileMenuOpen((open) => !open)}
           >
-            <LogOut size={18} />
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </Button>
         </div>
 
         <div className="border-b border-border px-4 py-3">
           {user.canAccessAllBranches && branches.length > 1 ? (
             <Select
-              label="Loja em uso"
+              label={switchingBranch ? "Alterando loja..." : "Loja em uso"}
               help="As telas e os relatórios mostram somente a loja selecionada. Escolha todas as lojas para consultar os totais gerais."
               value={user.currentBranchId ?? "ALL"}
               disabled={switchingBranch}
@@ -113,10 +128,11 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
               <p className="truncate text-sm font-semibold">{user.currentBranchName ?? branches[0]?.name ?? "Loja não definida"}</p>
             </div>
           )}
+          {branchSwitchError ? <p className="mt-2 text-xs font-medium text-danger">{branchSwitchError}</p> : null}
         </div>
 
-        <nav className="flex gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible">
-          {navItems.map((item) => {
+        <nav className={cn("px-3 py-3 lg:block lg:space-y-1", mobileMenuOpen ? "grid grid-cols-2 gap-2" : "hidden")}>
+          {availableNavItems.map((item) => {
             const Icon = item.icon;
             const active = item.enabled && pathname === item.href;
             const content = (
@@ -130,8 +146,9 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  "inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition lg:flex",
+                  "inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition lg:flex",
                   active ? "bg-brand-50 text-brand-700" : "text-subdued hover:bg-muted hover:text-ink"
                 )}
               >
@@ -139,6 +156,9 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
               </Link>
             );
           })}
+          <Button variant="secondary" className="col-span-2 mt-1 justify-start lg:hidden" onClick={() => signOut({ callbackUrl: "/login" })}>
+            <LogOut size={18} />Sair
+          </Button>
         </nav>
 
         <div className="hidden border-t border-border p-4 lg:block">
@@ -156,7 +176,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
         </div>
       </aside>
 
-      <main className="min-w-0 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">{children}</main>
+      <main className="min-w-0 overflow-x-hidden px-3 py-4 sm:px-6 lg:px-8 lg:py-6">{children}</main>
     </div>
   );
 }

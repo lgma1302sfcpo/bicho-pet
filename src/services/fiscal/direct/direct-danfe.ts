@@ -60,11 +60,11 @@ export async function createDirectDanfe(input: { request: FiscalProviderRequest;
   y += 6;
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(consumer ? 6.5 : 8.5);
-  pdf.text(`Documento ${input.request.type} serie ${input.request.series} numero ${input.request.number}`, left, y);
+  pdf.text(`Documento ${input.request.type} série ${input.request.series} número ${input.request.number}`, left, y);
   y += 5;
   pdf.text(pdf.splitTextToSize(`Chave de acesso: ${input.accessKey}`, width - left * 2), left, y);
   y += consumer ? 8 : 10;
-  pdf.text(pdf.splitTextToSize(`Protocolo de autorizacao: ${input.protocol || "Pendente"}`, width - left * 2), left, y);
+  pdf.text(pdf.splitTextToSize(`Protocolo de autorização: ${input.protocol || "Pendente"}`, width - left * 2), left, y);
   y += 7;
   if (input.qrCodeUrl) {
     const dataUrl = await QRCode.toDataURL(input.qrCodeUrl, { errorCorrectionLevel: "M", margin: 1, width: 320 });

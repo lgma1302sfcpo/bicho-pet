@@ -21,7 +21,7 @@ export async function validateNfeXml(xml: string) {
     validator.validate(document);
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
-    throw new AppError(`O XML foi bloqueado antes da transmissao porque nao passou no esquema oficial ${"PL_010e_v1.02"}: ${details}`, "FISCAL_XML_SCHEMA_INVALID", 422);
+    throw new AppError(`O XML foi bloqueado antes da transmissão porque não passou no esquema oficial ${"PL_010e_v1.02"}: ${details}`, "FISCAL_XML_SCHEMA_INVALID", 422);
   } finally {
     validator?.dispose();
     document.dispose();

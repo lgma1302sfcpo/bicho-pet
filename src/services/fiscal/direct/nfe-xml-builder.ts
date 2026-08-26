@@ -26,7 +26,7 @@ function taxRegimeCode(regime: string) {
   if (regime === "SIMPLES_EXCESS") return "2";
   if (regime === "NORMAL") return "3";
   if (regime === "MEI") return "4";
-  throw new AppError("Regime tributario do emitente nao reconhecido.", "FISCAL_TAX_REGIME_INVALID", 422);
+  throw new AppError("Regime tributário do emitente não reconhecido.", "FISCAL_TAX_REGIME_INVALID", 422);
 }
 
 function gtin(value?: string | null) {
@@ -35,12 +35,12 @@ function gtin(value?: string | null) {
 }
 
 function taxXml(item: FiscalProviderRequest["sale"]["items"][number], value: number) {
-  if (!item.originCode || !item.icmsCode || !item.pisCode || !item.cofinsCode) throw new AppError(`Tributacao incompleta para ${item.description}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
+  if (!item.originCode || !item.icmsCode || !item.pisCode || !item.cofinsCode) throw new AppError(`Tributação incompleta para ${item.description}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
   if (!["102", "103", "300", "400"].includes(item.icmsCode)) {
-    throw new AppError(`O codigo de ICMS ${item.icmsCode} ainda precisa de uma regra de calculo especifica. O emissor direto atualmente aceita os codigos 102, 103, 300 e 400 do Simples Nacional.`, "FISCAL_ICMS_RULE_NOT_IMPLEMENTED", 422);
+    throw new AppError(`O código de ICMS ${item.icmsCode} ainda precisa de uma regra de cálculo específica. O emissor direto atualmente aceita os códigos 102, 103, 300 e 400 do Simples Nacional.`, "FISCAL_ICMS_RULE_NOT_IMPLEMENTED", 422);
   }
   if (!["49", "98", "99"].includes(item.pisCode) || !["49", "98", "99"].includes(item.cofinsCode)) {
-    throw new AppError(`Os codigos de PIS e COFINS de ${item.description} exigem aliquotas que ainda nao foram cadastradas. Para nao calcular imposto errado, a emissao foi bloqueada.`, "FISCAL_CONTRIBUTION_RULE_NOT_IMPLEMENTED", 422);
+    throw new AppError(`Os códigos de PIS e COFINS de ${item.description} exigem alíquotas que ainda não foram cadastradas. Para não calcular o imposto incorretamente, a emissão foi bloqueada.`, "FISCAL_CONTRIBUTION_RULE_NOT_IMPLEMENTED", 422);
   }
   const ibsCbs = item.ibsCbsCode && item.taxClassificationCode
     ? `<IBSCBS><CST>${escapeXml(item.ibsCbsCode)}</CST><cClassTrib>${escapeXml(item.taxClassificationCode)}</cClassTrib></IBSCBS>`
@@ -51,7 +51,7 @@ function taxXml(item: FiscalProviderRequest["sale"]["items"][number], value: num
 function destinationXml(request: FiscalProviderRequest) {
   const document = digits(request.sale.customerDocument);
   if (!document) {
-    if (request.type === "NFE") throw new AppError("A Nota Fiscal Eletronica exige um destinatario identificado e com endereco fiscal completo.", "FISCAL_CUSTOMER_REQUIRED", 422);
+    if (request.type === "NFE") throw new AppError("A Nota Fiscal Eletrônica exige um destinatário identificado e com endereço fiscal completo.", "FISCAL_CUSTOMER_REQUIRED", 422);
     return "";
   }
   const tag = document.length === 14 ? "CNPJ" : document.length === 11 ? "CPF" : null;
@@ -59,7 +59,7 @@ function destinationXml(request: FiscalProviderRequest) {
   const name = request.environment === "HOMOLOGATION" ? "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : cleanText(request.sale.customerName, 60);
   const addressValues = [request.sale.customerStreet, request.sale.customerNumber, request.sale.customerDistrict, request.sale.customerCity, request.sale.customerCityCode, request.sale.customerState, request.sale.customerZipCode];
   if (request.type === "NFE" && addressValues.some((value) => !value)) {
-    throw new AppError("A Nota Fiscal Eletronica exige logradouro, numero, bairro, municipio, codigo do municipio, estado e Codigo de Enderecamento Postal do cliente.", "FISCAL_CUSTOMER_ADDRESS_INCOMPLETE", 422);
+    throw new AppError("A Nota Fiscal Eletrônica exige logradouro, número, bairro, município, código do município, estado e Código de Endereçamento Postal do cliente.", "FISCAL_CUSTOMER_ADDRESS_INCOMPLETE", 422);
   }
   const address = addressValues.every(Boolean) ? `<enderDest><xLgr>${escapeXml(cleanText(request.sale.customerStreet!, 60))}</xLgr><nro>${escapeXml(cleanText(request.sale.customerNumber!, 60))}</nro>${request.sale.customerComplement ? `<xCpl>${escapeXml(cleanText(request.sale.customerComplement, 60))}</xCpl>` : ""}<xBairro>${escapeXml(cleanText(request.sale.customerDistrict!, 60))}</xBairro><cMun>${digits(request.sale.customerCityCode)}</cMun><xMun>${escapeXml(cleanText(request.sale.customerCity!, 60))}</xMun><UF>${request.sale.customerState}</UF><CEP>${digits(request.sale.customerZipCode)}</CEP><cPais>1058</cPais><xPais>Brasil</xPais></enderDest>` : "";
   const stateRegistration = digits(request.sale.customerStateRegistration);
@@ -74,7 +74,7 @@ function offlineQrSignature(payload: string, privateKeyPem: string) {
 }
 
 export function buildNfeXml(request: FiscalProviderRequest, privateKeyPem: string) {
-  if (request.type !== "NFE" && request.type !== "NFCE") throw new AppError("A Secretaria da Fazenda estadual aceita somente Nota Fiscal Eletronica e Nota Fiscal de Consumidor Eletronica.", "FISCAL_DOCUMENT_MODEL_UNSUPPORTED", 422);
+  if (request.type !== "NFE" && request.type !== "NFCE") throw new AppError("A Secretaria da Fazenda estadual aceita somente Nota Fiscal Eletrônica e Nota Fiscal de Consumidor Eletrônica.", "FISCAL_DOCUMENT_MODEL_UNSUPPORTED", 422);
   const isConsumer = request.type === "NFCE";
   const model = isConsumer ? 65 : 55;
   const environmentCode = request.environment === "PRODUCTION" ? "1" : "2";

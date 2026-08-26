@@ -7,7 +7,7 @@ const passwordSchema = z
   .string()
   .min(8, "Use pelo menos 8 caracteres.")
   .regex(/[A-Za-z]/, "Inclua letras.")
-  .regex(/\d/, "Inclua numeros.");
+  .regex(/\d/, "Inclua números.");
 
 const documentSchema = z
   .string()
@@ -22,7 +22,7 @@ const optionalPhoneSchema = z
   .transform((value) => (value ? onlyDigits(value) : undefined));
 
 export const loginSchema = z.object({
-  email: z.string().trim().email("Informe um email valido.").toLowerCase(),
+  email: z.string().trim().email("Informe um e-mail válido.").toLowerCase(),
   password: z.string().min(1, "Informe a senha.")
 });
 
@@ -31,29 +31,29 @@ export const registerOwnerSchema = z
     companyName: z.string().trim().min(2, "Informe o nome da empresa."),
     companyDocument: documentSchema,
     ownerName: z.string().trim().min(2, "Informe seu nome."),
-    email: z.string().trim().email("Informe um email valido.").toLowerCase(),
+    email: z.string().trim().email("Informe um e-mail válido.").toLowerCase(),
     phone: optionalPhoneSchema,
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirme a senha.")
   })
   .refine((value) => value.password === value.confirmPassword, {
     path: ["confirmPassword"],
-    message: "As senhas nao conferem."
+    message: "As senhas não conferem."
   });
 
 export const passwordResetRequestSchema = z.object({
-  email: z.string().trim().email("Informe um email valido.").toLowerCase()
+  email: z.string().trim().email("Informe um e-mail válido.").toLowerCase()
 });
 
 export const passwordResetConfirmSchema = z
   .object({
-    token: z.string().trim().min(32, "Token invalido."),
+    token: z.string().trim().min(32, "Token inválido."),
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirme a senha.")
   })
   .refine((value) => value.password === value.confirmPassword, {
     path: ["confirmPassword"],
-    message: "As senhas nao conferem."
+    message: "As senhas não conferem."
   });
 
 export const createRoleSchema = z.object({
@@ -61,12 +61,12 @@ export const createRoleSchema = z.object({
   description: z.string().trim().max(240).optional(),
   permissionKeys: z
     .array(z.nativeEnum(AUTH_PERMISSIONS))
-    .min(1, "Selecione pelo menos uma permissao.")
+    .min(1, "Selecione pelo menos uma permissão.")
 });
 
 export const createUserSchema = z.object({
-  name: z.string().trim().min(2, "Informe o nome do usuario."),
-  email: z.string().trim().email("Informe um email valido.").toLowerCase(),
+  name: z.string().trim().min(2, "Informe o nome do usuário."),
+  email: z.string().trim().email("Informe um e-mail válido.").toLowerCase(),
   phone: optionalPhoneSchema,
   password: passwordSchema,
   roleId: z.string().trim().min(1, "Selecione um cargo."),
@@ -74,19 +74,19 @@ export const createUserSchema = z.object({
 });
 
 export const inviteEmployeeSchema = z.object({
-  email: z.string().trim().email("Informe um email valido.").toLowerCase(),
+  email: z.string().trim().email("Informe um e-mail válido.").toLowerCase(),
   branchId: z.string().trim().min(1, "Selecione uma loja."),
   permissionKeys: z.array(z.nativeEnum(AUTH_PERMISSIONS)).min(1, "Selecione pelo menos um acesso.")
 });
 
 export const acceptEmployeeInvitationSchema = z
   .object({
-    token: z.string().trim().min(32, "Convite invalido."),
+    token: z.string().trim().min(32, "Convite inválido."),
     name: z.string().trim().min(2, "Informe seu nome."),
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirme a senha.")
   })
   .refine((value) => value.password === value.confirmPassword, {
     path: ["confirmPassword"],
-    message: "As senhas nao conferem."
+    message: "As senhas não conferem."
   });

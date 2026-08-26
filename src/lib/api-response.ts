@@ -17,7 +17,7 @@ export function errorResponse(error: unknown) {
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: "Dados invalidos.",
+          message: "Revise os dados informados.",
           details: error.flatten()
         }
       },
@@ -44,7 +44,7 @@ export function errorResponse(error: unknown) {
     {
       error: {
         code: "INTERNAL_ERROR",
-        message: "Nao foi possivel concluir a operacao."
+        message: "Não foi possível concluir a operação. Tente novamente."
       }
     },
     { status: 500 }

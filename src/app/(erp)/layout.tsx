@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { ErpShell } from "@/components/layout/erp-shell";
 import { getCurrentSession } from "@/lib/auth";
+import { getEffectivePermissions } from "@/lib/effective-permissions";
 import { prisma } from "@/lib/prisma";
 
 export default async function ErpLayout({ children }: { children: ReactNode }) {
@@ -11,6 +12,8 @@ export default async function ErpLayout({ children }: { children: ReactNode }) {
   if (!session?.user) {
     redirect("/login");
   }
+
+  session.user.permissions = await getEffectivePermissions(session.user.id, session.user.currentTenantId);
 
   const branches = await prisma.branch.findMany({
     where: {

@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest, context: Context) {
     const { id } = await context.params;
     const input = financialStatusSchema.parse(await request.json());
     const result = await prisma.financialEntry.updateMany({ where: { id, tenantId: session.user.currentTenantId, branchId }, data: { status: input.status, paidAt: input.status === "PAID" ? new Date() : null } });
-    if (!result.count) throw new AppError("Lancamento financeiro nao encontrado.", "FINANCIAL_ENTRY_NOT_FOUND", 404);
+    if (!result.count) throw new AppError("Lançamento financeiro não encontrado.", "FINANCIAL_ENTRY_NOT_FOUND", 404);
     return ok({ updated: true });
   } catch (error) { return errorResponse(error); }
 }
@@ -28,7 +28,7 @@ export async function DELETE(_request: NextRequest, context: Context) {
     const branchId = requireSelectedBranch(session.user.currentBranchId);
     const { id } = await context.params;
     const result = await prisma.financialEntry.deleteMany({ where: { id, tenantId: session.user.currentTenantId, branchId, saleId: null } });
-    if (!result.count) throw new AppError("Lancamento nao encontrado ou gerado por venda.", "FINANCIAL_ENTRY_NOT_DELETABLE", 422);
+    if (!result.count) throw new AppError("Lançamento não encontrado ou gerado por uma venda.", "FINANCIAL_ENTRY_NOT_DELETABLE", 422);
     return ok({ deleted: true });
   } catch (error) { return errorResponse(error); }
 }

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, Plus, RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ const moduleLabels: Record<string, string> = {
 };
 
 export function IdentityManagement() {
+  const router = useRouter();
   const permissionsQuery = usePermissions();
   const rolesQuery = useRoles();
   const usersQuery = useUsers();
@@ -89,6 +91,7 @@ export function IdentityManagement() {
     try {
       await createBranch.mutateAsync(branchName);
       setBranchName("");
+      router.refresh();
     } catch (error) {
       setBranchError(error instanceof Error ? error.message : "Não foi possível cadastrar a loja.");
     }

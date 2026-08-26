@@ -17,7 +17,7 @@ export class CommerceService {
       const exists = await this.repository.customerDocumentExists(tenantId, input.document);
 
       if (exists) {
-        throw new AppError("Ja existe cliente com este documento.", "CUSTOMER_DOCUMENT_EXISTS", 409);
+        throw new AppError("Já existe um cliente com este documento.", "CUSTOMER_DOCUMENT_EXISTS", 409);
       }
     }
 
@@ -49,7 +49,7 @@ export class CommerceService {
       const exists = await this.repository.customerDocumentExists(tenantId, input.document, customerId);
 
       if (exists) {
-        throw new AppError("Ja existe cliente com este documento.", "CUSTOMER_DOCUMENT_EXISTS", 409);
+        throw new AppError("Já existe um cliente com este documento.", "CUSTOMER_DOCUMENT_EXISTS", 409);
       }
     }
 
@@ -59,7 +59,7 @@ export class CommerceService {
     });
 
     if (!customer) {
-      throw new AppError("Cliente nao encontrado.", "CUSTOMER_NOT_FOUND", 404);
+      throw new AppError("Cliente não encontrado.", "CUSTOMER_NOT_FOUND", 404);
     }
 
     return this.mapCustomer(customer);
@@ -69,7 +69,7 @@ export class CommerceService {
     const deleted = await this.repository.deleteCustomer(tenantId, customerId);
 
     if (!deleted) {
-      throw new AppError("Cliente nao encontrado.", "CUSTOMER_NOT_FOUND", 404);
+      throw new AppError("Cliente não encontrado.", "CUSTOMER_NOT_FOUND", 404);
     }
   }
 
@@ -80,7 +80,7 @@ export class CommerceService {
       const belongsToTenant = await this.repository.customerBelongsToTenant(tenantId, customerId);
 
       if (!belongsToTenant) {
-        throw new AppError("Cliente invalido para esta empresa.", "CUSTOMER_NOT_FOUND", 404);
+        throw new AppError("Cliente inválido para esta empresa.", "CUSTOMER_NOT_FOUND", 404);
       }
     }
 
@@ -90,7 +90,7 @@ export class CommerceService {
     const total = this.roundMoney(subtotal - input.discount + input.surcharge);
 
     if (total < 0) {
-      throw new AppError("Total da venda nao pode ser negativo.", "INVALID_SALE_TOTAL", 422);
+      throw new AppError("O total da venda não pode ser negativo.", "INVALID_SALE_TOTAL", 422);
     }
 
     return this.repository.createSale({
@@ -168,7 +168,7 @@ export class CommerceService {
     }
 
     if (daysSinceLastPurchase === null) {
-      return "Sem historico";
+      return "Sem histórico";
     }
 
     if (daysSinceLastPurchase >= 90) {

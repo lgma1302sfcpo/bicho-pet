@@ -13,8 +13,8 @@ import { useSales } from "@/hooks/commerce/use-commerce";
 import { downloadXlsx } from "@/lib/xlsx-export";
 
 const paymentLabels: Record<string, string> = {
-  CASH: "Dinheiro", PIX: "Pix", CREDIT_CARD: "Cartao de credito", DEBIT_CARD: "Cartao de debito",
-  STORE_CREDIT: "Credito da loja", VOUCHER: "Vale", MIXED: "Pagamento multiplo"
+  CASH: "Dinheiro", PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito",
+  STORE_CREDIT: "Crédito da loja", VOUCHER: "Vale", MIXED: "Pagamento múltiplo"
 };
 
 type AnalyticRow = { name: string; quantity: number; revenue: number; cost: number; profit: number };
@@ -49,7 +49,7 @@ function aggregateItems(sales: SaleListItemDTO[], key: (item: SaleListItemDTO["i
   for (const sale of sales) {
     const revenueFactor = sale.subtotal > 0 ? sale.total / sale.subtotal : 1;
     for (const item of sale.items) {
-      const name = key(item) || "Nao informado";
+      const name = key(item) || "Não informado";
       const current = rows.get(name) ?? { name, quantity: 0, revenue: 0, cost: 0, profit: 0 };
       current.quantity += item.quantity;
       current.revenue += item.total * revenueFactor;
@@ -70,7 +70,7 @@ function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) 
           <thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Grupo</th><th className="px-4 py-3">Quantidade</th><th className="px-4 py-3">Custo</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Lucro</th><th className="px-4 py-3">Margem</th></tr></thead>
           <tbody className="divide-y divide-border">
             {rows.map((row) => <tr key={row.name}><td className="px-4 py-3 font-medium">{row.name}</td><td className="px-4 py-3">{row.quantity.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</td><td className="px-4 py-3">{money(row.cost)}</td><td className="px-4 py-3">{money(row.revenue)}</td><td className="px-4 py-3 font-semibold">{money(row.profit)}</td><td className="px-4 py-3">{row.revenue ? `${((row.profit / row.revenue) * 100).toFixed(1)}%` : "0%"}</td></tr>)}
-            {!rows.length ? <tr><td colSpan={6} className="px-4 py-8 text-center text-subdued">Nenhum dado encontrado neste periodo.</td></tr> : null}
+            {!rows.length ? <tr><td colSpan={6} className="px-4 py-8 text-center text-subdued">Nenhum dado encontrado neste período.</td></tr> : null}
           </tbody>
         </table>
       </div>
@@ -100,7 +100,7 @@ export function SalesReportPage() {
   const profit = revenue - cost;
   const ticket = sales.length ? revenue / sales.length : 0;
   const byCategory = aggregateItems(sales, (item) => `${item.category ?? "Sem categoria"} / ${item.description}`);
-  const bySupplier = aggregateItems(sales, (item) => item.supplier ?? "Fornecedor nao informado");
+  const bySupplier = aggregateItems(sales, (item) => item.supplier ?? "Fornecedor não informado");
   const byPayment = Object.values(sales.reduce<Record<string, { name: string; sales: number; revenue: number }>>((groups, sale) => {
     const name = paymentLabels[sale.paymentMethod] ?? sale.paymentMethod;
     const current = groups[sale.paymentMethod] ?? { name, sales: 0, revenue: 0 };
@@ -112,7 +112,7 @@ export function SalesReportPage() {
 
   function exportSpreadsheet() {
     downloadXlsx(`relatorios-gerenciais-${new Date().toISOString().slice(0, 10)}.xlsx`, [
-      { name: "Vendas", rows: sales.map((sale) => ({ Loja: sale.branchName, Codigo: sale.code, Data: new Date(sale.soldAt).toLocaleString("pt-BR"), Cliente: sale.customerName ?? "Consumidor final", Pagamento: paymentLabels[sale.paymentMethod] ?? sale.paymentMethod, Itens: sale.itemsCount, Custo: sale.items.reduce((sum, item) => sum + item.costPrice * item.quantity, 0), Total: sale.total })) },
+      { name: "Vendas", rows: sales.map((sale) => ({ Loja: sale.branchName, Código: sale.code, Data: new Date(sale.soldAt).toLocaleString("pt-BR"), Cliente: sale.customerName ?? "Consumidor final", Pagamento: paymentLabels[sale.paymentMethod] ?? sale.paymentMethod, Itens: sale.itemsCount, Custo: sale.items.reduce((sum, item) => sum + item.costPrice * item.quantity, 0), Total: sale.total })) },
       { name: "Pagamentos", rows: byPayment },
       { name: "Categoria e produto", rows: byCategory },
       { name: "Fornecedores", rows: bySupplier }
@@ -122,22 +122,22 @@ export function SalesReportPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><h1 className="text-2xl font-semibold text-ink">Relatorios gerenciais</h1><p className="text-sm text-subdued">Vendas, lucratividade, pagamentos, produtos e fornecedores.</p></div>
+        <div><h1 className="text-2xl font-semibold text-ink">Relatórios gerenciais</h1><p className="text-sm text-subdued">Vendas, lucratividade, pagamentos, produtos e fornecedores.</p></div>
         <Button onClick={exportSpreadsheet} disabled={!sales.length}><Download size={18} /> Exportar Excel</Button>
       </div>
 
       <Card className="p-4">
-        <div className="mb-4 flex items-center gap-2"><FileBarChart size={18} className="text-brand-700" /><h2 className="font-semibold">Periodo e busca</h2></div>
+        <div className="mb-4 flex items-center gap-2"><FileBarChart size={18} className="text-brand-700" /><h2 className="font-semibold">Período e busca</h2></div>
         <div className="grid gap-3 md:grid-cols-4">
-          <Select label="Periodo" value={period} onChange={(event) => setPeriod(event.target.value)}><option value="all">Todo periodo</option><option value="today">Hoje</option><option value="yesterday">Ontem</option><option value="7">Ultimos 7 dias</option><option value="30">Ultimos 30 dias</option><option value="90">Ultimos 90 dias</option><option value="year">Este ano</option><option value="custom">Escolher periodo</option></Select>
+          <Select label="Período" value={period} onChange={(event) => setPeriod(event.target.value)}><option value="all">Todo o período</option><option value="today">Hoje</option><option value="yesterday">Ontem</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="year">Este ano</option><option value="custom">Escolher período</option></Select>
           <Input label="Buscar" placeholder="venda, cliente ou produto" value={search} onChange={(event) => setSearch(event.target.value)} />
           <Input label="De" type="date" disabled={period !== "custom"} value={from} onChange={(event) => setFrom(event.target.value)} />
-          <Input label="Ate" type="date" disabled={period !== "custom"} value={to} onChange={(event) => setTo(event.target.value)} />
+          <Input label="Até" type="date" disabled={period !== "custom"} value={to} onChange={(event) => setTo(event.target.value)} />
         </div>
       </Card>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {[["Vendas", sales.length.toLocaleString("pt-BR")], ["Faturamento", money(revenue)], ["Custo", money(cost)], ["Lucro bruto", money(profit)], ["Ticket medio", money(ticket)]].map(([label, value]) => <Card key={label} className="p-4"><p className="text-sm text-subdued">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></Card>)}
+        {[["Vendas", sales.length.toLocaleString("pt-BR")], ["Faturamento", money(revenue)], ["Custo", money(cost)], ["Lucro bruto", money(profit)], ["Ticket médio", money(ticket)]].map(([label, value]) => <Card key={label} className="p-4"><p className="text-sm text-subdued">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></Card>)}
       </section>
 
       <Card className="overflow-hidden">
@@ -147,7 +147,7 @@ export function SalesReportPage() {
 
       <AnalyticTable title="Vendas por categoria e produto" rows={byCategory} />
       <AnalyticTable title="Lucratividade por fornecedor" rows={bySupplier} />
-      <p className="text-xs text-subdued">Lucro gerencial calculado pelo custo registrado no momento da venda. Descontos e acrescimos sao rateados proporcionalmente entre os itens. Nao substitui documentos fiscais ou a apuracao contabil.</p>
+      <p className="text-xs text-subdued">Lucro gerencial calculado pelo custo registrado no momento da venda. Descontos e acréscimos são rateados proporcionalmente entre os itens. Não substitui documentos fiscais nem a apuração contábil.</p>
     </div>
   );
 }

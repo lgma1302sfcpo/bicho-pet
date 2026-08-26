@@ -1,12 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save, X } from "lucide-react";
+import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { CustomerListItemDTO, UpdateCustomerDTO } from "@/dtos/commerce/customer.dto";
@@ -16,6 +15,7 @@ import { updateCustomerSchema } from "@/schemas/commerce/customer.schemas";
 type CustomerFormProps = {
   customer?: CustomerListItemDTO | null;
   onCancel?: () => void;
+  onSuccess?: () => void;
 };
 
 const emptyCustomer: UpdateCustomerDTO = {
@@ -23,10 +23,10 @@ const emptyCustomer: UpdateCustomerDTO = {
   creditLimit: 0, notes: "", tags: [], status: "ACTIVE"
 };
 
-const states = [["AC", "Acre"], ["AL", "Alagoas"], ["AP", "Amapa"], ["AM", "Amazonas"], ["BA", "Bahia"], ["CE", "Ceara"], ["DF", "Distrito Federal"], ["ES", "Espirito Santo"], ["GO", "Goias"], ["MA", "Maranhao"], ["MT", "Mato Grosso"], ["MS", "Mato Grosso do Sul"], ["MG", "Minas Gerais"], ["PA", "Para"], ["PB", "Paraiba"], ["PR", "Parana"], ["PE", "Pernambuco"], ["PI", "Piaui"], ["RJ", "Rio de Janeiro"], ["RN", "Rio Grande do Norte"], ["RS", "Rio Grande do Sul"], ["RO", "Rondonia"], ["RR", "Roraima"], ["SC", "Santa Catarina"], ["SP", "Sao Paulo"], ["SE", "Sergipe"], ["TO", "Tocantins"]];
-const customerProfiles = ["Cliente recorrente", "Cliente de banho e tosa", "Compra racao", "Compra medicamentos", "Tutor de filhote", "Cliente com atendimento especial"];
+const states = [["AC", "Acre"], ["AL", "Alagoas"], ["AP", "Amapá"], ["AM", "Amazonas"], ["BA", "Bahia"], ["CE", "Ceará"], ["DF", "Distrito Federal"], ["ES", "Espírito Santo"], ["GO", "Goiás"], ["MA", "Maranhão"], ["MT", "Mato Grosso"], ["MS", "Mato Grosso do Sul"], ["MG", "Minas Gerais"], ["PA", "Pará"], ["PB", "Paraíba"], ["PR", "Paraná"], ["PE", "Pernambuco"], ["PI", "Piauí"], ["RJ", "Rio de Janeiro"], ["RN", "Rio Grande do Norte"], ["RS", "Rio Grande do Sul"], ["RO", "Rondônia"], ["RR", "Roraima"], ["SC", "Santa Catarina"], ["SP", "São Paulo"], ["SE", "Sergipe"], ["TO", "Tocantins"]];
+const customerProfiles = ["Cliente recorrente", "Cliente de banho e tosa", "Compra ração", "Compra medicamentos", "Tutor de filhote", "Cliente com atendimento especial"];
 
-export function CustomerCreateForm({ customer, onCancel }: CustomerFormProps) {
+export function CustomerCreateForm({ customer, onCancel, onSuccess }: CustomerFormProps) {
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
   const [error, setError] = useState<string | null>(null);
@@ -59,48 +59,48 @@ export function CustomerCreateForm({ customer, onCancel }: CustomerFormProps) {
       };
       if (customer) {
         await updateCustomer.mutateAsync({ id: customer.id, payload });
-        onCancel?.();
       } else {
         await createCustomer.mutateAsync(payload);
         form.reset(emptyCustomer);
         setTagsText("");
       }
+      onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel cadastrar cliente.");
+      setError(err instanceof Error ? err.message : "Não foi possível cadastrar o cliente.");
     }
   }
 
+  function onInvalid(errors: FieldErrors<UpdateCustomerDTO>) {
+    const firstError = Object.values(errors).find((fieldError) => fieldError?.message);
+    setError(typeof firstError?.message === "string"
+      ? firstError.message
+      : "Revise os campos destacados antes de cadastrar o cliente.");
+  }
+
   return (
-    <Card className="p-4">
-      <div className="mb-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">{customer ? "Editar cliente" : "Novo cliente"}</h2>
-          {customer ? <Button variant="ghost" onClick={onCancel} aria-label="Cancelar edicao"><X size={18} /></Button> : null}
-        </div>
-        <p className="text-sm text-subdued">Cadastro para relacionamento e vendas.</p>
-      </div>
-      <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+    <div>
+      <form className="space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
         <Input label="Nome completo" mask="letters" error={form.formState.errors.name?.message} {...form.register("name")} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Documento" help="Informe o Cadastro de Pessoa Fisica ou o Cadastro Nacional da Pessoa Juridica. A pontuacao e colocada automaticamente." mask="document" error={form.formState.errors.document?.message} {...form.register("document")} />
-          <Input label="Correio eletronico" type="email" error={form.formState.errors.email?.message} {...form.register("email")} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input label="Documento" help="Informe o Cadastro de Pessoa Física ou o Cadastro Nacional da Pessoa Jurídica. A pontuação é colocada automaticamente." mask="document" error={form.formState.errors.document?.message} {...form.register("document")} />
+          <Input label="E-mail" type="email" error={form.formState.errors.email?.message} {...form.register("email")} />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <Input label="Telefone" mask="phone" error={form.formState.errors.phone?.message} {...form.register("phone")} />
-          <Input label="Telefone para WhatsApp" help="Numero usado para mensagens e campanhas pelo WhatsApp." mask="phone" error={form.formState.errors.whatsapp?.message} {...form.register("whatsapp")} />
+          <Input label="Telefone para WhatsApp" help="Número usado para mensagens e campanhas pelo WhatsApp." mask="phone" error={form.formState.errors.whatsapp?.message} {...form.register("whatsapp")} />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Logradouro" help="Rua, avenida ou estrada usada no endereco fiscal." error={form.formState.errors.street?.message} {...form.register("street")} />
-          <Input label="Numero do endereco" error={form.formState.errors.addressNumber?.message} {...form.register("addressNumber")} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input label="Logradouro" help="Rua, avenida ou estrada usada no endereço fiscal." error={form.formState.errors.street?.message} {...form.register("street")} />
+          <Input label="Número do endereço" error={form.formState.errors.addressNumber?.message} {...form.register("addressNumber")} />
           <Input label="Complemento" error={form.formState.errors.complement?.message} {...form.register("complement")} />
           <Input label="Bairro" error={form.formState.errors.district?.message} {...form.register("district")} />
-          <Input label="Municipio" mask="letters" error={form.formState.errors.city?.message} {...form.register("city")} />
-          <Input label="Codigo do municipio" help="Codigo de sete numeros do Instituto Brasileiro de Geografia e Estatistica, necessario para a Nota Fiscal Eletronica." mask="integer" maxLength={7} error={form.formState.errors.cityCode?.message} {...form.register("cityCode")} />
+          <Input label="Município" mask="letters" error={form.formState.errors.city?.message} {...form.register("city")} />
+          <Input label="Código do município" help="Código de sete números do Instituto Brasileiro de Geografia e Estatística, necessário para a Nota Fiscal Eletrônica." mask="integer" maxLength={7} error={form.formState.errors.cityCode?.message} {...form.register("cityCode")} />
           <Select label="Estado" error={form.formState.errors.state?.message} {...form.register("state")}><option value="">Selecione o estado</option>{states.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
-          <Input label="Codigo de Enderecamento Postal" mask="integer" maxLength={8} error={form.formState.errors.zipCode?.message} {...form.register("zipCode")} />
+          <Input label="Código de Endereçamento Postal" mask="integer" maxLength={8} error={form.formState.errors.zipCode?.message} {...form.register("zipCode")} />
         </div>
-        <Input label="Inscricao Estadual" help="Preencha apenas quando o cliente for empresa contribuinte do imposto estadual." mask="integer" error={form.formState.errors.stateRegistration?.message} {...form.register("stateRegistration")} />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <Input label="Inscrição Estadual" help="Preencha apenas quando o cliente for empresa contribuinte do imposto estadual." mask="integer" error={form.formState.errors.stateRegistration?.message} {...form.register("stateRegistration")} />
+        <div className="grid gap-3 md:grid-cols-2">
           <Input
             label="Data de nascimento"
             type="date"
@@ -108,15 +108,15 @@ export function CustomerCreateForm({ customer, onCancel }: CustomerFormProps) {
             {...form.register("birthDate")}
           />
           <Input
-            label="Limite de credito"
-            help="Valor maximo permitido para compras que serao pagas depois. Use zero quando nao houver credito da loja."
+            label="Limite de crédito"
+            help="Valor máximo permitido para compras que serão pagas depois. Use zero quando não houver crédito da loja."
             mask="currency"
             error={form.formState.errors.creditLimit?.message}
             {...form.register("creditLimit")}
           />
         </div>
-        <Select label="Perfil do cliente" help="Classificacao usada para localizar clientes e preparar campanhas." value={tagsText} onChange={(event) => setTagsText(event.target.value)}><option value="">Sem classificacao</option>{customerProfiles.map((profile) => <option key={profile}>{profile}</option>)}</Select>
-        <Input label="Observacoes" error={form.formState.errors.notes?.message} {...form.register("notes")} />
+        <Select label="Perfil do cliente" help="Classificação usada para localizar clientes e preparar campanhas." value={tagsText} onChange={(event) => setTagsText(event.target.value)}><option value="">Sem classificação</option>{customerProfiles.map((profile) => <option key={profile}>{profile}</option>)}</Select>
+        <Input label="Observações" error={form.formState.errors.notes?.message} {...form.register("notes")} />
         {customer ? (
           <Select label="Status" error={form.formState.errors.status?.message} {...form.register("status")}>
             <option value="ACTIVE">Ativo</option>
@@ -131,11 +131,14 @@ export function CustomerCreateForm({ customer, onCancel }: CustomerFormProps) {
           </div>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={createCustomer.isPending || updateCustomer.isPending}>
-          <Save size={18} />
-          {customer ? "Salvar alteracoes" : "Cadastrar cliente"}
-        </Button>
+        <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-border bg-white/95 px-4 pb-1 pt-3 backdrop-blur sm:static sm:mx-0 sm:flex-row sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+          <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
+          <Button type="submit" className="sm:min-w-48" disabled={createCustomer.isPending || updateCustomer.isPending}>
+            <Save size={18} />
+            {createCustomer.isPending || updateCustomer.isPending ? "Salvando..." : customer ? "Salvar alterações" : "Cadastrar cliente"}
+          </Button>
+        </div>
       </form>
-    </Card>
+    </div>
   );
 }

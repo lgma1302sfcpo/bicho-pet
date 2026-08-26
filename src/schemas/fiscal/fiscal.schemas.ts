@@ -18,11 +18,11 @@ export const fiscalConfigurationSchema = z.object({
   complement: optionalText,
   district: optionalText,
   city: optionalText,
-  cityCode: optionalDigits.refine((value) => !value || value.length === 7, "O codigo do municipio deve possuir 7 numeros."),
+  cityCode: optionalDigits.refine((value) => !value || value.length === 7, "O código do município deve possuir 7 números."),
   state: z.string().trim().length(2).optional().or(z.literal("")),
-  zipCode: optionalDigits.refine((value) => !value || value.length === 8, "O Codigo de Enderecamento Postal deve possuir 8 numeros."),
+  zipCode: optionalDigits.refine((value) => !value || value.length === 8, "O Código de Endereçamento Postal deve possuir 8 números."),
   phone: optionalDigits,
-  email: z.string().trim().email("Informe um endereco de email valido.").optional().or(z.literal("")),
+  email: z.string().trim().email("Informe um endereço de e-mail válido.").optional().or(z.literal("")),
   environment: z.enum(["HOMOLOGATION", "PRODUCTION"]),
   provider: z.enum(["SANDBOX", "DIRECT_SEFAZ_SP", "EXTERNAL_API", "NOT_CONFIGURED"]),
   providerBaseUrl: z.string().trim().url("Informe uma URL valida.").optional().or(z.literal("")),
@@ -42,16 +42,16 @@ export const fiscalConfigurationSchema = z.object({
   accountantApproved: z.boolean()
 }).superRefine((value, context) => {
   if (value.environment === "PRODUCTION" && value.provider === "SANDBOX") {
-    context.addIssue({ code: "custom", path: ["provider"], message: "O provedor de testes nao pode ser usado em producao." });
+    context.addIssue({ code: "custom", path: ["provider"], message: "O provedor de testes não pode ser usado em produção." });
   }
   if (value.provider === "EXTERNAL_API" && !value.providerBaseUrl) {
-    context.addIssue({ code: "custom", path: ["providerBaseUrl"], message: "Informe o endereco da interface do provedor." });
+    context.addIssue({ code: "custom", path: ["providerBaseUrl"], message: "Informe o endereço da interface do provedor." });
   }
   if (value.environment === "PRODUCTION" && value.provider === "DIRECT_SEFAZ_SP" && !value.directTransmissionEnabled) {
-    context.addIssue({ code: "custom", path: ["directTransmissionEnabled"], message: "Confirme explicitamente a liberacao da transmissao direta em producao." });
+    context.addIssue({ code: "custom", path: ["directTransmissionEnabled"], message: "Confirme explicitamente a liberação da transmissão direta em produção." });
   }
   if (value.state === "SP" && value.stateRegistration && !isValidSaoPauloStateRegistration(value.stateRegistration)) {
-    context.addIssue({ code: "custom", path: ["stateRegistration"], message: "Informe uma Inscricao Estadual valida de Sao Paulo." });
+    context.addIssue({ code: "custom", path: ["stateRegistration"], message: "Informe uma Inscrição Estadual válida de São Paulo." });
   }
 });
 
@@ -62,7 +62,7 @@ export const issueFiscalDocumentSchema = z.object({
   contingency: z.boolean().default(false),
   contingencyReason: optionalText
 }).superRefine((value, context) => {
-  if (value.contingency && value.type !== "NFCE") context.addIssue({ code: "custom", path: ["contingency"], message: "A contingencia offline direta esta disponivel somente para a Nota Fiscal de Consumidor Eletronica." });
+  if (value.contingency && value.type !== "NFCE") context.addIssue({ code: "custom", path: ["contingency"], message: "A contingência offline direta está disponível somente para a Nota Fiscal de Consumidor Eletrônica." });
   if (value.contingency && (!value.contingencyReason || value.contingencyReason.length < 15)) context.addIssue({ code: "custom", path: ["contingencyReason"], message: "Informe por que a Secretaria da Fazenda esta indisponivel, com pelo menos 15 caracteres." });
 });
 
@@ -76,7 +76,7 @@ export const voidFiscalNumberSchema = z.object({
   numberFrom: z.coerce.number().int().positive(),
   numberTo: z.coerce.number().int().positive(),
   reason: z.string().trim().min(15).max(255)
-}).refine((value) => value.numberTo >= value.numberFrom, { path: ["numberTo"], message: "O numero final deve ser maior ou igual ao inicial." });
+}).refine((value) => value.numberTo >= value.numberFrom, { path: ["numberTo"], message: "O número final deve ser maior ou igual ao inicial." });
 
 export const replaceFiscalDocumentSchema = z.object({
   replacementSaleId: z.string().min(1),

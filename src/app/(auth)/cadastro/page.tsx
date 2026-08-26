@@ -1,9 +1,16 @@
+import { redirect } from "next/navigation";
+
 import { AuthShell } from "@/components/auth/auth-shell";
 import { RegisterForm } from "@/components/auth/register-form";
+import { prisma } from "@/lib/prisma";
 
-export default function RegisterPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RegisterPage() {
+  if (await prisma.tenant.count() > 0) redirect("/login");
+
   return (
-    <AuthShell title="Cadastrar empresa" subtitle="Crie a empresa matriz e o usuario administrador.">
+    <AuthShell title="Configuração inicial" subtitle="Crie o único administrador da Casa dos Bichos.">
       <RegisterForm />
     </AuthShell>
   );

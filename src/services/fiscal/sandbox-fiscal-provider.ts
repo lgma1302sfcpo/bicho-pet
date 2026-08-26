@@ -19,7 +19,7 @@ export class SandboxFiscalProvider implements FiscalProvider {
     pdf.text("DOCUMENTO FISCAL DE HOMOLOGACAO", 105, 20, { align: "center" });
     pdf.setFontSize(11);
     pdf.text("SEM VALIDADE FISCAL", 105, 28, { align: "center" });
-    pdf.text(`${input.type} - serie ${input.series} - numero ${input.number}`, 20, 42);
+    pdf.text(`${input.type} - série ${input.series} - número ${input.number}`, 20, 42);
     pdf.text(`Emitente: ${input.issuer.legalName}`, 20, 50);
     pdf.text(`Venda: ${input.sale.code}`, 20, 58);
     pdf.text(`Cliente: ${input.sale.customerName}`, 20, 66);

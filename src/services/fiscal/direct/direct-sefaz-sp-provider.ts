@@ -33,7 +33,7 @@ function providerIdentifier(type: "NFE" | "NFCE", accessKey: string) {
 function parseProviderIdentifier(value: string) {
   const [type, accessKey] = value.split(":");
   if ((type !== "NFE" && type !== "NFCE") || !/^\d{44}$/.test(accessKey ?? "")) {
-    throw new AppError("Identificador do documento direto invalido.", "FISCAL_DIRECT_ID_INVALID", 422);
+    throw new AppError("Identificador do documento direto inválido.", "FISCAL_DIRECT_ID_INVALID", 422);
   }
   return { type, accessKey } as { type: "NFE" | "NFCE"; accessKey: string };
 }
@@ -77,13 +77,13 @@ export class DirectSefazSpProvider implements FiscalProvider {
   constructor(private readonly options: { pfx: Buffer; password: string; cnpj: string; environment: "HOMOLOGATION" | "PRODUCTION" }) {
     this.certificate = extractA1Certificate(options.pfx, options.password);
     const now = Date.now();
-    if (this.certificate.validFrom.getTime() > now) throw new AppError("O certificado A1 ainda nao esta valido.", "FISCAL_CERTIFICATE_NOT_YET_VALID", 422);
+    if (this.certificate.validFrom.getTime() > now) throw new AppError("O certificado A1 ainda não está válido.", "FISCAL_CERTIFICATE_NOT_YET_VALID", 422);
     if (this.certificate.validTo.getTime() <= now) throw new AppError("O certificado A1 esta vencido.", "FISCAL_CERTIFICATE_EXPIRED", 422);
   }
 
   async issue(input: FiscalProviderRequest) {
-    if (input.type === "NFSE") throw new AppError("Nota Fiscal de Servico Eletronica nao e transmitida para a Secretaria da Fazenda estadual.", "FISCAL_NFSE_MUNICIPAL", 422);
-    if (input.environment !== this.options.environment) throw new AppError("O ambiente do documento diverge da conexao fiscal.", "FISCAL_ENVIRONMENT_MISMATCH", 422);
+    if (input.type === "NFSE") throw new AppError("A Nota Fiscal de Serviço Eletrônica não é transmitida para a Secretaria da Fazenda estadual.", "FISCAL_NFSE_MUNICIPAL", 422);
+    if (input.environment !== this.options.environment) throw new AppError("O ambiente do documento diverge da conexão fiscal.", "FISCAL_ENVIRONMENT_MISMATCH", 422);
     const built = buildNfeXml(input, this.certificate.privateKeyPem);
     const signedNfe = signNfeXml(built.xml, this.certificate.privateKeyPem, this.certificate.certificatePem);
     await validateNfeXml(signedNfe);
@@ -98,11 +98,11 @@ export class DirectSefazSpProvider implements FiscalProvider {
   }
 
   async transmitPending(input: FiscalProviderRequest, signedXml: string, providerId: string) {
-    if (input.type === "NFSE") throw new AppError("A contingencia estadual nao aceita Nota Fiscal de Servico Eletronica.", "FISCAL_DOCUMENT_MODEL_UNSUPPORTED", 422);
+    if (input.type === "NFSE") throw new AppError("A contingência estadual não aceita Nota Fiscal de Serviço Eletrônica.", "FISCAL_DOCUMENT_MODEL_UNSUPPORTED", 422);
     const parsed = parseProviderIdentifier(providerId);
     if (parsed.type !== input.type) throw new AppError("O tipo do documento pendente diverge do XML armazenado.", "FISCAL_DIRECT_ID_INVALID", 422);
     const embeddedKey = firstElement(parseFiscalXml(signedXml), "infNFe")?.getAttribute("Id")?.replace(/^NFe/, "");
-    if (embeddedKey !== parsed.accessKey) throw new AppError("A chave do XML pendente nao corresponde ao documento armazenado.", "FISCAL_PENDING_XML_MISMATCH", 422);
+    if (embeddedKey !== parsed.accessKey) throw new AppError("A chave do XML pendente não corresponde ao documento armazenado.", "FISCAL_PENDING_XML_MISMATCH", 422);
     await validateNfeXml(signedXml);
     const qrCodeUrl = firstText(parseFiscalXml(signedXml), "qrCode") || null;
     return this.authorizeSigned(input, signedXml, providerId, parsed.accessKey, qrCodeUrl);
@@ -124,7 +124,7 @@ export class DirectSefazSpProvider implements FiscalProvider {
 
   async cancel(providerId: string, reason: string, authorizationProtocol?: string) {
     const { type, accessKey } = parseProviderIdentifier(providerId);
-    if (!authorizationProtocol) throw new AppError("Protocolo de autorizacao ausente; consulte a nota antes de cancelar.", "FISCAL_AUTHORIZATION_PROTOCOL_MISSING", 422);
+    if (!authorizationProtocol) throw new AppError("Protocolo de autorização ausente; consulte a nota antes de cancelar.", "FISCAL_AUTHORIZATION_PROTOCOL_MISSING", 422);
     const sequence = "01";
     const event = `<evento xmlns="${namespace}" versao="1.00"><infEvento Id="ID110111${accessKey}${sequence}"><cOrgao>35</cOrgao><tpAmb>${environmentCode(this.options.environment)}</tpAmb><CNPJ>${this.options.cnpj.replace(/\D/g, "")}</CNPJ><chNFe>${accessKey}</chNFe><dhEvento>${new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).replace(" ", "T")}-03:00</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Cancelamento</descEvento><nProt>${escapeXml(authorizationProtocol)}</nProt><xJust>${escapeXml(cleanFiscalText(reason, 255))}</xJust></detEvento></infEvento></evento>`;
     const signedEvent = signFiscalXml(event, "infEvento", "evento", this.certificate.privateKeyPem, this.certificate.certificatePem);
@@ -136,12 +136,12 @@ export class DirectSefazSpProvider implements FiscalProvider {
     const info = eventResponse ? firstElement(eventResponse, "infEvento") : null;
     const code = info ? childText(info, "cStat") : childText(root, "cStat");
     const message = info ? childText(info, "xMotivo") : childText(root, "xMotivo");
-    if (!cancellationCodes.has(code)) throw new AppError(`Cancelamento rejeitado pela Secretaria da Fazenda (${code || "sem codigo"}): ${message || "sem motivo"}.`, "SEFAZ_CANCELLATION_REJECTED", 422, { code, message });
+    if (!cancellationCodes.has(code)) throw new AppError(`Cancelamento rejeitado pela Secretaria da Fazenda (${code || "sem código"}): ${message || "sem motivo"}.`, "SEFAZ_CANCELLATION_REJECTED", 422, { code, message });
     return { protocol: info ? childText(info, "nProt") : "", xml: serializeXml(root) };
   }
 
   async voidNumber(input: FiscalVoidRequest) {
-    if (input.environment !== this.options.environment) throw new AppError("O ambiente da inutilizacao diverge da conexao fiscal.", "FISCAL_ENVIRONMENT_MISMATCH", 422);
+    if (input.environment !== this.options.environment) throw new AppError("O ambiente da inutilização diverge da conexão fiscal.", "FISCAL_ENVIRONMENT_MISMATCH", 422);
     const year = String(input.year).slice(-2);
     const cnpj = input.cnpj.replace(/\D/g, "");
     const model = modelNumber(input.type);
@@ -171,7 +171,7 @@ export class DirectSefazSpProvider implements FiscalProvider {
   }
 
   private async authorizeSigned(input: FiscalProviderRequest, signedNfe: string, id: string, accessKey: string, qrCodeUrl: string | null) {
-    if (input.type === "NFSE") throw new AppError("Modelo estadual invalido.", "FISCAL_DOCUMENT_MODEL_UNSUPPORTED", 422);
+    if (input.type === "NFSE") throw new AppError("Modelo estadual inválido.", "FISCAL_DOCUMENT_MODEL_UNSUPPORTED", 422);
     const endpoints = sefazSpEndpoints(input.type, input.environment);
     const envelope = `<enviNFe xmlns="${namespace}" versao="4.00"><idLote>${loteId()}</idLote><indSinc>1</indSinc>${stripXmlDeclaration(signedNfe)}</enviNFe>`;
     let rawResponse = await postSefazSoap({ url: endpoints.authorization, action: sefazSoapActions.authorization, payload: envelope, pfx: this.options.pfx, passphrase: this.options.password });
@@ -193,7 +193,7 @@ export class DirectSefazSpProvider implements FiscalProvider {
     const protocolNode = firstElement(root, "protNFe");
     const protocolInfo = protocolNode ? firstElement(protocolNode, "infProt") : null;
     const code = protocolInfo ? childText(protocolInfo, "cStat") : "";
-    const reason = protocolInfo ? childText(protocolInfo, "xMotivo") : "Protocolo de autorizacao ausente.";
+    const reason = protocolInfo ? childText(protocolInfo, "xMotivo") : "Protocolo de autorização ausente.";
     if (!protocolNode || !protocolInfo || !authorizationCodes.has(code)) return { ...rejectResult(code || batchCode, reason, signedNfe), providerId: id, accessKey };
     const protocol = childText(protocolInfo, "nProt");
     const processedXml = `<?xml version="1.0" encoding="UTF-8"?><nfeProc xmlns="${namespace}" versao="4.00">${stripXmlDeclaration(signedNfe)}${serializeXml(protocolNode)}</nfeProc>`;

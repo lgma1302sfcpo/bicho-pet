@@ -6,9 +6,9 @@ const numeric = z.preprocess(parseBrazilianNumber, z.number());
 
 export const saleItemSchema = z.object({
   productId: z.string().trim().optional().or(z.literal("")),
-  description: z.string().trim().min(2, "Informe a descricao do item."),
+  description: z.string().trim().min(2, "Informe a descrição do item."),
   quantity: numeric.pipe(z.number().positive("A quantidade deve ser maior que zero.")),
-  unitPrice: numeric.pipe(z.number().min(0, "O preco nao pode ser negativo."))
+  unitPrice: numeric.pipe(z.number().min(0, "O preço não pode ser negativo."))
 });
 
 export const createSaleSchema = z.object({

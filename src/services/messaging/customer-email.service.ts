@@ -21,10 +21,10 @@ export class CustomerEmailService {
   async sendToCustomer(tenantId: string, customerId: string, input: SendCustomerEmailInput) {
     const customer = await this.repository.findCustomerById(tenantId, customerId);
     if (!customer) {
-      throw new AppError("Cliente nao encontrado.", "CUSTOMER_NOT_FOUND", 404);
+      throw new AppError("Cliente não encontrado.", "CUSTOMER_NOT_FOUND", 404);
     }
     if (!customer.email) {
-      throw new AppError("Este cliente nao possui email cadastrado.", "CUSTOMER_WITHOUT_EMAIL", 422);
+      throw new AppError("Este cliente não possui e-mail cadastrado.", "CUSTOMER_WITHOUT_EMAIL", 422);
     }
 
     const safeMessage = escapeHtml(input.message).replaceAll("\n", "<br />");

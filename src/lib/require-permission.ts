@@ -1,5 +1,6 @@
 import type { PermissionKey } from "@/lib/permissions";
 import { hasPermission } from "@/lib/permissions";
+import { getEffectivePermissions } from "@/lib/effective-permissions";
 
 import { getCurrentSession } from "./auth";
 import { AppError } from "./errors";
@@ -11,9 +12,13 @@ export async function requirePermission(permission: PermissionKey) {
     throw new AppError("Sessao obrigatoria.", "UNAUTHENTICATED", 401);
   }
 
-  if (!hasPermission(session.user.permissions, permission)) {
-    throw new AppError("Permissao insuficiente.", "FORBIDDEN", 403, { permission });
+  const permissions = await getEffectivePermissions(session.user.id, session.user.currentTenantId);
+
+  if (!hasPermission(permissions, permission)) {
+    throw new AppError("Permissão insuficiente.", "FORBIDDEN", 403, { permission });
   }
+
+  session.user.permissions = permissions;
 
   return session;
 }

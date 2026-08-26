@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { KeyRound, LogIn, Mail } from "lucide-react";
+import { KeyRound, LogIn } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,11 +37,11 @@ export function LoginForm() {
     });
 
     if (result?.error) {
-      setServerError("Email ou senha invalidos.");
+      setServerError("E-mail ou senha inválidos.");
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/");
     router.refresh();
   }
 
@@ -77,14 +77,10 @@ export function LoginForm() {
         {isSubmitting ? "Entrando..." : "Entrar no sistema"}
       </Button>
 
-      <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm text-subdued sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex justify-center border-t border-slate-100 pt-4 text-sm text-subdued">
         <Link className="inline-flex items-center gap-2 font-medium transition hover:text-brand-700" href="/recuperar-senha">
           <KeyRound size={16} />
           Recuperar senha
-        </Link>
-        <Link className="inline-flex items-center gap-2 font-medium transition hover:text-brand-700" href="/cadastro">
-          <Mail size={16} />
-          Criar conta
         </Link>
       </div>
     </form>

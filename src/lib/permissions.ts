@@ -37,25 +37,25 @@ export const BASE_PERMISSIONS: PermissionSeed[] = [
     key: AUTH_PERMISSIONS.DASHBOARD_READ,
     name: "Visualizar dashboard",
     module: "dashboard",
-    description: "Acessa indicadores e graficos principais."
+    description: "Acessa indicadores e gráficos principais."
   },
   {
     key: AUTH_PERMISSIONS.IDENTITY_USERS_READ,
-    name: "Visualizar usuarios",
+    name: "Visualizar usuários",
     module: "identity",
-    description: "Consulta usuarios da empresa ativa."
+    description: "Consulta usuários da empresa ativa."
   },
   {
     key: AUTH_PERMISSIONS.IDENTITY_USERS_CREATE,
-    name: "Criar usuarios",
+    name: "Criar usuários",
     module: "identity",
-    description: "Cria usuarios vinculados a cargos."
+    description: "Cria usuários vinculados a cargos."
   },
   {
     key: AUTH_PERMISSIONS.IDENTITY_ROLES_READ,
     name: "Visualizar cargos",
     module: "identity",
-    description: "Consulta cargos e suas permissoes."
+    description: "Consulta cargos e suas permissões."
   },
   {
     key: AUTH_PERMISSIONS.IDENTITY_ROLES_CREATE,
@@ -65,15 +65,15 @@ export const BASE_PERMISSIONS: PermissionSeed[] = [
   },
   {
     key: AUTH_PERMISSIONS.IDENTITY_PERMISSIONS_READ,
-    name: "Visualizar permissoes",
+    name: "Visualizar permissões",
     module: "identity",
-    description: "Consulta catalogo de permissoes do sistema."
+    description: "Consulta o catálogo de permissões do sistema."
   },
   {
     key: AUTH_PERMISSIONS.SETTINGS_MANAGE,
-    name: "Gerenciar configuracoes",
+    name: "Gerenciar configurações",
     module: "settings",
-    description: "Altera configuracoes da empresa, filiais e integracoes."
+    description: "Altera configurações da empresa, filiais e integrações."
   },
   {
     key: AUTH_PERMISSIONS.AUDIT_READ,
@@ -85,7 +85,7 @@ export const BASE_PERMISSIONS: PermissionSeed[] = [
     key: AUTH_PERMISSIONS.CUSTOMERS_READ,
     name: "Visualizar clientes",
     module: "customers",
-    description: "Consulta cadastro, historico e filtros de clientes."
+    description: "Consulta cadastro, histórico e filtros de clientes."
   },
   {
     key: AUTH_PERMISSIONS.CUSTOMERS_WRITE,
@@ -109,25 +109,25 @@ export const BASE_PERMISSIONS: PermissionSeed[] = [
     key: AUTH_PERMISSIONS.INVENTORY_READ,
     name: "Visualizar estoque",
     module: "inventory",
-    description: "Consulta saldos e movimentacoes de estoque."
+    description: "Consulta saldos e movimentações de estoque."
   },
   {
     key: AUTH_PERMISSIONS.INVENTORY_WRITE,
     name: "Movimentar estoque",
     module: "inventory",
-    description: "Registra entradas, saidas, ajustes e inventarios."
+    description: "Registra entradas, saídas, ajustes e inventários."
   },
   {
     key: AUTH_PERMISSIONS.SALES_READ,
     name: "Visualizar vendas",
     module: "sales",
-    description: "Consulta historico de vendas da empresa ativa."
+    description: "Consulta o histórico de vendas da empresa ativa."
   },
   {
     key: AUTH_PERMISSIONS.SALES_WRITE,
     name: "Cadastrar vendas",
     module: "sales",
-    description: "Registra vendas e atualiza o historico do cliente."
+    description: "Registra vendas e atualiza o histórico do cliente."
   },
   {
     key: AUTH_PERMISSIONS.SALES_PDV,
@@ -139,31 +139,31 @@ export const BASE_PERMISSIONS: PermissionSeed[] = [
     key: AUTH_PERMISSIONS.FINANCE_READ,
     name: "Visualizar financeiro",
     module: "finance",
-    description: "Consulta contas, fluxo de caixa e conciliacao."
+    description: "Consulta contas, fluxo de caixa e conciliação."
   },
   {
     key: AUTH_PERMISSIONS.FINANCE_WRITE,
     name: "Gerenciar financeiro",
     module: "finance",
-    description: "Cria, atualiza e exclui lancamentos financeiros."
+    description: "Cria, atualiza e exclui lançamentos financeiros."
   },
   {
     key: AUTH_PERMISSIONS.REPORTS_READ,
-    name: "Visualizar relatorios",
+    name: "Visualizar relatórios",
     module: "reports",
-    description: "Acessa relatorios e exportacoes."
+    description: "Acessa relatórios e exportações."
   },
   {
     key: AUTH_PERMISSIONS.FISCAL_READ,
     name: "Visualizar documentos fiscais",
     module: "fiscal",
-    description: "Consulta configuracao, documentos e eventos fiscais."
+    description: "Consulta configurações, documentos e eventos fiscais."
   },
   {
     key: AUTH_PERMISSIONS.FISCAL_WRITE,
     name: "Gerenciar documentos fiscais",
     module: "fiscal",
-    description: "Configura e executa operacoes fiscais autorizadas."
+    description: "Configura e executa operações fiscais autorizadas."
   }
 ];
 

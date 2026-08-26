@@ -1,0 +1,20 @@
+import type { Route } from "next";
+
+import { AUTH_PERMISSIONS, hasPermission } from "@/lib/permissions";
+
+const destinations: Array<{ route: Route; permission: (typeof AUTH_PERMISSIONS)[keyof typeof AUTH_PERMISSIONS] }> = [
+  { route: "/dashboard", permission: AUTH_PERMISSIONS.DASHBOARD_READ },
+  { route: "/clientes", permission: AUTH_PERMISSIONS.CUSTOMERS_READ },
+  { route: "/produtos", permission: AUTH_PERMISSIONS.PRODUCTS_READ },
+  { route: "/vendas/nova", permission: AUTH_PERMISSIONS.SALES_WRITE },
+  { route: "/estoque", permission: AUTH_PERMISSIONS.INVENTORY_READ },
+  { route: "/ponto-de-venda", permission: AUTH_PERMISSIONS.SALES_PDV },
+  { route: "/financeiro", permission: AUTH_PERMISSIONS.FINANCE_READ },
+  { route: "/relatorios", permission: AUTH_PERMISSIONS.REPORTS_READ },
+  { route: "/fiscal", permission: AUTH_PERMISSIONS.FISCAL_READ },
+  { route: "/configuracoes/usuarios", permission: AUTH_PERMISSIONS.IDENTITY_USERS_READ }
+];
+
+export function firstAllowedRoute(permissions: string[]): Route {
+  return destinations.find((destination) => hasPermission(permissions, destination.permission))?.route ?? "/sem-acesso";
+}

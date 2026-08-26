@@ -22,6 +22,6 @@ export function extractA1Certificate(pfx: Buffer, password: string) {
       validTo: certificate.validity.notAfter
     };
   } catch {
-    throw new AppError("Nao foi possivel abrir o certificado A1. Confira o arquivo e a senha.", "FISCAL_CERTIFICATE_INVALID", 422);
+    throw new AppError("Não foi possível abrir o certificado A1. Confira o arquivo e a senha.", "FISCAL_CERTIFICATE_INVALID", 422);
   }
 }

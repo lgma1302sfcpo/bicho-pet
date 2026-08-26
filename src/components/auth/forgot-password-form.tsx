@@ -52,11 +52,11 @@ export function ForgotPasswordForm() {
     const body = (await response.json().catch(() => ({}))) as ResetResponse;
 
     if (!response.ok) {
-      setError(body.error?.message ?? "Nao foi possivel solicitar recuperacao.");
+      setError(body.error?.message ?? "Não foi possível solicitar a recuperação.");
       return;
     }
 
-    setMessage(body.data?.message ?? "Solicitacao registrada.");
+    setMessage(body.data?.message ?? "Solicitação registrada.");
     setResetToken(body.data?.resetToken ?? null);
     if (body.data?.resetToken) {
       confirmForm.setValue("token", body.data.resetToken);
@@ -73,7 +73,7 @@ export function ForgotPasswordForm() {
     const body = (await response.json().catch(() => ({}))) as ResetResponse;
 
     if (!response.ok) {
-      setError(body.error?.message ?? "Nao foi possivel alterar a senha.");
+      setError(body.error?.message ?? "Não foi possível alterar a senha.");
       return;
     }
 
@@ -86,7 +86,7 @@ export function ForgotPasswordForm() {
     <div className="space-y-5">
       <form className="space-y-4" onSubmit={requestForm.handleSubmit(requestReset)}>
         <Input
-          label="Email"
+          label="E-mail"
           type="email"
           autoComplete="email"
           error={requestForm.formState.errors.email?.message}
@@ -94,7 +94,7 @@ export function ForgotPasswordForm() {
         />
         <Button type="submit" className="w-full" disabled={requestForm.formState.isSubmitting}>
           <Send size={18} />
-          Enviar instrucoes
+          Enviar instruções
         </Button>
       </form>
 

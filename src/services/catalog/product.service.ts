@@ -19,7 +19,7 @@ export class ProductService {
     });
 
     if (duplicatedField) {
-      throw new AppError(`Ja existe produto com este ${duplicatedField}.`, "PRODUCT_IDENTIFIER_EXISTS", 409);
+      throw new AppError(`Já existe um produto com este ${duplicatedField}.`, "PRODUCT_IDENTIFIER_EXISTS", 409);
     }
 
     const product = await this.repository.createProduct(tenantId, branchId, {
@@ -50,7 +50,7 @@ export class ProductService {
     );
 
     if (duplicatedField) {
-      throw new AppError(`Ja existe produto com este ${duplicatedField}.`, "PRODUCT_IDENTIFIER_EXISTS", 409);
+      throw new AppError(`Já existe um produto com este ${duplicatedField}.`, "PRODUCT_IDENTIFIER_EXISTS", 409);
     }
 
     const product = await this.repository.updateProduct(tenantId, branchId, productId, {
@@ -59,7 +59,7 @@ export class ProductService {
     });
 
     if (!product) {
-      throw new AppError("Produto nao encontrado.", "PRODUCT_NOT_FOUND", 404);
+      throw new AppError("Produto não encontrado.", "PRODUCT_NOT_FOUND", 404);
     }
 
     return this.mapProduct(product);
@@ -69,7 +69,7 @@ export class ProductService {
     const deleted = await this.repository.deleteProduct(tenantId, productId);
 
     if (!deleted) {
-      throw new AppError("Produto nao encontrado.", "PRODUCT_NOT_FOUND", 404);
+      throw new AppError("Produto não encontrado.", "PRODUCT_NOT_FOUND", 404);
     }
   }
 

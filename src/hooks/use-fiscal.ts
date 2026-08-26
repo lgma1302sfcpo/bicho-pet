@@ -21,7 +21,7 @@ type Envelope<T> = { data?: T; error?: { message?: string } };
 async function fiscalFetch<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, headers: { "content-type": "application/json", ...init?.headers } });
   const body = await response.json().catch(() => ({})) as Envelope<T>;
-  if (!response.ok) throw new Error(body.error?.message ?? "Nao foi possivel concluir a operacao fiscal.");
+  if (!response.ok) throw new Error(body.error?.message ?? "Não foi possível concluir a operação fiscal.");
   return body.data as T;
 }
 
