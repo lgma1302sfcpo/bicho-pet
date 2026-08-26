@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FileDown, Minus, Plus, ReceiptText, Save } from "lucide-react";
+import { FileDown, LoaderCircle, Minus, Plus, ReceiptText, RefreshCw, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
@@ -267,7 +267,9 @@ export function SaleCreatePage() {
               <h2 className="font-semibold">Últimas vendas</h2>
             </div>
             <div className="divide-y divide-border">
-              {(salesQuery.data ?? []).slice(0, 6).map((sale) => (
+              {salesQuery.isPending ? <div className="flex items-center justify-center gap-2 p-6 text-sm text-subdued" role="status"><LoaderCircle className="animate-spin text-brand-700" size={22} />Atualizando vendas...</div> : null}
+              {salesQuery.isError ? <div className="space-y-3 p-4 text-sm"><p className="text-danger">{salesQuery.error.message}</p><Button type="button" variant="secondary" onClick={() => void salesQuery.refetch()}><RefreshCw size={16} />Tentar novamente</Button></div> : null}
+              {(salesQuery.data ?? []).slice(0, 10).map((sale) => (
                 <div key={sale.id} className="p-4 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -278,7 +280,7 @@ export function SaleCreatePage() {
                   </div>
                 </div>
               ))}
-              {salesQuery.data?.length === 0 ? (
+              {salesQuery.isSuccess && salesQuery.data.length === 0 ? (
                 <div className="p-4 text-sm text-subdued">Nenhuma venda cadastrada.</div>
               ) : null}
             </div>

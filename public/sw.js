@@ -1,4 +1,4 @@
-const CACHE_NAME = "erp-comercial-v1";
+const CACHE_NAME = "erp-comercial-v2";
 const APP_SHELL = ["/", "/login", "/manifest.json", "/casa-dos-bichos-logo.jpg"];
 
 self.addEventListener("install", (event) => {
@@ -16,7 +16,14 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") {
+  const requestUrl = new URL(event.request.url);
+
+  if (
+    event.request.method !== "GET" ||
+    requestUrl.origin !== self.location.origin ||
+    requestUrl.pathname.startsWith("/api/") ||
+    event.request.mode === "navigate"
+  ) {
     return;
   }
 

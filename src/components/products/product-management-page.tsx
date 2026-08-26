@@ -7,6 +7,7 @@ import { ProductCreateForm } from "@/components/products/product-create-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataErrorState, DataLoadingState } from "@/components/ui/data-state";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -48,6 +49,24 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
       ...current,
       [key]: value
     }));
+  }
+
+  if (productsQuery.isPending) {
+    return (
+      <div className="erp-page">
+        <div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Produtos</h1><p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p></div></div>
+        <DataLoadingState label="Carregando produtos e saldos de estoque..." />
+      </div>
+    );
+  }
+
+  if (productsQuery.isError) {
+    return (
+      <div className="erp-page">
+        <div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Produtos</h1><p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p></div></div>
+        <DataErrorState message={productsQuery.error.message} onRetry={() => void productsQuery.refetch()} />
+      </div>
+    );
   }
 
   return (

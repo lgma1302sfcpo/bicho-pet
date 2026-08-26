@@ -26,6 +26,7 @@ type CustomerListResponse = {
 async function apiFetch<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, {
     ...init,
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...init?.headers
@@ -112,7 +113,8 @@ export function useSendCustomerEmail() {
 export function useSales() {
   return useQuery({
     queryKey: ["commerce", "sales"],
-    queryFn: () => apiFetch<SaleListItemDTO[]>("/api/sales")
+    queryFn: () => apiFetch<SaleListItemDTO[]>("/api/sales"),
+    refetchOnMount: "always"
   });
 }
 
@@ -125,10 +127,16 @@ export function useCreateSale() {
         method: "POST",
         body: JSON.stringify(payload)
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["commerce", "customers"] });
-      queryClient.invalidateQueries({ queryKey: ["commerce", "sales"] });
-      queryClient.invalidateQueries({ queryKey: ["catalog", "products"] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["commerce", "customers"] }),
+        queryClient.invalidateQueries({ queryKey: ["commerce", "sales"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalog", "products"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+        queryClient.invalidateQueries({ queryKey: ["finance"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["fiscal"] })
+      ]);
     }
   });
 }

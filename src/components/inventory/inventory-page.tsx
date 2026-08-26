@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataErrorState, DataLoadingState } from "@/components/ui/data-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useCreateInventoryMovement, useInventory } from "@/hooks/use-operations";
@@ -36,6 +37,14 @@ export function InventoryPage() {
       await createMovement.mutateAsync({ productId, type, quantity, reason, reference });
       setQuantity(""); setReference(""); setFeedback("Movimentação registrada e saldo atualizado.");
     } catch (error) { setFeedback(error instanceof Error ? error.message : "Não foi possível movimentar o estoque."); }
+  }
+
+  if (inventory.isPending) {
+    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Estoque</h1><p className="text-sm text-subdued">Saldos atuais e histórico completo de entradas, saídas e ajustes.</p></div><DataLoadingState label="Carregando estoque e movimentações..." /></div>;
+  }
+
+  if (inventory.isError) {
+    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Estoque</h1><p className="text-sm text-subdued">Saldos atuais e histórico completo de entradas, saídas e ajustes.</p></div><DataErrorState message={inventory.error.message} onRetry={() => void inventory.refetch()} /></div>;
   }
 
   return <div className="erp-page">

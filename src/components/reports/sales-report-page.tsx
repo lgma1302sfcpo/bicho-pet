@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataErrorState, DataLoadingState } from "@/components/ui/data-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { SaleListItemDTO } from "@/dtos/commerce/sale.dto";
@@ -117,6 +118,14 @@ export function SalesReportPage() {
       { name: "Categoria e produto", rows: byCategory },
       { name: "Fornecedores", rows: bySupplier }
     ]);
+  }
+
+  if (salesQuery.isPending) {
+    return <div className="erp-page"><div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Relatórios gerenciais</h1><p className="text-sm text-subdued">Vendas, lucratividade, pagamentos, produtos e fornecedores.</p></div></div><DataLoadingState label="Carregando vendas e indicadores do relatório..." /></div>;
+  }
+
+  if (salesQuery.isError) {
+    return <div className="erp-page"><div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Relatórios gerenciais</h1><p className="text-sm text-subdued">Vendas, lucratividade, pagamentos, produtos e fornecedores.</p></div></div><DataErrorState message={salesQuery.error.message} onRetry={() => void salesQuery.refetch()} /></div>;
   }
 
   return (

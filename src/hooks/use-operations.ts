@@ -11,7 +11,7 @@ export type FinancialEntry = { id: string; saleId?: string | null; type: "REVENU
 export type DashboardData = { metrics: { revenue: number; grossProfit: number; margin: number; pendingExpenses: number; lowStock: number }; cashFlow: Array<{ day: string; revenue: number; expense: number }>; topProducts: Array<{ name: string; quantity: number }>; latestSales: Array<{ id: string; code: string; customerName: string; paymentMethod: string; total: number; soldAt: string }>; upcomingExpenses: Array<{ id: string; description: string; amount: number; dueDate: string }> };
 
 async function api<T>(url: string, init?: RequestInit) {
-  const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
+  const response = await fetch(url, { ...init, cache: "no-store", headers: { "Content-Type": "application/json", ...init?.headers } });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error?.message ?? "Não foi possível concluir a operação.");
   return body.data as T;

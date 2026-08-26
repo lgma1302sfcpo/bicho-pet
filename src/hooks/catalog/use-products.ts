@@ -25,6 +25,7 @@ type ProductListResponse = {
 async function apiFetch<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, {
     ...init,
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...init?.headers
