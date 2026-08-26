@@ -1,4 +1,4 @@
-# Auditoria e orçamento — ERP Comercial / ReservaPet
+# Auditoria e orçamento — Sistema Casa dos Bichos
 
 Data da auditoria: 24/08/2026.
 

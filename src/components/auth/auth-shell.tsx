@@ -1,6 +1,7 @@
+import { Boxes, Heart, PawPrint, ShieldCheck, ShoppingBag, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Card } from "@/components/ui/card";
+import { BrandLogo } from "@/components/brand-logo";
 
 type AuthShellProps = {
   title: string;
@@ -10,44 +11,82 @@ type AuthShellProps = {
 
 export function AuthShell({ title, subtitle, children }: AuthShellProps) {
   return (
-    <main className="grid min-h-screen grid-cols-1 bg-muted lg:grid-cols-[minmax(360px,520px)_1fr]">
-      <section className="flex min-h-screen items-center justify-center px-5 py-10">
-        <Card className="w-full max-w-md p-6">
-          <div className="mb-6">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-md bg-brand-600 text-sm font-bold text-white">
-                ERP
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-ink">ERP Comercial</p>
-                <p className="text-xs text-subdued">Gestao multiempresa</p>
-              </div>
-            </div>
-            <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-            <p className="mt-1 text-sm text-subdued">{subtitle}</p>
-          </div>
-          {children}
-        </Card>
-      </section>
+    <main className="relative min-h-screen overflow-hidden bg-[#f6f8fc] lg:grid lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1.08fr)]">
+      <section className="relative hidden min-h-screen overflow-hidden bg-brand-700 px-12 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-16">
+        <div className="auth-paw-pattern absolute inset-0 opacity-10" aria-hidden="true" />
+        <div className="absolute -left-28 top-1/3 h-80 w-80 rounded-full bg-pet-yellow/20 blur-3xl" aria-hidden="true" />
+        <div className="absolute -right-28 -top-24 h-96 w-96 rounded-full bg-blue-400/20 blur-3xl" aria-hidden="true" />
 
-      <section className="hidden border-l border-border bg-white px-10 py-10 lg:block">
-        <div className="grid h-full content-between">
-          <div className="max-w-xl">
-            <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">
-              Base operacional
-            </p>
-            <h2 className="mt-3 text-4xl font-semibold text-ink">
-              Controle comercial preparado para crescer por modulo.
-            </h2>
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="rounded-full bg-white p-1.5 shadow-2xl shadow-blue-950/30">
+            <BrandLogo className="h-16 w-16" priority />
           </div>
-          <div className="grid grid-cols-3 gap-3 text-sm">
-            {["Empresas", "Cargos", "Permissoes"].map((item) => (
-              <div key={item} className="rounded-lg border border-border bg-muted p-4">
-                <p className="font-semibold text-ink">{item}</p>
-                <p className="mt-1 text-xs text-subdued">Modulo Identity</p>
+          <div>
+            <p className="text-xl font-extrabold tracking-tight">Casa dos Bichos</p>
+            <p className="text-sm font-medium text-blue-100">Gestão do pet shop</p>
+          </div>
+        </div>
+
+        <div className="relative z-10 max-w-xl py-16">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-50 backdrop-blur-sm">
+            <Sparkles size={15} className="text-pet-yellow" />
+            Tudo em um só lugar
+          </div>
+          <h2 className="max-w-lg text-4xl font-extrabold leading-[1.1] tracking-tight xl:text-5xl">
+            Cuidado com os bichos. Controle para o negócio.
+          </h2>
+          <p className="mt-5 max-w-lg text-base leading-7 text-blue-100 xl:text-lg">
+            Uma operação mais simples para a equipe dedicar tempo ao que realmente importa: atender bem cada pet e sua família.
+          </p>
+
+          <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
+            {[
+              { icon: ShoppingBag, label: "Vendas" },
+              { icon: Boxes, label: "Estoque" },
+              { icon: Heart, label: "Clientes" }
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 backdrop-blur-sm">
+                <Icon size={22} className="mb-3 text-pet-yellow" />
+                <p className="text-sm font-semibold">{label}</p>
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="relative z-10 flex items-center gap-2 text-sm text-blue-100">
+          <ShieldCheck size={18} className="text-pet-yellow" />
+          Ambiente seguro e exclusivo para a equipe
+        </div>
+      </section>
+
+      <section className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-100/70 blur-3xl lg:hidden" aria-hidden="true" />
+        <div className="relative w-full max-w-[460px]">
+          <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
+            <div className="rounded-full bg-white p-1 shadow-lg">
+              <BrandLogo className="h-14 w-14" priority />
+            </div>
+            <div>
+              <p className="font-extrabold tracking-tight text-brand-700">Casa dos Bichos</p>
+              <p className="text-xs font-medium text-subdued">Gestão do pet shop</p>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-white bg-white/95 p-6 shadow-[0_24px_80px_rgba(25,52,112,0.12)] backdrop-blur sm:p-9">
+            <div className="mb-7">
+              <div className="mb-5 hidden h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 lg:flex">
+                <PawPrint size={23} />
+              </div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Área da equipe</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-ink">{title}</h1>
+              <p className="mt-2 text-sm leading-6 text-subdued">{subtitle}</p>
+            </div>
+            {children}
+          </div>
+
+          <p className="mt-6 text-center text-xs text-slate-400">
+            © {new Date().getFullYear()} Pet Shop Casa dos Bichos
+          </p>
         </div>
       </section>
     </main>

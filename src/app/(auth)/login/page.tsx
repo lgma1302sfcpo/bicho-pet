@@ -3,7 +3,7 @@ import { LoginForm } from "@/components/auth/login-form";
 
 export default function LoginPage() {
   return (
-    <AuthShell title="Entrar" subtitle="Acesse sua empresa e continue a operacao.">
+    <AuthShell title="Bem-vindo de volta" subtitle="Entre com seus dados para acessar o painel da Casa dos Bichos.">
       <LoginForm />
     </AuthShell>
   );

@@ -12,6 +12,12 @@ import { Select } from "@/components/ui/select";
 import { CustomerCreateForm } from "@/components/customers/customer-create-form";
 import type { CustomerFiltersDTO, CustomerListItemDTO } from "@/dtos/commerce/customer.dto";
 import { useCustomers, useDeleteCustomer, useSendCustomerEmail } from "@/hooks/commerce/use-commerce";
+import {
+  buildCustomerWhatsAppMessage,
+  buildWhatsAppUrl,
+  WHATSAPP_MESSAGE_TYPES,
+  type WhatsAppMessageType
+} from "@/lib/customer-whatsapp";
 import { parseBrazilianNumber } from "@/lib/utils";
 
 function formatCurrency(value: number) {
@@ -39,8 +45,11 @@ export function CustomerEngagementPage() {
   const deleteCustomer = useDeleteCustomer();
   const sendCustomerEmail = useSendCustomerEmail();
   const [editingCustomer, setEditingCustomer] = useState<CustomerListItemDTO | null>(null);
+  const [whatsappCustomer, setWhatsappCustomer] = useState<CustomerListItemDTO | null>(null);
+  const [whatsappMessageType, setWhatsappMessageType] = useState<WhatsAppMessageType>("AUTOMATIC");
+  const [whatsappMessage, setWhatsappMessage] = useState("");
   const [emailCustomer, setEmailCustomer] = useState<CustomerListItemDTO | null>(null);
-  const [emailSubject, setEmailSubject] = useState("Sentimos sua falta na ReservaPet");
+  const [emailSubject, setEmailSubject] = useState("Sentimos sua falta na Casa dos Bichos");
   const [emailMessage, setEmailMessage] = useState("Temos uma condicao especial para voce voltar esta semana.");
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
   const customers = customersQuery.data?.customers ?? [];
@@ -77,6 +86,18 @@ export function CustomerEngagementPage() {
 
   function applyPreset(nextFilters: CustomerFiltersDTO) {
     setFilters(nextFilters);
+  }
+
+  function prepareWhatsApp(customer: CustomerListItemDTO) {
+    setWhatsappCustomer(customer);
+    setWhatsappMessageType("AUTOMATIC");
+    setWhatsappMessage(buildCustomerWhatsAppMessage(customer, "AUTOMATIC"));
+    setEmailCustomer(null);
+  }
+
+  function changeWhatsAppMessageType(type: WhatsAppMessageType) {
+    setWhatsappMessageType(type);
+    if (whatsappCustomer) setWhatsappMessage(buildCustomerWhatsAppMessage(whatsappCustomer, type));
   }
 
   return (
@@ -313,20 +334,17 @@ export function CustomerEngagementPage() {
                             {customer.reactivationLabel}
                           </Badge>
                           {customer.whatsapp ? (
-                            <a
-                              className="inline-flex items-center gap-2 text-sm font-semibold text-success"
-                              href={`https://wa.me/55${customer.whatsapp}?text=${encodeURIComponent(
-                                `Oi ${customer.name}, sentimos sua falta no Pet Shop Casa dos Bichos. Temos uma condicao especial para voce voltar esta semana.`
-                              )}`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <Button
+                              variant="secondary"
+                              className="border-emerald-200 text-success"
+                              onClick={() => prepareWhatsApp(customer)}
                             >
                               <MessageCircle size={16} />
-                              WhatsApp
-                            </a>
+                              Preparar WhatsApp
+                            </Button>
                           ) : null}
                           {customer.email ? (
-                            <Button variant="secondary" onClick={() => { setEmailCustomer(customer); setEmailFeedback(null); }}>
+                            <Button variant="secondary" onClick={() => { setEmailCustomer(customer); setWhatsappCustomer(null); setEmailFeedback(null); }}>
                               <Mail size={16} /> Email
                             </Button>
                           ) : null}
@@ -354,6 +372,89 @@ export function CustomerEngagementPage() {
         </div>
 
         <div className="space-y-5">
+          {whatsappCustomer ? (
+            <Card className="p-4">
+              <div className="mb-4 flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2 text-success">
+                    <MessageCircle size={18} />
+                    <h2 className="font-semibold text-ink">Preparar WhatsApp</h2>
+                  </div>
+                  <p className="mt-1 text-sm text-subdued">
+                    Para {whatsappCustomer.name} ({whatsappCustomer.whatsapp})
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={() => setWhatsappCustomer(null)}>Fechar</Button>
+              </div>
+
+              <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-md border border-border bg-muted p-3">
+                  <p className="text-xs text-subdued">Última compra</p>
+                  <p className="mt-1 font-semibold">{formatDate(whatsappCustomer.lastPurchaseAt)}</p>
+                </div>
+                <div className="rounded-md border border-border bg-muted p-3">
+                  <p className="text-xs text-subdued">Tempo sem comprar</p>
+                  <p className="mt-1 font-semibold">
+                    {whatsappCustomer.daysSinceLastPurchase == null
+                      ? "Sem histórico"
+                      : `${whatsappCustomer.daysSinceLastPurchase} ${whatsappCustomer.daysSinceLastPurchase === 1 ? "dia" : "dias"}`}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-muted p-3">
+                  <p className="text-xs text-subdued">Quantidade de compras</p>
+                  <p className="mt-1 font-semibold">{whatsappCustomer.purchaseCount}</p>
+                </div>
+                <div className="rounded-md border border-border bg-muted p-3">
+                  <p className="text-xs text-subdued">Total comprado</p>
+                  <p className="mt-1 font-semibold">{formatCurrency(whatsappCustomer.totalSpent)}</p>
+                </div>
+              </div>
+
+              {activeFilterLabels.length ? (
+                <div className="mb-4 rounded-md border border-brand-100 bg-brand-50 p-3 text-xs text-brand-700">
+                  <strong>Cliente encontrado pelos filtros:</strong> {activeFilterLabels.join(" · ")}
+                </div>
+              ) : null}
+
+              {whatsappCustomer.tags.length ? (
+                <div className="mb-4 flex flex-wrap gap-1">
+                  {whatsappCustomer.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}
+                </div>
+              ) : null}
+
+              <div className="space-y-3">
+                <Select
+                  label="Tipo de mensagem"
+                  help="A sugestão automática usa o histórico de compras do cliente."
+                  value={whatsappMessageType}
+                  onChange={(event) => changeWhatsAppMessageType(event.target.value as WhatsAppMessageType)}
+                >
+                  {WHATSAPP_MESSAGE_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </Select>
+                <label className="block text-sm font-medium text-ink">
+                  Mensagem
+                  <textarea
+                    className="mt-1 min-h-44 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
+                    value={whatsappMessage}
+                    onChange={(event) => setWhatsappMessage(event.target.value)}
+                  />
+                </label>
+                <p className="text-xs text-subdued">
+                  Revise e altere a mensagem se quiser. O total gasto aparece somente para o funcionário e não é enviado ao cliente.
+                </p>
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={!whatsappMessage.trim() || !whatsappCustomer.whatsapp}
+                  onClick={() => window.open(buildWhatsAppUrl(whatsappCustomer.whatsapp!, whatsappMessage), "_blank", "noopener,noreferrer")}
+                >
+                  <MessageCircle size={17} /> Abrir conversa no WhatsApp
+                </Button>
+                <p className="text-center text-xs text-subdued">A mensagem só será enviada quando você confirmar no WhatsApp.</p>
+              </div>
+            </Card>
+          ) : null}
           {emailCustomer ? (
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between gap-2">

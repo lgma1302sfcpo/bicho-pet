@@ -16,12 +16,13 @@ const config: Config = {
         ink: "#111827",
         subdued: "#5b6575",
         brand: {
-          50: "#eef8ff",
-          100: "#d9f0ff",
-          500: "#0b84d8",
-          600: "#076fb8",
-          700: "#075a95"
+          50: "#eef3ff",
+          100: "#dce7ff",
+          500: "#2458bd",
+          600: "#1d4ca8",
+          700: "#173e91"
         },
+        "pet-yellow": "#f2e832",
         success: "#16875a",
         warning: "#b7791f",
         danger: "#c2413b"

@@ -48,9 +48,11 @@ export function LoginForm() {
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
       <Input
-        label="Email"
+        label="E-mail"
         type="email"
         autoComplete="email"
+        placeholder="seuemail@casadosbichos.com.br"
+        className="h-12 rounded-xl border-slate-200 bg-slate-50/70 px-4 focus:bg-white"
         error={errors.email?.message}
         {...register("email")}
       />
@@ -58,6 +60,8 @@ export function LoginForm() {
         label="Senha"
         type="password"
         autoComplete="current-password"
+        placeholder="Digite sua senha"
+        className="h-12 rounded-xl border-slate-200 bg-slate-50/70 px-4 focus:bg-white"
         error={errors.password?.message}
         {...register("password")}
       />
@@ -68,17 +72,17 @@ export function LoginForm() {
         </div>
       ) : null}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button type="submit" className="h-12 w-full rounded-xl shadow-lg shadow-brand-600/20" disabled={isSubmitting}>
         <LogIn size={18} />
-        Entrar
+        {isSubmitting ? "Entrando..." : "Entrar no sistema"}
       </Button>
 
-      <div className="flex flex-col gap-2 text-sm text-subdued sm:flex-row sm:items-center sm:justify-between">
-        <Link className="inline-flex items-center gap-2 hover:text-brand-700" href="/recuperar-senha">
+      <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm text-subdued sm:flex-row sm:items-center sm:justify-between">
+        <Link className="inline-flex items-center gap-2 font-medium transition hover:text-brand-700" href="/recuperar-senha">
           <KeyRound size={16} />
           Recuperar senha
         </Link>
-        <Link className="inline-flex items-center gap-2 hover:text-brand-700" href="/cadastro">
+        <Link className="inline-flex items-center gap-2 font-medium transition hover:text-brand-700" href="/cadastro">
           <Mail size={16} />
           Criar conta
         </Link>

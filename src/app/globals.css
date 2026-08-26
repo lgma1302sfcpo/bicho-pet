@@ -4,8 +4,18 @@
 
 :root {
   color-scheme: light;
-  background: #f3f6fa;
+  background: #f6f8fc;
   color: #111827;
+}
+
+.auth-paw-pattern {
+  background-image:
+    radial-gradient(circle at 20px 20px, currentColor 0 4px, transparent 4.5px),
+    radial-gradient(circle at 10px 34px, currentColor 0 3px, transparent 3.5px),
+    radial-gradient(circle at 30px 34px, currentColor 0 3px, transparent 3.5px),
+    radial-gradient(ellipse at 20px 38px, currentColor 0 8px, transparent 8.5px);
+  background-size: 92px 92px;
+  transform: rotate(-8deg) scale(1.1);
 }
 
 * {

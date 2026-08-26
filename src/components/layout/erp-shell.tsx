@@ -21,6 +21,7 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -76,11 +77,11 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
       <aside className="border-b border-border bg-white lg:min-h-screen lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 lg:block">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-md bg-brand-600 text-sm font-bold text-white">
-              GC
+            <div className="rounded-full bg-white p-0.5 shadow-sm ring-1 ring-border">
+              <BrandLogo className="h-10 w-10" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">Gestão Comercial</p>
+              <p className="truncate text-sm font-semibold">Casa dos Bichos</p>
               <p className="truncate text-xs text-subdued">{user.currentTenantName}</p>
             </div>
           </div>

@@ -6,18 +6,19 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ERP Comercial",
-    template: "%s | ERP Comercial"
+    default: "Casa dos Bichos",
+    template: "%s | Casa dos Bichos"
   },
-  description: "ERP comercial responsivo para pequenos e medios comercios.",
+  description: "Sistema de gestão da Pet Shop Casa dos Bichos.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon.svg"
+    icon: "/casa-dos-bichos-logo.jpg",
+    apple: "/casa-dos-bichos-logo.jpg"
   }
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b84d8"
+  themeColor: "#173e91"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

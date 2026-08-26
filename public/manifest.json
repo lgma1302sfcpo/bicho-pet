@@ -1,16 +1,17 @@
 {
-  "name": "ERP Comercial",
-  "short_name": "ERP",
-  "description": "ERP comercial para pequenos e medios comercios.",
+  "name": "Casa dos Bichos",
+  "short_name": "Casa dos Bichos",
+  "description": "Sistema de gestão da Pet Shop Casa dos Bichos.",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#f3f6fa",
-  "theme_color": "#0b84d8",
+  "background_color": "#f6f8fc",
+  "theme_color": "#173e91",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "/casa-dos-bichos-logo.jpg",
+      "sizes": "100x100",
+      "type": "image/jpeg",
+      "purpose": "any"
     }
   ]
 }

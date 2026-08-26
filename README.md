@@ -1,4 +1,4 @@
-# ERP Comercial
+# Sistema Casa dos Bichos
 
 Sistema web comercial inspirado no fluxo do Nex, construído com Next.js 15, TypeScript, TailwindCSS, Prisma, PostgreSQL e NextAuth.
 
