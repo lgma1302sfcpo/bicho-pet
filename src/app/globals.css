@@ -62,7 +62,7 @@ a {
 
 .erp-content {
   width: 100%;
-  max-width: 1520px;
+  max-width: 1480px;
   margin-inline: auto;
 }
 
@@ -84,10 +84,17 @@ a {
   min-width: 0;
   flex-direction: column;
   gap: 0.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(207, 215, 227, 0.85);
 }
 
 .erp-page > :first-child:not(section) {
   min-width: 0;
+}
+
+.erp-page > :first-child:not(section):not(.ui-card) {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(207, 215, 227, 0.85);
 }
 
 .erp-page > :first-child:not(section) > h1,
@@ -125,7 +132,9 @@ a {
 .erp-shell .ui-card {
   border-color: #dce2eb;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.055);
+  box-shadow:
+    0 1px 2px rgba(17, 24, 39, 0.025),
+    0 8px 24px rgba(17, 24, 39, 0.06);
 }
 
 .erp-shell .ui-card[class*="p-4"] {
@@ -141,10 +150,24 @@ a {
 }
 
 .erp-metrics > .ui-card {
+  position: relative;
   display: flex;
   min-height: 7rem;
   flex-direction: column;
   justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(145deg, #ffffff 55%, #f5f8ff 100%);
+}
+
+.erp-metrics > .ui-card::before,
+.erp-page > section.grid:first-of-type:has(> .ui-card:nth-child(3)):not(:has(> .ui-card svg)) > .ui-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2458bd, #91b1f6);
+  content: "";
 }
 
 .erp-metrics > .ui-card p:last-child,
@@ -158,6 +181,7 @@ a {
   padding-block: 0.55rem;
   line-height: 1.2;
   white-space: nowrap;
+  border-radius: 0.5rem;
 }
 
 .erp-shell .ui-button:focus-visible,
@@ -244,10 +268,13 @@ a {
 }
 
 .erp-page > section.grid:first-of-type:has(> .ui-card:nth-child(3)):not(:has(> .ui-card svg)) > .ui-card {
+  position: relative;
   display: flex;
   min-height: 7rem;
   flex-direction: column;
   justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(145deg, #ffffff 55%, #f5f8ff 100%);
 }
 
 .erp-shell table {
@@ -263,6 +290,8 @@ a {
   line-height: 1.25;
   letter-spacing: 0.045em;
   white-space: nowrap;
+  border-bottom: 1px solid #d8dee8;
+  background: #f3f6fa;
 }
 
 .erp-shell table td {
@@ -279,6 +308,14 @@ a {
   background: #f8faff;
 }
 
+.erp-shell table tbody tr:nth-child(even) {
+  background: rgba(248, 250, 252, 0.55);
+}
+
+.erp-shell table tbody tr:nth-child(even):hover {
+  background: #f4f7fd;
+}
+
 .erp-filter-card > :first-child,
 .erp-card-header {
   min-width: 0;
@@ -286,6 +323,10 @@ a {
 
 .erp-page .ui-card:has(> div + div.grid) > div:first-child {
   flex-wrap: wrap;
+}
+
+.erp-page .ui-card:has(> div + div.grid) {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
 }
 
 .erp-page h2,
@@ -296,6 +337,10 @@ a {
 
 .erp-filter-card .ui-field {
   min-width: 0;
+}
+
+.erp-filter-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
 }
 
 .erp-filter-presets .ui-button {
@@ -309,6 +354,10 @@ a {
 
 .erp-dashboard-chart .recharts-tooltip-wrapper {
   outline: none;
+}
+
+.erp-dashboard-chart {
+  border-top: 3px solid #dce7ff;
 }
 
 .erp-form-section {
@@ -344,7 +393,7 @@ a {
 }
 
 .ui-modal-header {
-  background: rgba(255, 255, 255, 0.98);
+  background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
 }
 
 .ui-modal-body {
@@ -384,6 +433,9 @@ a {
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
+    border-right-color: #d2dae6;
+    background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+    box-shadow: 6px 0 24px rgba(17, 24, 39, 0.035);
   }
 
   .erp-sidebar__brand,
@@ -400,6 +452,21 @@ a {
 
   .erp-sidebar__footer {
     margin-top: auto;
+    background: rgba(248, 250, 252, 0.72);
+  }
+
+  .erp-sidebar__branch {
+    background: rgba(246, 248, 252, 0.7);
+  }
+
+  .erp-nav__item {
+    border: 1px solid transparent;
+  }
+
+  .erp-nav__item.bg-brand-50 {
+    border-color: #dce7ff;
+    background: linear-gradient(90deg, #eef3ff 0%, #f7f9ff 100%);
+    box-shadow: inset 3px 0 #2458bd;
   }
 
 }
