@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataErrorState, DataLoadingState } from "@/components/ui/data-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useCreateFinancialEntry, useDeleteFinancialEntry, useFinance, useUpdateFinancialStatus } from "@/hooks/use-operations";
@@ -46,6 +47,14 @@ export function FinancePage() {
       await createEntry.mutateAsync({ type, status, description, category, amount, dueDate, paymentMethod, notes });
       setDescription(""); setAmount(""); setNotes(""); setFeedback("Lançamento financeiro salvo com sucesso.");
     } catch (error) { setFeedback(error instanceof Error ? error.message : "Não foi possível salvar o lançamento."); }
+  }
+
+  if (finance.isPending) {
+    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Financeiro</h1><p className="text-sm text-subdued">Controle de receitas, despesas, vencimentos e pagamentos.</p></div><DataLoadingState label="Carregando lançamentos financeiros..." /></div>;
+  }
+
+  if (finance.isError) {
+    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Financeiro</h1><p className="text-sm text-subdued">Controle de receitas, despesas, vencimentos e pagamentos.</p></div><DataErrorState message={finance.error.message} onRetry={() => void finance.refetch()} /></div>;
   }
 
   return <div className="erp-page">

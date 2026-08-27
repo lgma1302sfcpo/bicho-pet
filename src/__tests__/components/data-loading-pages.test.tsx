@@ -3,11 +3,13 @@ import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InventoryPage } from "@/components/inventory/inventory-page";
+import { CustomerEngagementPage } from "@/components/customers/customer-engagement-page";
+import { FinancePage } from "@/components/finance/finance-page";
 import { ProductManagementPage } from "@/components/products/product-management-page";
 import { SalesReportPage } from "@/components/reports/sales-report-page";
 import { useProducts } from "@/hooks/catalog/use-products";
-import { useSales } from "@/hooks/commerce/use-commerce";
-import { useInventory } from "@/hooks/use-operations";
+import { useCustomers, useSales } from "@/hooks/commerce/use-commerce";
+import { useFinance, useInventory } from "@/hooks/use-operations";
 
 vi.stubGlobal("React", React);
 
@@ -19,12 +21,18 @@ vi.mock("@/hooks/catalog/use-products", () => ({
 }));
 
 vi.mock("@/hooks/commerce/use-commerce", () => ({
-  useSales: vi.fn()
+  useSales: vi.fn(),
+  useCustomers: vi.fn(),
+  useDeleteCustomer: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() }))
 }));
 
 vi.mock("@/hooks/use-operations", () => ({
   useInventory: vi.fn(),
-  useCreateInventoryMovement: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() }))
+  useCreateInventoryMovement: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
+  useFinance: vi.fn(),
+  useCreateFinancialEntry: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
+  useUpdateFinancialStatus: vi.fn(() => ({ isPending: false, mutate: vi.fn() })),
+  useDeleteFinancialEntry: vi.fn(() => ({ isPending: false, mutate: vi.fn() }))
 }));
 
 const pendingQuery = {
@@ -40,6 +48,8 @@ describe("carregamento das telas operacionais", () => {
     vi.mocked(useProducts).mockReturnValue(pendingQuery as unknown as ReturnType<typeof useProducts>);
     vi.mocked(useInventory).mockReturnValue(pendingQuery as unknown as ReturnType<typeof useInventory>);
     vi.mocked(useSales).mockReturnValue(pendingQuery as unknown as ReturnType<typeof useSales>);
+    vi.mocked(useCustomers).mockReturnValue(pendingQuery as unknown as ReturnType<typeof useCustomers>);
+    vi.mocked(useFinance).mockReturnValue(pendingQuery as unknown as ReturnType<typeof useFinance>);
   });
 
   it("não apresenta produtos zerados antes de receber a resposta", () => {
@@ -58,5 +68,17 @@ describe("carregamento das telas operacionais", () => {
     render(<SalesReportPage />);
     expect(screen.getByText("Carregando vendas e indicadores do relatório...")).toBeInTheDocument();
     expect(screen.queryByText("Nenhuma venda encontrada.")).not.toBeInTheDocument();
+  });
+
+  it("não apresenta clientes zerados antes de receber a resposta", () => {
+    render(<CustomerEngagementPage />);
+    expect(screen.getByText("Carregando clientes e histórico de compras...")).toBeInTheDocument();
+    expect(screen.queryByText("Nenhum cliente encontrado para os filtros atuais.")).not.toBeInTheDocument();
+  });
+
+  it("não apresenta financeiro zerado antes de receber os lançamentos", () => {
+    render(<FinancePage />);
+    expect(screen.getByText("Carregando lançamentos financeiros...")).toBeInTheDocument();
+    expect(screen.queryByText("Nenhum lançamento encontrado com os filtros atuais.")).not.toBeInTheDocument();
   });
 });

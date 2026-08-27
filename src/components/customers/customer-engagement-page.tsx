@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataErrorState, DataLoadingState } from "@/components/ui/data-state";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -94,6 +95,24 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
   function changeWhatsAppMessageType(type: WhatsAppMessageType) {
     setWhatsappMessageType(type);
     if (whatsappCustomer) setWhatsappMessage(buildCustomerWhatsAppMessage(whatsappCustomer, type));
+  }
+
+  if (customersQuery.isPending) {
+    return (
+      <div className="erp-page">
+        <div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Clientes</h1><p className="text-sm text-subdued">Localize clientes e prepare mensagens de relacionamento pelo WhatsApp.</p></div></div>
+        <DataLoadingState label="Carregando clientes e histórico de compras..." />
+      </div>
+    );
+  }
+
+  if (customersQuery.isError) {
+    return (
+      <div className="erp-page">
+        <div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Clientes</h1><p className="text-sm text-subdued">Localize clientes e prepare mensagens de relacionamento pelo WhatsApp.</p></div></div>
+        <DataErrorState message={customersQuery.error.message} onRetry={() => void customersQuery.refetch()} />
+      </div>
+    );
   }
 
   return (

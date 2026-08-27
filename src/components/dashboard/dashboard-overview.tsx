@@ -13,7 +13,7 @@ export function DashboardOverview() {
   const dashboard = useDashboard();
   const data = dashboard.data;
 
-  if (dashboard.isPending) {
+  if (dashboard.isPending || (dashboard.isFetching && !data)) {
     return <DashboardLoading />;
   }
 
