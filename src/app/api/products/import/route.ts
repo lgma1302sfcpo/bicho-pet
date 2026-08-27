@@ -29,15 +29,21 @@ export async function POST(request: NextRequest) {
       return key ? row[key] : undefined;
     };
     const seen = new Set<string>();
-    const data = rows.map((row, index) => {
+    const data: ReturnType<typeof createProductSchema.parse>[] = [];
+    let invalid = 0;
+    let duplicateRows = 0;
+    rows.forEach((row, index) => {
       const code = text(find(row, "codigo", "código")) || undefined;
       const sku = text(find(row, "codigo ref.", "codigo ref", "sku")) || undefined;
       const barcode = text(find(row, "ean / gtin", "ean", "gtin", "codigo extra")) || undefined;
-      for (const [label, value] of [["código", code], ["SKU", sku], ["código de barras", barcode]] as const) {
-        if (value && seen.has(`${label}:${value}`)) throw new Error(`Linha ${index + 2}: ${label} repetido (${value}).`);
-        if (value) seen.add(`${label}:${value}`);
+      const identifiers = [["código", code], ["SKU", sku], ["código de barras", barcode]] as const;
+      if (identifiers.some(([label, value]) => value && seen.has(`${label}:${value}`))) {
+        duplicateRows += 1;
+        return;
       }
-      return createProductSchema.parse({
+      identifiers.forEach(([label, value]) => { if (value) seen.add(`${label}:${value}`); });
+      try {
+        data.push(createProductSchema.parse({
         name: text(find(row, "nome", "produto")),
         code, sku, barcode,
         category: text(find(row, "categoria")) || "Sem categoria",
@@ -56,18 +62,23 @@ export async function POST(request: NextRequest) {
         defaultCfop: text(find(row, "tributacao", "tributação")) .match(/\b\d{4}\b/)?.[0],
         fiscalItemType: "GOOD",
         fiscalApproved: false
-      });
+        }));
+      } catch {
+        invalid += 1;
+      }
     });
+    if (!data.length) throw new Error("Nenhum produto válido foi encontrado na planilha.");
     const result = await prisma.$transaction(async (tx) => {
       let imported = 0;
       for (const item of data) {
-        const duplicate = await tx.product.findFirst({ where: { tenantId: session.user.currentTenantId, OR: [item.code ? { code: item.code } : undefined, item.sku ? { sku: item.sku } : undefined, item.barcode ? { barcode: item.barcode } : undefined].filter(Boolean) as object[] } });
+        const identifiers = [item.code ? { code: item.code } : null, item.sku ? { sku: item.sku } : null, item.barcode ? { barcode: item.barcode } : null].filter(Boolean) as object[];
+        const duplicate = identifiers.length ? await tx.product.findFirst({ where: { tenantId: session.user.currentTenantId, OR: identifiers } }) : null;
         if (duplicate) continue;
         const margin = item.costPrice > 0 ? ((item.salePrice - item.costPrice) / item.costPrice) * 100 : 0;
         await tx.product.create({ data: { ...item, tenantId: session.user.currentTenantId, marginPercent: margin, branchStocks: { create: { tenantId: session.user.currentTenantId, branchId, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location } } } });
         imported += 1;
       }
-      return { imported, skipped: data.length - imported, total: data.length };
+      return { imported, skipped: data.length - imported, total: rows.length, duplicateRows, invalidRows: invalid };
     });
     return created(result);
   } catch (error) {
