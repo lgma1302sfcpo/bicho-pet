@@ -101,6 +101,7 @@ export function SalesReportPage() {
   const profit = revenue - cost;
   const ticket = sales.length ? revenue / sales.length : 0;
   const byCategory = aggregateItems(sales, (item) => `${item.category ?? "Sem categoria"} / ${item.description}`);
+  const byProduct = aggregateItems(sales, (item) => item.description);
   const bySupplier = aggregateItems(sales, (item) => item.supplier ?? "Fornecedor não informado");
   const byPayment = Object.values(sales.reduce<Record<string, { name: string; sales: number; revenue: number }>>((groups, sale) => {
     const name = paymentLabels[sale.paymentMethod] ?? sale.paymentMethod;
@@ -110,6 +111,14 @@ export function SalesReportPage() {
     groups[sale.paymentMethod] = current;
     return groups;
   }, {})).sort((a, b) => b.revenue - a.revenue);
+  const byHour = Object.values(sales.reduce<Record<string, { name: string; sales: number; revenue: number }>>((groups, sale) => {
+    const name = `${new Date(sale.soldAt).getHours().toString().padStart(2, "0")}:00`;
+    const current = groups[name] ?? { name, sales: 0, revenue: 0 };
+    current.sales += 1;
+    current.revenue += sale.total;
+    groups[name] = current;
+    return groups;
+  }, {})).sort((a, b) => a.name.localeCompare(b.name));
 
   function exportSpreadsheet() {
     downloadXlsx(`relatorios-gerenciais-${new Date().toISOString().slice(0, 10)}.xlsx`, [
@@ -155,7 +164,12 @@ export function SalesReportPage() {
       </Card>
 
       <AnalyticTable title="Vendas por categoria e produto" rows={byCategory} />
+      <AnalyticTable title="Produtos vendidos" rows={byProduct} />
       <AnalyticTable title="Lucratividade por fornecedor" rows={bySupplier} />
+      <Card className="erp-table-card overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3"><TrendingUp size={18} className="text-brand-700" /><h2 className="font-semibold">Horários de pico</h2></div>
+        <div className="erp-table-scroll overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Horário</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Faturamento</th><th className="px-4 py-3">Ticket médio</th></tr></thead><tbody className="divide-y divide-border">{byHour.map((row) => <tr key={row.name}><td className="px-4 py-3 font-medium">{row.name}</td><td className="px-4 py-3">{row.sales}</td><td className="px-4 py-3">{money(row.revenue)}</td><td className="px-4 py-3">{money(row.revenue / row.sales)}</td></tr>)}{!byHour.length ? <tr><td colSpan={4} className="px-4 py-8 text-center text-subdued">Nenhuma venda encontrada.</td></tr> : null}</tbody></table></div>
+      </Card>
       <p className="text-xs text-subdued">Lucro gerencial calculado pelo custo registrado no momento da venda. Descontos e acréscimos são rateados proporcionalmente entre os itens. Não substitui documentos fiscais nem a apuração contábil.</p>
     </div>
   );
