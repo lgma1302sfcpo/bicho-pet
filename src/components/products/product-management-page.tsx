@@ -1,7 +1,7 @@
 "use client";
 
-import { Boxes, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Boxes, FileSpreadsheet, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { ProductCreateForm } from "@/components/products/product-create-form";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,9 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const deleteProduct = useDeleteProduct();
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItemDTO | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const products = productsQuery.data?.products ?? [];
   const summary = productsQuery.data?.summary;
   const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.species ? `Espécie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
@@ -76,8 +79,9 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
           <h1 className="text-2xl font-semibold text-ink">Produtos</h1>
           <p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p>
         </div>
-        {canManage ? <div className="erp-page-header__actions"><Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button></div> : null}
+        {canManage ? <div className="erp-page-header__actions"><input ref={importInput} type="file" accept=".xlsx,.xls" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; setImporting(true); setImportMessage(null); try { const body = new FormData(); body.append("file", file); const response = await fetch("/api/products/import", { method: "POST", body }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message ?? "Não foi possível importar a planilha."); setImportMessage(`Importação concluída: ${payload.data.imported} produto(s) importado(s) e ${payload.data.skipped} ignorado(s).`); await productsQuery.refetch(); } catch (error) { setImportMessage(error instanceof Error ? error.message : "Não foi possível importar a planilha."); } finally { setImporting(false); event.target.value = ""; } }} /><Button variant="secondary" disabled={importing} onClick={() => importInput.current?.click()}><FileSpreadsheet size={18} />{importing ? "Importando..." : "Importar planilha"}</Button><Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button></div> : null}
       </div>
+      {importMessage ? <div className="rounded-md border border-brand-100 bg-brand-50 p-3 text-sm text-brand-700">{importMessage}</div> : null}
 
       <section className="erp-metrics grid gap-3 sm:grid-cols-3">
         {[
