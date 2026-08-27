@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const data: ReturnType<typeof createProductSchema.parse>[] = [];
     let invalid = 0;
     let duplicateRows = 0;
-    rows.forEach((row, index) => {
+    rows.forEach((row) => {
       const code = text(find(row, "codigo", "código")) || undefined;
       const sku = text(find(row, "codigo ref.", "codigo ref", "sku")) || undefined;
       const barcode = text(find(row, "ean / gtin", "ean", "gtin", "codigo extra")) || undefined;
