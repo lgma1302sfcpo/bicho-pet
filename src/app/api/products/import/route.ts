@@ -68,19 +68,23 @@ export async function POST(request: NextRequest) {
       }
     });
     if (!data.length) throw new Error("Nenhum produto válido foi encontrado na planilha.");
-    const result = await prisma.$transaction(async (tx) => {
-      let imported = 0;
-      for (const item of data) {
-        const identifiers = [item.code ? { code: item.code } : null, item.sku ? { sku: item.sku } : null, item.barcode ? { barcode: item.barcode } : null].filter(Boolean) as object[];
-        const duplicate = identifiers.length ? await tx.product.findFirst({ where: { tenantId: session.user.currentTenantId, OR: identifiers } }) : null;
-        if (duplicate) continue;
-        const margin = item.costPrice > 0 ? ((item.salePrice - item.costPrice) / item.costPrice) * 100 : 0;
-        await tx.product.create({ data: { ...item, tenantId: session.user.currentTenantId, marginPercent: margin, branchStocks: { create: { tenantId: session.user.currentTenantId, branchId, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location } } } });
-        imported += 1;
-      }
-      return { imported, skipped: data.length - imported, total: rows.length, duplicateRows, invalidRows: invalid };
+    const existing = await prisma.product.findMany({
+      where: { tenantId: session.user.currentTenantId, OR: data.flatMap((item) => [item.code ? { code: item.code } : null, item.sku ? { sku: item.sku } : null, item.barcode ? { barcode: item.barcode } : null]).filter(Boolean) as object[] },
+      select: { code: true, sku: true, barcode: true }
     });
-    return created(result);
+    const existingKeys = new Set(existing.flatMap((item) => [item.code, item.sku, item.barcode].filter(Boolean).map((value) => String(value))));
+    const pending = data.filter((item) => ![item.code, item.sku, item.barcode].filter(Boolean).some((value) => existingKeys.has(String(value))));
+    const result = await prisma.$transaction(async (tx) => {
+      const productRows = pending.map((item) => {
+        const margin = item.costPrice > 0 ? ((item.salePrice - item.costPrice) / item.costPrice) * 100 : 0;
+        return { ...item, tenantId: session.user.currentTenantId, marginPercent: margin };
+      });
+      const inserted = await tx.product.createManyAndReturn({ data: productRows, select: { id: true, stockQuantity: true, minStock: true, maxStock: true, location: true } });
+      await tx.productBranchStock.createMany({ data: inserted.map((item) => ({ tenantId: session.user.currentTenantId, branchId, productId: item.id, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location })) });
+      return inserted.length;
+    }, { timeout: 120000, maxWait: 15000 });
+    const resultData = { imported: result, skipped: data.length - result, failed: 0, failures: [], total: rows.length, duplicateRows: duplicateRows + (data.length - pending.length), invalidRows: invalid };
+    return created(resultData);
   } catch (error) {
     return errorResponse(error);
   }
