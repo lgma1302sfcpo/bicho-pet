@@ -15,7 +15,7 @@ import { updateCustomerSchema } from "@/schemas/commerce/customer.schemas";
 type CustomerFormProps = {
   customer?: CustomerListItemDTO | null;
   onCancel?: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (customer: CustomerListItemDTO) => void;
 };
 
 const emptyCustomer: UpdateCustomerDTO = {
@@ -57,14 +57,15 @@ export function CustomerCreateForm({ customer, onCancel, onSuccess }: CustomerFo
           .map((tag) => tag.trim())
           .filter(Boolean)
       };
+      let savedCustomer: CustomerListItemDTO;
       if (customer) {
-        await updateCustomer.mutateAsync({ id: customer.id, payload });
+        savedCustomer = await updateCustomer.mutateAsync({ id: customer.id, payload });
       } else {
-        await createCustomer.mutateAsync(payload);
+        savedCustomer = await createCustomer.mutateAsync(payload);
         form.reset(emptyCustomer);
         setTagsText("");
       }
-      onSuccess?.();
+      onSuccess?.(savedCustomer);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar o cliente.");
     }

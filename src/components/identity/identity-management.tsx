@@ -11,19 +11,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import type { CreateRoleDTO, InviteEmployeeDTO } from "@/dtos/identity/auth.dto";
+import type { CreateEmployeeUserDTO, CreateRoleDTO } from "@/dtos/identity/auth.dto";
 import {
   useBranches,
   useCreateBranch,
   useCreateRole,
-  useInvitations,
-  useInviteEmployee,
+  useCreateUser,
   usePermissions,
   useRoles,
   useUsers
 } from "@/hooks/identity/use-identity";
 import type { PermissionKey } from "@/lib/permissions";
-import { createRoleSchema, inviteEmployeeSchema } from "@/schemas/identity/auth.schemas";
+import { loginNameFromEmail } from "@/lib/employee-login";
+import { createEmployeeUserSchema, createRoleSchema } from "@/schemas/identity/auth.schemas";
 
 const moduleLabels: Record<string, string> = {
   dashboard: "Visão geral", customers: "Clientes", products: "Produtos", inventory: "Estoque",
@@ -37,15 +37,14 @@ export function IdentityManagement() {
   const rolesQuery = useRoles();
   const usersQuery = useUsers();
   const branchesQuery = useBranches();
-  const invitationsQuery = useInvitations();
   const createBranch = useCreateBranch();
   const createRole = useCreateRole();
-  const inviteEmployee = useInviteEmployee();
+  const createEmployee = useCreateUser();
   const [roleError, setRoleError] = useState<string | null>(null);
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [employeeError, setEmployeeError] = useState<string | null>(null);
   const [branchName, setBranchName] = useState("");
   const [branchError, setBranchError] = useState<string | null>(null);
-  const [invitationResult, setInvitationResult] = useState<{ invitationUrl?: string; emailSent?: boolean; deliveryWarning?: string } | null>(null);
+  const [employeeSuccess, setEmployeeSuccess] = useState<string | null>(null);
   const [resetResult, setResetResult] = useState<{ name: string; email: string; password: string } | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
 
@@ -53,9 +52,9 @@ export function IdentityManagement() {
     resolver: zodResolver(createRoleSchema),
     defaultValues: { name: "", description: "", permissionKeys: [] }
   });
-  const invitationForm = useForm<InviteEmployeeDTO>({
-    resolver: zodResolver(inviteEmployeeSchema),
-    defaultValues: { email: "", branchId: "", permissionKeys: [] }
+  const employeeForm = useForm<CreateEmployeeUserDTO>({
+    resolver: zodResolver(createEmployeeUserSchema),
+    defaultValues: { name: "", username: "", password: "", branchId: "", permissionKeys: [] }
   });
 
   const permissionsByModule = (() => {
@@ -71,20 +70,20 @@ export function IdentityManagement() {
     roleForm.setValue("permissionKeys", current.includes(key) ? current.filter((item) => item !== key) : [...current, key], { shouldValidate: true });
   }
 
-  function toggleInvitationPermission(key: InviteEmployeeDTO["permissionKeys"][number]) {
-    const current = invitationForm.getValues("permissionKeys");
-    invitationForm.setValue("permissionKeys", current.includes(key) ? current.filter((item) => item !== key) : [...current, key], { shouldValidate: true });
+  function toggleEmployeePermission(key: CreateEmployeeUserDTO["permissionKeys"][number]) {
+    const current = employeeForm.getValues("permissionKeys");
+    employeeForm.setValue("permissionKeys", current.includes(key) ? current.filter((item) => item !== key) : [...current, key], { shouldValidate: true });
   }
 
-  async function submitInvitation(values: InviteEmployeeDTO) {
-    setInviteError(null);
-    setInvitationResult(null);
+  async function submitEmployee(values: CreateEmployeeUserDTO) {
+    setEmployeeError(null);
+    setEmployeeSuccess(null);
     try {
-      const result = await inviteEmployee.mutateAsync(values);
-      setInvitationResult(result);
-      invitationForm.reset({ email: "", branchId: "", permissionKeys: [] });
+      await createEmployee.mutateAsync(values);
+      setEmployeeSuccess(`Funcionário ${values.name} cadastrado. Ele já pode entrar com o usuário ${values.username}.`);
+      employeeForm.reset({ name: "", username: "", password: "", branchId: "", permissionKeys: [] });
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "Não foi possível enviar o convite.");
+      setEmployeeError(error instanceof Error ? error.message : "Não foi possível cadastrar o funcionário.");
     }
   }
 
@@ -128,12 +127,12 @@ export function IdentityManagement() {
   }
 
   return <div className="erp-page">
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold">Usuários e permissões</h1><p className="text-sm text-subdued">O proprietário controla lojas, convites e acessos dos funcionários.</p></div><Button variant="secondary" onClick={() => { void permissionsQuery.refetch(); void rolesQuery.refetch(); void usersQuery.refetch(); void branchesQuery.refetch(); void invitationsQuery.refetch(); }}><RefreshCw size={18}/>Atualizar</Button></div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold">Usuários e permissões</h1><p className="text-sm text-subdued">O proprietário controla lojas, usuários e acessos dos funcionários.</p></div><Button variant="secondary" onClick={() => { void permissionsQuery.refetch(); void rolesQuery.refetch(); void usersQuery.refetch(); void branchesQuery.refetch(); }}><RefreshCw size={18}/>Atualizar</Button></div>
 
     <section className="grid gap-5 2xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
-      <Card className="overflow-hidden">{resetResult ? <div className="m-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm"><p className="font-semibold">Senha temporária de {resetResult.name}</p><p className="mt-1">Envie pelo WhatsApp para <strong>{resetResult.email}</strong>:</p><p className="mt-2 select-all rounded bg-white px-3 py-2 font-mono font-semibold">{resetResult.password}</p><p className="mt-2 text-amber-900">Peça ao funcionário para alterar a senha após entrar.</p></div> : null}{resetError ? <p className="m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{resetError}</p> : null}<div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Pessoas com acesso</h2><p className="text-sm text-subdued">Funcionários ativos e a loja atribuída a cada um.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">E-mail</th><th className="px-4 py-3">Perfil</th><th className="px-4 py-3">Loja</th><th className="px-4 py-3">Situação</th><th className="px-4 py-3">Ações</th></tr></thead><tbody className="divide-y divide-border">{(usersQuery.data ?? []).map((user) => <tr key={`${user.id}-${user.roleId}`}><td className="px-4 py-3 font-medium">{user.name}</td><td className="px-4 py-3 text-subdued">{user.email}</td><td className="px-4 py-3">{user.roleName}</td><td className="px-4 py-3">{user.branchName ?? "Todas as lojas"}</td><td className="px-4 py-3"><Badge>{user.status === "ACTIVE" ? "Ativo" : user.status}</Badge></td><td className="px-4 py-3"><Button variant="secondary" onClick={() => void resetUserPassword(user)}><KeyRound size={16}/>Redefinir senha</Button></td></tr>)}{usersQuery.data?.length === 0 ? <tr><td className="px-4 py-6 text-center text-subdued" colSpan={6}>Nenhum usuário cadastrado.</td></tr> : null}</tbody></table></div></Card>
+      <Card className="overflow-hidden">{resetResult ? <div className="m-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm"><p className="font-semibold">Senha temporária de {resetResult.name}</p><p className="mt-1">Envie ao usuário <strong>{loginNameFromEmail(resetResult.email)}</strong>:</p><p className="mt-2 select-all rounded bg-white px-3 py-2 font-mono font-semibold">{resetResult.password}</p><p className="mt-2 text-amber-900">Peça ao funcionário para alterar a senha após entrar.</p></div> : null}{resetError ? <p className="m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{resetError}</p> : null}<div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Pessoas com acesso</h2><p className="text-sm text-subdued">Funcionários ativos e a loja atribuída a cada um.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">Usuário ou e-mail</th><th className="px-4 py-3">Perfil</th><th className="px-4 py-3">Loja</th><th className="px-4 py-3">Situação</th><th className="px-4 py-3">Ações</th></tr></thead><tbody className="divide-y divide-border">{(usersQuery.data ?? []).map((user) => <tr key={`${user.id}-${user.roleId}`}><td className="px-4 py-3 font-medium">{user.name}</td><td className="px-4 py-3 text-subdued">{loginNameFromEmail(user.email)}</td><td className="px-4 py-3">{user.roleName}</td><td className="px-4 py-3">{user.branchName ?? "Todas as lojas"}</td><td className="px-4 py-3"><Badge>{user.status === "ACTIVE" ? "Ativo" : user.status}</Badge></td><td className="px-4 py-3"><Button variant="secondary" onClick={() => void resetUserPassword(user)}><KeyRound size={16}/>Redefinir senha</Button></td></tr>)}{usersQuery.data?.length === 0 ? <tr><td className="px-4 py-6 text-center text-subdued" colSpan={6}>Nenhum usuário cadastrado.</td></tr> : null}</tbody></table></div></Card>
 
-      <Card className="p-4"><div className="mb-4"><h2 className="font-semibold">Convidar funcionário</h2><p className="text-sm text-subdued">O funcionário receberá um link para criar o próprio nome e senha.</p></div><form className="space-y-3" onSubmit={invitationForm.handleSubmit(submitInvitation)}><Input label="E-mail do funcionário" type="email" error={invitationForm.formState.errors.email?.message} {...invitationForm.register("email")}/><Select label="Loja" help="Esse login verá somente os dados operacionais da loja selecionada." error={invitationForm.formState.errors.branchId?.message} {...invitationForm.register("branchId")}><option value="">Selecione</option>{(branchesQuery.data ?? []).map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.isMain ? " (principal)" : ""}</option>)}</Select><div><p className="mb-2 text-sm font-medium">O que poderá acessar</p>{permissionPicker(invitationForm.watch("permissionKeys"), toggleInvitationPermission)}{invitationForm.formState.errors.permissionKeys?.message ? <p className="mt-1 text-xs text-danger">{invitationForm.formState.errors.permissionKeys.message}</p> : null}</div>{inviteError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{inviteError}</p> : null}{invitationResult ? <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm"><p className="font-medium text-success">{invitationResult.emailSent ? "Convite enviado por e-mail." : "Convite criado. Copie o link para o funcionário."}</p>{invitationResult.invitationUrl ? <a className="mt-2 block break-all text-brand-700 underline" href={invitationResult.invitationUrl}>{invitationResult.invitationUrl}</a> : null}{invitationResult.deliveryWarning ? <p className="mt-2 text-amber-800">{invitationResult.deliveryWarning}</p> : null}</div> : null}<Button className="w-full" type="submit" disabled={inviteEmployee.isPending}><UserPlus size={18}/>Enviar convite</Button></form>{(invitationsQuery.data ?? []).some((item) => item.status === "PENDING") ? <div className="mt-4 border-t border-border pt-3"><p className="mb-2 text-xs font-semibold uppercase text-subdued">Convites pendentes</p>{(invitationsQuery.data ?? []).filter((item) => item.status === "PENDING").slice(0, 5).map((item) => <div key={item.id} className="mb-2 rounded-md bg-muted px-3 py-2 text-xs"><p className="font-medium">{item.email}</p><p className="text-subdued">{item.branchName} · expira em {new Date(item.expiresAt).toLocaleDateString("pt-BR")}</p></div>)}</div> : null}</Card>
+      <Card className="p-4"><div className="mb-4"><h2 className="font-semibold">Cadastrar funcionário</h2><p className="text-sm text-subdued">Crie o usuário e a senha diretamente, sem precisar de e-mail.</p></div><form className="space-y-3" noValidate onSubmit={employeeForm.handleSubmit(submitEmployee)}><Input label="Nome do funcionário" error={employeeForm.formState.errors.name?.message} {...employeeForm.register("name")}/><Input label="Usuário" help="Nome usado para entrar no sistema. Use apenas letras, números, ponto, hífen ou sublinhado." autoComplete="off" error={employeeForm.formState.errors.username?.message} {...employeeForm.register("username")}/><Input label="Senha inicial" type="password" autoComplete="new-password" error={employeeForm.formState.errors.password?.message} {...employeeForm.register("password")}/><Select label="Loja" help="Esse login verá somente os dados operacionais da loja selecionada." error={employeeForm.formState.errors.branchId?.message} {...employeeForm.register("branchId")}><option value="">Selecione</option>{(branchesQuery.data ?? []).map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.isMain ? " (principal)" : ""}</option>)}</Select><div><p className="mb-2 text-sm font-medium">O que poderá acessar</p>{permissionPicker(employeeForm.watch("permissionKeys"), toggleEmployeePermission)}{employeeForm.formState.errors.permissionKeys?.message ? <p className="mt-1 text-xs text-danger">{employeeForm.formState.errors.permissionKeys.message}</p> : null}</div>{employeeError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{employeeError}</p> : null}{employeeSuccess ? <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-success">{employeeSuccess}</p> : null}<Button className="w-full" type="submit" disabled={createEmployee.isPending}><UserPlus size={18}/>{createEmployee.isPending ? "Cadastrando..." : "Cadastrar funcionário"}</Button></form></Card>
     </section>
 
     <Card className="p-4"><div className="mb-4"><h2 className="font-semibold">Lojas</h2><p className="text-sm text-subdued">Cada loja possui estoque, vendas, caixa e relatórios separados.</p></div><div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end"><Input label="Nome da nova loja" placeholder="Exemplo: Loja Tupi" value={branchName} onChange={(event) => setBranchName(event.target.value)}/><Button type="button" disabled={createBranch.isPending || branchName.trim().length < 2} onClick={() => void submitBranch()}><Plus size={18}/>Cadastrar loja</Button></div>{branchError ? <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{branchError}</p> : null}<div className="mt-4 flex flex-wrap gap-2">{(branchesQuery.data ?? []).map((branch) => <Badge key={branch.id}>{branch.name}{branch.isMain ? " — principal" : ""}</Badge>)}</div></Card>

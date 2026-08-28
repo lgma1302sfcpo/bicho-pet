@@ -16,13 +16,16 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     CredentialsProvider({
-      name: "Email e senha",
+      name: "Usuário/e-mail e senha",
       credentials: {
-        email: { label: "Email", type: "email" },
+        identifier: { label: "Usuário ou e-mail", type: "text" },
         password: { label: "Senha", type: "password" }
       },
       async authorize(credentials) {
-        const parsed = loginSchema.safeParse(credentials);
+        const parsed = loginSchema.safeParse({
+          ...credentials,
+          identifier: credentials?.identifier || (credentials as Record<string, string> | undefined)?.email
+        });
 
         if (!parsed.success) {
           return null;

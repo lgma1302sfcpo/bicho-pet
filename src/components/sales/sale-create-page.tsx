@@ -1,15 +1,18 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FileDown, LoaderCircle, Minus, Plus, ReceiptText, RefreshCw, Save } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { FileDown, LoaderCircle, Minus, Plus, ReceiptText, RefreshCw, Save, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useFieldArray, useForm, type Resolver } from "react-hook-form";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CustomerCreateForm } from "@/components/customers/customer-create-form";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
+import type { CustomerListItemDTO } from "@/dtos/commerce/customer.dto";
 import type { CreateSaleDTO, SaleCreatedDTO } from "@/dtos/commerce/sale.dto";
 import { useProducts } from "@/hooks/catalog/use-products";
 import { useCreateSale, useCustomers, useSales } from "@/hooks/commerce/use-commerce";
@@ -25,6 +28,18 @@ function formatCurrency(value: number) {
 
 const unitLabels: Record<string, string> = { UN: "unidades", KG: "quilogramas", G: "gramas", L: "litros", ML: "mililitros", CX: "caixas", PC: "pacotes" };
 
+type SaleFormValues = Omit<CreateSaleDTO, "soldAt"> & { soldAt?: Date | string };
+
+function currentLocalDateTime() {
+  const now = new Date();
+  const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return localTime.toISOString().slice(0, 16);
+}
+
+function normalizeSearch(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
+}
+
 export function SaleCreatePage() {
   const customersQuery = useCustomers({ includeNeverPurchased: true, contactableOnly: false });
   const productsQuery = useProducts({ status: "ACTIVE", lowStockOnly: false });
@@ -32,12 +47,16 @@ export function SaleCreatePage() {
   const createSale = useCreateSale();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState<CustomerListItemDTO | null>(null);
+  const [productSearches, setProductSearches] = useState<Record<string, string>>({});
+  const [debouncedProductSearches, setDebouncedProductSearches] = useState<Record<string, string>>({});
   const [lastReceipt, setLastReceipt] = useState<{ sale: SaleCreatedDTO; values: CreateSaleDTO; customerName: string } | null>(null);
-  const form = useForm<CreateSaleDTO>({
-    resolver: zodResolver(createSaleSchema),
+  const form = useForm<SaleFormValues, unknown, CreateSaleDTO>({
+    resolver: zodResolver(createSaleSchema) as Resolver<SaleFormValues, unknown, CreateSaleDTO>,
     defaultValues: {
       customerId: "",
-      paymentMethod: "PIX",
+      soldAt: currentLocalDateTime(),
       discount: 0,
       surcharge: 0,
       notes: "",
@@ -48,6 +67,17 @@ export function SaleCreatePage() {
     control: form.control,
     name: "items"
   });
+  const customers = useMemo(() => {
+    const queriedCustomers = customersQuery.data?.customers ?? [];
+    if (!newCustomer || queriedCustomers.some((customer) => customer.id === newCustomer.id)) return queriedCustomers;
+    return [newCustomer, ...queriedCustomers];
+  }, [customersQuery.data?.customers, newCustomer]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedProductSearches(productSearches), 350);
+    return () => window.clearTimeout(timer);
+  }, [productSearches]);
+
   const watchedItems = form.watch("items");
   const discount = Number(parseBrazilianNumber(form.watch("discount")) ?? 0);
   const surcharge = Number(parseBrazilianNumber(form.watch("surcharge")) ?? 0);
@@ -70,17 +100,19 @@ export function SaleCreatePage() {
         ...values,
         customerId: values.customerId || undefined
       });
-      const customerName = customersQuery.data?.customers.find((customer) => customer.id === values.customerId)?.name ?? "Consumidor final";
+      const customerName = customers.find((customer) => customer.id === values.customerId)?.name ?? "Consumidor final";
       setLastReceipt({ sale, values, customerName });
       setSuccess(`Venda ${sale.code} cadastrada com total de ${formatCurrency(sale.total)}.`);
       form.reset({
         customerId: "",
-        paymentMethod: "PIX",
+        soldAt: currentLocalDateTime(),
         discount: 0,
         surcharge: 0,
         notes: "",
         items: [{ productId: "", description: "", quantity: 1, unitPrice: 0 }]
       });
+      setProductSearches({});
+      setDebouncedProductSearches({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar a venda.");
     }
@@ -123,21 +155,28 @@ export function SaleCreatePage() {
 
       <section className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card className="p-4">
-          <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
+          <form className="space-y-5" noValidate onSubmit={form.handleSubmit(onSubmit)}>
             <div className="grid gap-3 md:grid-cols-3">
-              <Select label="Cliente" error={form.formState.errors.customerId?.message} {...form.register("customerId")}>
-                <option value="">Consumidor final</option>
-                {(customersQuery.data?.customers ?? []).map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </Select>
+              <div className="space-y-2">
+                <Select label="Cliente" error={form.formState.errors.customerId?.message} {...form.register("customerId")}>
+                  <option value="">Consumidor final</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </Select>
+                <Button type="button" variant="secondary" className="w-full" onClick={() => setCreatingCustomer(true)}>
+                  <UserPlus size={17} /> Cadastrar cliente
+                </Button>
+              </div>
               <Select
                 label="Pagamento"
+                required
                 error={form.formState.errors.paymentMethod?.message}
                 {...form.register("paymentMethod")}
               >
+                <option value="">Selecione o pagamento</option>
                 <option value="CASH">Dinheiro</option>
                 <option value="PIX">PIX</option>
                 <option value="CREDIT_CARD">Cartão de crédito</option>
@@ -162,25 +201,38 @@ export function SaleCreatePage() {
               </div>
               {items.fields.map((field, index) => (
                 <div key={field.id} className="grid gap-3 rounded-md border border-border p-3 md:grid-cols-[1.2fr_1fr_100px_130px_44px]">
-                  <Select
-                    label="Produto cadastrado"
-                    {...form.register(`items.${index}.productId`)}
-                    onChange={(event) => {
-                      form.setValue(`items.${index}.productId`, event.target.value, { shouldValidate: true });
-                      const product = productsQuery.data?.products.find((candidate) => candidate.id === event.target.value);
-                      if (product) {
-                        form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
-                        form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
-                      }
-                    }}
-                  >
-                    <option value="">Item avulso / serviço</option>
-                    {(productsQuery.data?.products ?? []).map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} · estoque {product.stockQuantity} {unitLabels[product.unit] ?? product.unit}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="space-y-2">
+                    <Input
+                      label="Buscar produto"
+                      placeholder="Nome ou código"
+                      value={productSearches[field.id] ?? ""}
+                      onChange={(event) => setProductSearches((current) => ({ ...current, [field.id]: event.target.value }))}
+                    />
+                    <Select
+                      label="Produto cadastrado"
+                      {...form.register(`items.${index}.productId`)}
+                      onChange={(event) => {
+                        form.setValue(`items.${index}.productId`, event.target.value, { shouldValidate: true });
+                        const product = productsQuery.data?.products.find((candidate) => candidate.id === event.target.value);
+                        if (product) {
+                          form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
+                          form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
+                        }
+                      }}
+                    >
+                      <option value="">Item avulso / serviço</option>
+                      {(productsQuery.data?.products ?? []).filter((product) => {
+                        const search = normalizeSearch(debouncedProductSearches[field.id] ?? "");
+                        if (!search || product.id === form.getValues(`items.${index}.productId`)) return true;
+                        const identifiers = [product.name, product.code, product.sku, product.barcode].filter(Boolean).join(" ");
+                        return normalizeSearch(identifiers).includes(search);
+                      }).map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.code ? `${product.code} · ` : ""}{product.name} · estoque {product.stockQuantity} {unitLabels[product.unit] ?? product.unit}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                   <Input
                     label="Descrição"
                     error={form.formState.errors.items?.[index]?.description?.message}
@@ -287,6 +339,21 @@ export function SaleCreatePage() {
           </Card>
         </div>
       </section>
+      <Modal
+        open={creatingCustomer}
+        title="Cadastrar cliente"
+        description="Cadastre o cliente sem sair da venda. Ao salvar, ele será selecionado automaticamente."
+        onClose={() => setCreatingCustomer(false)}
+      >
+        <CustomerCreateForm
+          onCancel={() => setCreatingCustomer(false)}
+          onSuccess={(customer) => {
+            setNewCustomer(customer);
+            form.setValue("customerId", customer.id, { shouldValidate: true });
+            setCreatingCustomer(false);
+          }}
+        />
+      </Modal>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { CreateRoleDTO, CreateUserDTO, InviteEmployeeDTO } from "@/dtos/identity/auth.dto";
+import type { CreateEmployeeUserDTO, CreateRoleDTO, InviteEmployeeDTO } from "@/dtos/identity/auth.dto";
 import type {
   PermissionRecord,
   RoleRecord,
@@ -101,7 +101,7 @@ export function useCreateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: CreateUserDTO) =>
+    mutationFn: (payload: CreateEmployeeUserDTO) =>
       apiFetch<UserRecord>("/api/identity/users", {
         method: "POST",
         body: JSON.stringify(payload)

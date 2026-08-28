@@ -22,7 +22,7 @@ const optionalPhoneSchema = z
   .transform((value) => (value ? onlyDigits(value) : undefined));
 
 export const loginSchema = z.object({
-  email: z.string().trim().email("Informe um e-mail válido.").toLowerCase(),
+  identifier: z.string().trim().min(1, "Informe seu usuário ou e-mail.").toLowerCase(),
   password: z.string().min(1, "Informe a senha.")
 });
 
@@ -71,6 +71,20 @@ export const createUserSchema = z.object({
   password: passwordSchema,
   roleId: z.string().trim().min(1, "Selecione um cargo."),
   branchId: z.string().trim().min(1, "Selecione uma loja.")
+});
+
+export const createEmployeeUserSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome do funcionário."),
+  username: z
+    .string()
+    .trim()
+    .min(3, "Use pelo menos 3 caracteres no usuário.")
+    .max(40, "Use no máximo 40 caracteres no usuário.")
+    .regex(/^[a-zA-Z0-9._-]+$/, "Use apenas letras, números, ponto, hífen ou sublinhado.")
+    .toLowerCase(),
+  password: passwordSchema,
+  branchId: z.string().trim().min(1, "Selecione uma loja."),
+  permissionKeys: z.array(z.nativeEnum(AUTH_PERMISSIONS)).min(1, "Selecione pelo menos um acesso.")
 });
 
 export const inviteEmployeeSchema = z.object({

@@ -23,7 +23,7 @@ export function LoginForm() {
   } = useForm<LoginDTO>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: ""
     }
   });
@@ -37,7 +37,7 @@ export function LoginForm() {
     });
 
     if (result?.error) {
-      setServerError("E-mail ou senha inválidos.");
+      setServerError("Usuário/e-mail ou senha inválidos.");
       return;
     }
 
@@ -48,13 +48,13 @@ export function LoginForm() {
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
       <Input
-        label="E-mail"
-        type="email"
-        autoComplete="email"
-        placeholder="seuemail@casadosbichos.com.br"
+        label="Usuário ou e-mail"
+        type="text"
+        autoComplete="username"
+        placeholder="Exemplo: joao ou seuemail@empresa.com.br"
         className="h-12 rounded-xl border-slate-200 bg-slate-50/70 px-4 focus:bg-white"
-        error={errors.email?.message}
-        {...register("email")}
+        error={errors.identifier?.message}
+        {...register("identifier")}
       />
       <Input
         label="Senha"

@@ -35,7 +35,7 @@ export async function GET() {
         const isLowStock = branchId
           ? minStock > 0 && stockQuantity <= minStock
           : product.branchStocks.some((stock) => number(stock.minStock) > 0 && number(stock.stockQuantity) <= number(stock.minStock));
-        return { id: product.id, name: product.name, category: product.category, unit: product.unit, stockQuantity, minStock, maxStock, costPrice: number(product.costPrice), salePrice: number(product.salePrice), isLowStock };
+        return { id: product.id, name: product.name, category: product.category, brand: product.brand, unit: product.unit, stockQuantity, minStock, maxStock, costPrice: number(product.costPrice), salePrice: number(product.salePrice), isLowStock };
       }),
       movements: movements.map((movement) => ({ id: movement.id, branchName: movement.branch.name, productName: movement.product.name, unit: movement.product.unit, userName: movement.user?.name ?? "Sistema", type: movement.type, quantity: number(movement.quantity), previousBalance: number(movement.previousBalance), newBalance: number(movement.newBalance), reason: movement.reason, reference: movement.reference, createdAt: movement.createdAt.toISOString() }))
     });

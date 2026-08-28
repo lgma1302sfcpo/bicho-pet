@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type InventoryData = {
-  products: Array<{ id: string; name: string; category: string; unit: string; stockQuantity: number; minStock: number; maxStock: number; costPrice: number; salePrice: number; isLowStock: boolean }>;
+  products: Array<{ id: string; name: string; category: string; brand?: string | null; unit: string; stockQuantity: number; minStock: number; maxStock: number; costPrice: number; salePrice: number; isLowStock: boolean }>;
   movements: Array<{ id: string; productName: string; unit: string; userName: string; type: "ENTRY" | "EXIT" | "ADJUSTMENT"; quantity: number; previousBalance: number; newBalance: number; reason: string; reference?: string | null; createdAt: string }>;
 };
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { AUTH_PERMISSIONS } from "@/lib/permissions";
 import {
+  createEmployeeUserSchema,
   createRoleSchema,
   passwordResetConfirmSchema,
   registerOwnerSchema
@@ -45,6 +46,18 @@ describe("identity schemas", () => {
     });
 
     expect(parsed.permissionKeys).toEqual([AUTH_PERMISSIONS.SALES_PDV]);
+  });
+
+  it("aceita cadastro de funcionário com usuário e sem e-mail", () => {
+    const parsed = createEmployeeUserSchema.parse({
+      name: "João Silva",
+      username: "Joao.Caixa",
+      password: "Senha123",
+      branchId: "branch-1",
+      permissionKeys: [AUTH_PERMISSIONS.SALES_PDV]
+    });
+
+    expect(parsed.username).toBe("joao.caixa");
   });
 
   it("valida confirmacao de senha no reset", () => {

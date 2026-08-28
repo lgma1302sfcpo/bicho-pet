@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   createRoleSchema,
+  createEmployeeUserSchema,
   createUserSchema,
   inviteEmployeeSchema,
   acceptEmployeeInvitationSchema,
@@ -17,6 +18,7 @@ export type PasswordResetRequestDTO = z.infer<typeof passwordResetRequestSchema>
 export type PasswordResetConfirmDTO = z.infer<typeof passwordResetConfirmSchema>;
 export type CreateRoleDTO = z.infer<typeof createRoleSchema>;
 export type CreateUserDTO = z.infer<typeof createUserSchema>;
+export type CreateEmployeeUserDTO = z.infer<typeof createEmployeeUserSchema>;
 export type InviteEmployeeDTO = z.infer<typeof inviteEmployeeSchema>;
 export type AcceptEmployeeInvitationDTO = z.infer<typeof acceptEmployeeInvitationSchema>;
 

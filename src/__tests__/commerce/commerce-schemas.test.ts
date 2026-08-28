@@ -49,4 +49,16 @@ describe("commerce schemas", () => {
 
     expect(parsed.success).toBe(false);
   });
+
+  it("exige que a forma de pagamento seja selecionada", () => {
+    const parsed = createSaleSchema.safeParse({
+      paymentMethod: "",
+      discount: 0,
+      surcharge: 0,
+      items: [{ description: "Produto", quantity: 1, unitPrice: 10 }]
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) expect(parsed.error.issues[0]?.message).toBe("Selecione a forma de pagamento.");
+  });
 });

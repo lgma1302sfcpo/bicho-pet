@@ -25,6 +25,7 @@ export type SaleListItemDTO = {
     costPrice: number;
     total: number;
     category?: string | null;
+    species?: string | null;
     brand?: string | null;
     supplier?: string | null;
   }>;

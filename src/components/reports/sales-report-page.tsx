@@ -18,6 +18,10 @@ const paymentLabels: Record<string, string> = {
   STORE_CREDIT: "Crédito da loja", VOUCHER: "Vale", MIXED: "Pagamento múltiplo"
 };
 
+const speciesLabels: Record<string, string> = {
+  ALL: "Todas/geral", DOG: "Cachorro", CAT: "Gato", BIRD: "Ave", FISH: "Peixe", RODENT: "Roedor", OTHER: "Outra espécie"
+};
+
 type AnalyticRow = { name: string; quantity: number; revenue: number; cost: number; profit: number };
 
 function money(value: number) {
@@ -82,19 +86,39 @@ function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) 
 export function SalesReportPage() {
   const salesQuery = useSales();
   const [search, setSearch] = useState("");
+  const [species, setSpecies] = useState("");
   const [period, setPeriod] = useState("30");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  const sales = useMemo(() => (salesQuery.data ?? []).filter((sale) => {
+  const periodSales = useMemo(() => (salesQuery.data ?? []).filter((sale) => {
     const soldAt = new Date(sale.soldAt);
-    const term = `${sale.code} ${sale.branchName} ${sale.customerName ?? ""} ${sale.items.map((item) => item.description).join(" ")}`.toLowerCase();
+    const term = `${sale.code} ${sale.branchName} ${sale.customerName ?? ""} ${sale.items.map((item) => `${item.description} ${speciesLabels[item.species ?? ""] ?? ""}`).join(" ")}`.toLowerCase();
     const periodStart = getPeriodStart(period);
     const yesterdayEnd = period === "yesterday" ? new Date(startOfDay(new Date()).getTime() - 1) : null;
     const matchesFrom = period !== "custom" || !from || soldAt >= new Date(`${from}T00:00:00`);
     const matchesTo = period !== "custom" || !to || soldAt <= new Date(`${to}T23:59:59`);
     return (!search || term.includes(search.toLowerCase())) && (!periodStart || soldAt >= periodStart) && (!yesterdayEnd || soldAt <= yesterdayEnd) && matchesFrom && matchesTo;
   }), [from, period, salesQuery.data, search, to]);
+
+  const sales = useMemo(() => {
+    if (!species) return periodSales;
+    return periodSales.flatMap((sale) => {
+      const filteredItems = sale.items.filter((item) => item.species === species);
+      if (!filteredItems.length) return [];
+      const filteredSubtotal = filteredItems.reduce((sum, item) => sum + item.total, 0);
+      const revenueFactor = sale.subtotal > 0 ? sale.total / sale.subtotal : 1;
+      return [{
+        ...sale,
+        items: filteredItems,
+        itemsCount: filteredItems.length,
+        subtotal: filteredSubtotal,
+        discount: 0,
+        surcharge: 0,
+        total: filteredSubtotal * revenueFactor
+      }];
+    });
+  }, [periodSales, species]);
 
   const revenue = sales.reduce((sum, sale) => sum + sale.total, 0);
   const cost = sales.reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.costPrice * item.quantity, 0), 0);
@@ -103,6 +127,8 @@ export function SalesReportPage() {
   const byCategory = aggregateItems(sales, (item) => `${item.category ?? "Sem categoria"} / ${item.description}`);
   const byProduct = aggregateItems(sales, (item) => item.description);
   const bySupplier = aggregateItems(sales, (item) => item.supplier ?? "Fornecedor não informado");
+  const bySpecies = aggregateItems(sales, (item) => speciesLabels[item.species ?? ""] ?? "Espécie não informada")
+    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue);
   const byPayment = Object.values(sales.reduce<Record<string, { name: string; sales: number; revenue: number }>>((groups, sale) => {
     const name = paymentLabels[sale.paymentMethod] ?? sale.paymentMethod;
     const current = groups[sale.paymentMethod] ?? { name, sales: 0, revenue: 0 };
@@ -125,6 +151,7 @@ export function SalesReportPage() {
       { name: "Vendas", rows: sales.map((sale) => ({ Loja: sale.branchName, Código: sale.code, Data: new Date(sale.soldAt).toLocaleString("pt-BR"), Cliente: sale.customerName ?? "Consumidor final", Pagamento: paymentLabels[sale.paymentMethod] ?? sale.paymentMethod, Itens: sale.itemsCount, Custo: sale.items.reduce((sum, item) => sum + item.costPrice * item.quantity, 0), Total: sale.total })) },
       { name: "Pagamentos", rows: byPayment },
       { name: "Categoria e produto", rows: byCategory },
+      { name: "Espécies", rows: bySpecies },
       { name: "Fornecedores", rows: bySupplier }
     ]);
   }
@@ -146,9 +173,10 @@ export function SalesReportPage() {
 
       <Card className="erp-filter-card p-4">
         <div className="mb-4 flex items-center gap-2"><FileBarChart size={18} className="text-brand-700" /><h2 className="font-semibold">Período e busca</h2></div>
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <Select label="Período" value={period} onChange={(event) => setPeriod(event.target.value)}><option value="all">Todo o período</option><option value="today">Hoje</option><option value="yesterday">Ontem</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="year">Este ano</option><option value="custom">Escolher período</option></Select>
           <Input label="Buscar" placeholder="venda, cliente ou produto" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Select label="Espécie" value={species} onChange={(event) => setSpecies(event.target.value)}><option value="">Todas as espécies</option>{Object.entries(speciesLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
           <Input label="De" type="date" disabled={period !== "custom"} value={from} onChange={(event) => setFrom(event.target.value)} />
           <Input label="Até" type="date" disabled={period !== "custom"} value={to} onChange={(event) => setTo(event.target.value)} />
         </div>
@@ -163,6 +191,7 @@ export function SalesReportPage() {
         <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Meio de pagamento</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Total</th></tr></thead><tbody className="divide-y divide-border">{byPayment.map((row) => <tr key={row.name}><td className="px-4 py-3"><Badge>{row.name}</Badge></td><td className="px-4 py-3">{row.sales}</td><td className="px-4 py-3 font-semibold">{money(row.revenue)}</td></tr>)}{!byPayment.length ? <tr><td colSpan={3} className="px-4 py-8 text-center text-subdued">Nenhuma venda encontrada.</td></tr> : null}</tbody></table></div>
       </Card>
 
+      <AnalyticTable title="Vendas por espécie (ordenado por quantidade)" rows={bySpecies} />
       <AnalyticTable title="Vendas por categoria e produto" rows={byCategory} />
       <AnalyticTable title="Produtos vendidos" rows={byProduct} />
       <AnalyticTable title="Lucratividade por fornecedor" rows={bySupplier} />

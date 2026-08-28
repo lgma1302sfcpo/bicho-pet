@@ -13,7 +13,30 @@ import { useCreateProduct, useUpdateProduct } from "@/hooks/catalog/use-products
 import { updateProductSchema } from "@/schemas/catalog/product.schemas";
 import { parseBrazilianNumber } from "@/lib/utils";
 
-const categorySuggestions = ["Ração", "Petisco", "Higiene", "Medicamento", "Brinquedo", "Acessório", "Serviço"];
+const categorySuggestions = [
+  "Acessórios",
+  "Aquário",
+  "Aves",
+  "Banho e Tosa",
+  "Cão Adulto Premium",
+  "Doces",
+  "Gato Adulto Premium Especial",
+  "Granel",
+  "Higiene",
+  "Jardinagem",
+  "Medicação",
+  "Medicamentos/Suplementos",
+  "Pacoteira",
+  "Peixes",
+  "Petisco",
+  "Ração a Granel",
+  "Ração Pacoteira",
+  "Ração Sacaria",
+  "Roedores",
+  "Sacaria",
+  "Serviço",
+  "Vestuário"
+];
 const subcategorySuggestions = ["Ração seca", "Ração úmida", "Ração a granel", "Petisco natural", "Higiene bucal", "Banho e tosa", "Antipulgas", "Suplemento", "Brinquedo interativo", "Coleira e guia", "Outro"];
 const brandSuggestions = ["Adimax", "GranPlus", "Premier Pet", "Purina", "Royal Canin", "Golden", "Special Dog", "Whiskas", "Pedigree", "Chalesco", "Outras marcas"];
 const supplierSuggestions = ["Adimax", "Cobasi Distribuidora", "Distribuidora Petmar", "Mars Petcare", "Nestle Purina", "Premier Pet", "Royal Canin", "Distribuidor regional", "Outro fornecedor"];
@@ -25,7 +48,7 @@ type ProductFormProps = {
 };
 
 const emptyProduct: UpdateProductDTO = {
-  name: "", code: "", sku: "", barcode: "", category: "Ração", subcategory: "", brand: "", supplier: "", unit: "UN",
+  name: "", code: "", sku: "", barcode: "", category: categorySuggestions[0], subcategory: "", brand: "", supplier: "", unit: "UN",
   species: "ALL", description: "", costPrice: 0, salePrice: 0, stockQuantity: 0,
   minStock: 0, maxStock: 0, location: "", imageUrl: "", status: "ACTIVE",
   fiscalItemType: "GOOD", ncm: "", cest: "", originCode: "0", defaultCfop: "", icmsCode: "",
@@ -45,6 +68,9 @@ export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormP
   const watchedSale = Number(parseBrazilianNumber(form.watch("salePrice")) ?? 0);
   const markup = watchedCost > 0 ? ((watchedSale - watchedCost) / watchedCost) * 100 : 0;
   const grossProfit = watchedSale - watchedCost;
+  const categories = product?.category && !categorySuggestions.includes(product.category)
+    ? [product.category, ...categorySuggestions]
+    : categorySuggestions;
 
   useEffect(() => {
     form.reset(product ? ({ ...product, status: product.status as UpdateProductDTO["status"] } as unknown as UpdateProductDTO) : emptyProduct);
@@ -85,7 +111,7 @@ export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormP
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <Select label="Categoria" error={form.formState.errors.category?.message} {...form.register("category")}>
-            {categorySuggestions.map((category) => (
+            {categories.map((category) => (
               <option key={category} value={category}>
                 {category}
               </option>

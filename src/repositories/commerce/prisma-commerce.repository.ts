@@ -238,13 +238,6 @@ export class PrismaCommerceRepository implements CommerceRepository {
       for (const item of data.sale.items) {
         if (item.productId) quantitiesByProduct.set(item.productId, (quantitiesByProduct.get(item.productId) ?? 0) + item.quantity);
       }
-      for (const [productId, quantity] of quantitiesByProduct) {
-        const product = productsById.get(productId)!;
-        if (toNumber(product.branchStocks[0]?.stockQuantity) < quantity) {
-          throw new AppError(`Estoque insuficiente para ${product.name}.`, "INSUFFICIENT_STOCK", 422);
-        }
-      }
-
       const sale = await tx.sale.create({
         data: {
           tenantId: data.tenantId,
@@ -269,6 +262,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
               unitPrice: item.unitPrice,
               costPrice: product?.costPrice ?? 0,
               category: product?.category,
+              species: product?.species,
               brand: product?.brand,
               supplier: product?.supplier,
               total: Math.round(item.quantity * item.unitPrice * 100) / 100
@@ -385,6 +379,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
         costPrice: toNumber(item.costPrice),
         total: toNumber(item.total),
         category: item.category,
+        species: item.species,
         brand: item.brand,
         supplier: item.supplier
       }))

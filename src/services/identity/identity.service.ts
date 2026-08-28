@@ -2,6 +2,7 @@ import type {
   AuthenticatedUserDTO,
   AcceptEmployeeInvitationDTO,
   CreateRoleDTO,
+  CreateEmployeeUserDTO,
   CreateUserDTO,
   InviteEmployeeDTO,
   LoginDTO,
@@ -11,6 +12,7 @@ import type {
 } from "@/dtos/identity/auth.dto";
 import type { IdentityRepository, PermissionRecord } from "@/interfaces/identity/identity-repository.interface";
 import type { EmailSender } from "@/interfaces/messaging/email-sender.interface";
+import { employeeLoginEmail } from "@/lib/employee-login";
 import { AppError } from "@/lib/errors";
 import { BASE_PERMISSIONS } from "@/lib/permissions";
 import { createResetToken, hashResetToken, type PasswordHasher } from "@/lib/password";
@@ -23,10 +25,11 @@ export class IdentityService {
   ) {}
 
   async authenticate(input: LoginDTO): Promise<AuthenticatedUserDTO> {
-    const user = await this.repository.findAuthIdentityByEmail(input.email);
+    const loginEmail = input.identifier.includes("@") ? input.identifier : employeeLoginEmail(input.identifier);
+    const user = await this.repository.findAuthIdentityByEmail(loginEmail);
 
     if (!user?.passwordHash) {
-      throw new AppError("E-mail ou senha inválidos.", "INVALID_CREDENTIALS", 401);
+      throw new AppError("Usuário/e-mail ou senha inválidos.", "INVALID_CREDENTIALS", 401);
     }
 
     if (user.status !== "ACTIVE") {
@@ -36,7 +39,7 @@ export class IdentityService {
     const passwordMatches = await this.passwordHasher.verify(input.password, user.passwordHash);
 
     if (!passwordMatches) {
-      throw new AppError("E-mail ou senha inválidos.", "INVALID_CREDENTIALS", 401);
+      throw new AppError("Usuário/e-mail ou senha inválidos.", "INVALID_CREDENTIALS", 401);
     }
 
     const membership = user.memberships[0];
@@ -192,6 +195,43 @@ export class IdentityService {
       roleId: input.roleId,
       branchId: input.branchId
     });
+  }
+
+  async createEmployeeUser(input: {
+    tenantId: string;
+    createdById: string;
+    creatorPermissions: string[];
+    canAccessAllBranches: boolean;
+    currentBranchId?: string | null;
+    employee: CreateEmployeeUserDTO;
+  }) {
+    const email = employeeLoginEmail(input.employee.username);
+    if (await this.repository.emailExists(email)) {
+      throw new AppError("Este nome de usuário já está em uso.", "USERNAME_ALREADY_EXISTS", 409);
+    }
+    if (!input.canAccessAllBranches && input.employee.branchId !== input.currentBranchId) {
+      throw new AppError("Você só pode cadastrar funcionários para a sua loja.", "BRANCH_ACCESS_DENIED", 403);
+    }
+    if (!(await this.repository.branchBelongsToTenant(input.tenantId, input.employee.branchId))) {
+      throw new AppError("Loja inválida para esta empresa.", "BRANCH_NOT_FOUND", 404);
+    }
+    const uniquePermissions = Array.from(new Set(input.employee.permissionKeys));
+    const unauthorized = uniquePermissions.filter((permission) => !input.creatorPermissions.includes(permission));
+    if (unauthorized.length > 0) {
+      throw new AppError("Não é permitido conceder acessos que você não possui.", "PERMISSION_ESCALATION_DENIED", 403, { unauthorized });
+    }
+    await this.assertPermissionsExist(uniquePermissions);
+    const passwordHash = await this.passwordHasher.hash(input.employee.password);
+    const user = await this.repository.createEmployeeUser({
+      tenantId: input.tenantId,
+      branchId: input.employee.branchId,
+      createdById: input.createdById,
+      name: input.employee.name,
+      email,
+      passwordHash,
+      permissionKeys: uniquePermissions
+    });
+    return { ...user, username: input.employee.username };
   }
 
   async inviteEmployee(input: {

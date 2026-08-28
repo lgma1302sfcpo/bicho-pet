@@ -13,7 +13,11 @@ export const saleItemSchema = z.object({
 
 export const createSaleSchema = z.object({
   customerId: z.string().trim().optional().or(z.literal("")),
-  paymentMethod: z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "STORE_CREDIT", "VOUCHER", "MIXED"]),
+  paymentMethod: z
+    .string()
+    .trim()
+    .min(1, "Selecione a forma de pagamento.")
+    .pipe(z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "STORE_CREDIT", "VOUCHER", "MIXED"])),
   discount: numeric.pipe(z.number().min(0)).default(0),
   surcharge: numeric.pipe(z.number().min(0)).default(0),
   soldAt: z.preprocess((value) => (value === "" ? undefined : value), z.coerce.date().optional()),

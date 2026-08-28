@@ -107,6 +107,16 @@ export type CreateUserData = {
   branchId?: string;
 };
 
+export type CreateEmployeeUserData = {
+  tenantId: string;
+  branchId: string;
+  createdById: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  permissionKeys: string[];
+};
+
 export type EmployeeInvitationRecord = {
   id: string;
   email: string;
@@ -154,6 +164,7 @@ export interface IdentityRepository {
   createRole(data: CreateRoleData): Promise<RoleRecord>;
   listUsers(tenantId: string): Promise<UserRecord[]>;
   createUserWithRole(data: CreateUserData): Promise<UserRecord>;
+  createEmployeeUser(data: CreateEmployeeUserData): Promise<UserRecord>;
   createEmployeeInvitation(data: CreateEmployeeInvitationData): Promise<EmployeeInvitationRecord>;
   listEmployeeInvitations(tenantId: string): Promise<EmployeeInvitationRecord[]>;
   findEmployeeInvitation(tokenHash: string): Promise<EmployeeInvitationRecord | null>;

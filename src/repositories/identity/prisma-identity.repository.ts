@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import type {
   CreateEmployeeInvitationData,
+  CreateEmployeeUserData,
   CreateRoleData,
   CreateUserData,
   IdentityRepository,
@@ -366,6 +367,58 @@ export class PrismaIdentityRepository implements IdentityRepository {
         status: user.status,
         roleId: membership.roleId,
         roleName: membership.role.name,
+        branchId: membership.branchId,
+        branchName: membership.branch?.name
+      };
+    });
+  }
+
+  async createEmployeeUser(data: CreateEmployeeUserData) {
+    return this.db.$transaction(async (tx) => {
+      const permissions = await tx.permission.findMany({ where: { key: { in: data.permissionKeys } } });
+      const user = await tx.user.create({
+        data: {
+          name: data.name,
+          email: data.email,
+          passwordHash: data.passwordHash,
+          status: "ACTIVE"
+        }
+      });
+      const role = await tx.role.create({
+        data: {
+          tenantId: data.tenantId,
+          name: `Acesso de ${data.name} ${user.id.slice(-6)}`,
+          description: `Permissões individuais do funcionário ${data.name}.`,
+          permissions: { create: permissions.map((permission) => ({ permissionId: permission.id })) }
+        }
+      });
+      const membership = await tx.userTenantRole.create({
+        data: {
+          userId: user.id,
+          tenantId: data.tenantId,
+          roleId: role.id,
+          branchId: data.branchId
+        },
+        include: { branch: true }
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: data.tenantId,
+          userId: data.createdById,
+          action: "identity.employee.created",
+          entity: "User",
+          entityId: user.id,
+          metadata: { branchId: data.branchId, permissionKeys: data.permissionKeys }
+        }
+      });
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        status: user.status,
+        roleId: role.id,
+        roleName: role.name,
         branchId: membership.branchId,
         branchName: membership.branch?.name
       };

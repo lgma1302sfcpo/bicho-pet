@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Boxes, FileUp, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { ProductCreateForm } from "@/components/products/product-create-form";
@@ -39,6 +39,11 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const productsQuery = useProducts(filters);
   const deleteProduct = useDeleteProduct();
   const [creatingProduct, setCreatingProduct] = useState(false);
+  const [importingProducts, setImportingProducts] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const [importPending, setImportPending] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItemDTO | null>(null);
   const products = productsQuery.data?.products ?? [];
   const summary = productsQuery.data?.summary;
@@ -49,6 +54,25 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
       ...current,
       [key]: value
     }));
+  }
+
+  async function submitImport() {
+    if (!importFile) return;
+    setImportPending(true); setImportError(null); setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.set("file", importFile);
+      const response = await fetch("/api/products/import", { method: "POST", body: formData });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message ?? "Não foi possível importar a planilha.");
+      setImportResult(`${payload.data.imported} produto(s) novo(s) e ${payload.data.updated} produto(s) atualizado(s).`);
+      setImportFile(null);
+      await productsQuery.refetch();
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Não foi possível importar a planilha.");
+    } finally {
+      setImportPending(false);
+    }
   }
 
   if (productsQuery.isPending) {
@@ -76,7 +100,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
           <h1 className="text-2xl font-semibold text-ink">Produtos</h1>
           <p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p>
         </div>
-        {canManage ? <div className="erp-page-header__actions"><Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button></div> : null}
+        {canManage ? <div className="erp-page-header__actions"><Button variant="secondary" onClick={() => setImportingProducts(true)}><FileUp size={18} />Importar planilha</Button><Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button></div> : null}
       </div>
 
       <section className="erp-metrics grid gap-3 sm:grid-cols-3">
@@ -174,6 +198,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                     {product.isLowStock ? <Badge className="shrink-0 border-amber-200 bg-amber-50 text-warning">Estoque baixo</Badge> : null}
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Preço de custo</p><p className="font-semibold">{formatCurrency(product.costPrice)}</p></div>
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Preço de venda</p><p className="font-semibold">{formatCurrency(product.salePrice)}</p></div>
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Estoque</p><p className="font-semibold">{product.stockQuantity} {unitLabels[product.unit] ?? product.unit}</p></div>
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Markup</p><p className="font-semibold">{product.marginPercent.toFixed(2)}%</p></div>
@@ -185,13 +210,15 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               {products.length === 0 ? <p className="p-6 text-center text-sm text-subdued">Nenhum produto encontrado.</p> : null}
             </div>
             <div className="erp-table-scroll hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="w-full min-w-[1120px] text-left text-sm">
                 <thead className="bg-muted text-xs uppercase text-subdued">
                   <tr>
                     <th className="px-4 py-3">Produto</th>
                     <th className="px-4 py-3">Categoria</th>
+                    <th className="px-4 py-3">Marca</th>
                     <th className="px-4 py-3">Espécie</th>
-                    <th className="px-4 py-3">Preço</th>
+                    <th className="px-4 py-3">Custo</th>
+                    <th className="px-4 py-3">Preço de venda</th>
                     <th className="px-4 py-3">Estoque</th>
                     <th className="px-4 py-3">Markup sobre o custo</th>
                     <th className="px-4 py-3">Ações</th>
@@ -203,7 +230,6 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                       <td className="px-4 py-3">
                         <div className="font-medium">{product.name}</div>
                         <div className="text-xs text-subdued">
-                          {product.brand ? `${product.brand} · ` : ""}
                           {product.sku || product.code || product.barcode || "Sem código"}
                           {product.supplier ? ` · ${product.supplier}` : ""}
                         </div>
@@ -212,7 +238,9 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                         {product.category}
                         {product.subcategory ? <div className="text-xs text-subdued">{product.subcategory}</div> : null}
                       </td>
+                      <td className="px-4 py-3">{product.brand ?? "Sem marca"}</td>
                       <td className="px-4 py-3">{speciesLabels[product.species] ?? product.species}</td>
+                      <td className="px-4 py-3 font-semibold">{formatCurrency(product.costPrice)}</td>
                       <td className="px-4 py-3 font-semibold">{formatCurrency(product.salePrice)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -252,7 +280,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                   ))}
                   {products.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-subdued" colSpan={7}>
+                      <td className="px-4 py-8 text-center text-subdued" colSpan={9}>
                         Nenhum produto encontrado.
                       </td>
                     </tr>
@@ -305,6 +333,20 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
           onCancel={() => { setCreatingProduct(false); setEditingProduct(null); }}
           onSuccess={() => { setCreatingProduct(false); setEditingProduct(null); }}
         />
+      </Modal>
+      <Modal
+        open={importingProducts}
+        className="max-w-xl"
+        title="Importar produtos e estoque"
+        description="Importe primeiro produtos.xls e depois ESTOQUE.xls. O segundo arquivo completa custo, categoria, marca e saldo sem duplicar os produtos."
+        onClose={() => setImportingProducts(false)}
+      >
+        <div className="space-y-4">
+          <Input label="Arquivo Excel" type="file" accept=".xls,.xlsx" onChange={(event) => { setImportFile(event.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }} />
+          {importError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{importError}</p> : null}
+          {importResult ? <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-success">{importResult}</p> : null}
+          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setImportingProducts(false)}>Fechar</Button><Button disabled={!importFile || importPending} onClick={() => void submitImport()}><FileUp size={17}/>{importPending ? "Importando..." : "Importar arquivo"}</Button></div>
+        </div>
       </Modal>
     </div>
   );

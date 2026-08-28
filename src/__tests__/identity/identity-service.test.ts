@@ -25,6 +25,7 @@ function createRepositoryMock(): IdentityRepository {
     createRole: vi.fn(),
     listUsers: vi.fn(),
     createUserWithRole: vi.fn(),
+    createEmployeeUser: vi.fn(),
     createEmployeeInvitation: vi.fn(),
     listEmployeeInvitations: vi.fn(),
     findEmployeeInvitation: vi.fn(),
@@ -69,7 +70,7 @@ describe("IdentityService", () => {
     });
 
     const result = await service.authenticate({
-      email: "maria@exemplo.com",
+      identifier: "maria@exemplo.com",
       password: "Senha123"
     });
 
@@ -89,10 +90,25 @@ describe("IdentityService", () => {
 
     await expect(
       service.authenticate({
-        email: "maria@exemplo.com",
+        identifier: "maria@exemplo.com",
         password: "Senha123"
       })
     ).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
+  });
+
+  it("converte o nome de usuário no identificador interno ao autenticar funcionário", async () => {
+    vi.mocked(repository.findAuthIdentityByEmail).mockResolvedValue({
+      id: "user-2",
+      name: "João",
+      email: "joao@usuario.erp.invalid",
+      passwordHash: "hash:Senha123",
+      status: "ACTIVE",
+      memberships: [{ tenantId: "tenant-1", tenantName: "Loja", branchId: "branch-1", branchName: "Matriz", roleId: "role-2", roleName: "Caixa", isOwner: false, permissions: [AUTH_PERMISSIONS.SALES_PDV] }]
+    });
+
+    await service.authenticate({ identifier: "joao", password: "Senha123" });
+
+    expect(repository.findAuthIdentityByEmail).toHaveBeenCalledWith("joao@usuario.erp.invalid");
   });
 
   it("cadastra empresa matriz com dono administrador", async () => {
@@ -137,6 +153,24 @@ describe("IdentityService", () => {
         permissionKeys: [AUTH_PERMISSIONS.SALES_PDV]
       })
     ).rejects.toBeInstanceOf(AppError);
+  });
+
+  it("cadastra funcionário com usuário, senha e permissões sem e-mail real", async () => {
+    vi.mocked(repository.emailExists).mockResolvedValue(false);
+    vi.mocked(repository.branchBelongsToTenant).mockResolvedValue(true);
+    vi.mocked(repository.findPermissionsByKeys).mockResolvedValue([{ id: "permission-1", key: AUTH_PERMISSIONS.SALES_PDV, name: "PDV", module: "sales" }]);
+    vi.mocked(repository.createEmployeeUser).mockResolvedValue({ id: "user-2", name: "João", email: "joao@usuario.erp.invalid", status: "ACTIVE", roleId: "role-2", roleName: "Acesso de João", branchId: "branch-1", branchName: "Matriz" });
+
+    const result = await service.createEmployeeUser({
+      tenantId: "tenant-1",
+      createdById: "admin-1",
+      creatorPermissions: [AUTH_PERMISSIONS.SALES_PDV],
+      canAccessAllBranches: true,
+      employee: { name: "João", username: "joao", password: "Senha123", branchId: "branch-1", permissionKeys: [AUTH_PERMISSIONS.SALES_PDV] }
+    });
+
+    expect(result.username).toBe("joao");
+    expect(repository.createEmployeeUser).toHaveBeenCalledWith(expect.objectContaining({ email: "joao@usuario.erp.invalid", permissionKeys: [AUTH_PERMISSIONS.SALES_PDV] }));
   });
 
   it("confirma reset de senha valido", async () => {
