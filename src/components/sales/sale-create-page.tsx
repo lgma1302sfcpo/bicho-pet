@@ -12,6 +12,7 @@ import { CustomerCreateForm } from "@/components/customers/customer-create-form"
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
+import type { ProductListItemDTO } from "@/dtos/catalog/product.dto";
 import type { CustomerListItemDTO } from "@/dtos/commerce/customer.dto";
 import type { CreateSaleDTO, SaleCreatedDTO } from "@/dtos/commerce/sale.dto";
 import { useProducts } from "@/hooks/catalog/use-products";
@@ -38,6 +39,10 @@ function currentLocalDateTime() {
 
 function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
+}
+
+function isBulkWeightProduct(product?: ProductListItemDTO) {
+  return Boolean(product && (product.unit === "KG" || normalizeSearch(product.category).includes("granel")));
 }
 
 export function SaleCreatePage() {
@@ -79,15 +84,21 @@ export function SaleCreatePage() {
   }, [productSearches]);
 
   const watchedItems = form.watch("items");
+  const products = useMemo(() => productsQuery.data?.products ?? [], [productsQuery.data?.products]);
   const discount = Number(parseBrazilianNumber(form.watch("discount")) ?? 0);
   const surcharge = Number(parseBrazilianNumber(form.watch("surcharge")) ?? 0);
 
   const subtotal = useMemo(
     () =>
       Math.round(
-        watchedItems.reduce((total, item) => total + Number(parseBrazilianNumber(item.quantity) ?? 0) * Number(parseBrazilianNumber(item.unitPrice) ?? 0), 0) * 100
+        watchedItems.reduce((total, item) => {
+          const product = products.find((candidate) => candidate.id === item.productId);
+          const enteredQuantity = Number(parseBrazilianNumber(item.quantity) ?? 0);
+          const saleQuantity = isBulkWeightProduct(product) ? enteredQuantity / 1000 : enteredQuantity;
+          return total + saleQuantity * Number(parseBrazilianNumber(item.unitPrice) ?? 0);
+        }, 0) * 100
       ) / 100,
-    [watchedItems]
+    [products, watchedItems]
   );
   const total = Math.round((subtotal - discount + surcharge) * 100) / 100;
 
@@ -96,12 +107,19 @@ export function SaleCreatePage() {
     setSuccess(null);
 
     try {
-      const sale = await createSale.mutateAsync({
+      const normalizedValues: CreateSaleDTO = {
         ...values,
-        customerId: values.customerId || undefined
+        customerId: values.customerId || undefined,
+        items: values.items.map((item) => {
+          const product = products.find((candidate) => candidate.id === item.productId);
+          return { ...item, quantity: isBulkWeightProduct(product) ? item.quantity / 1000 : item.quantity };
+        })
+      };
+      const sale = await createSale.mutateAsync({
+        ...normalizedValues
       });
       const customerName = customers.find((customer) => customer.id === values.customerId)?.name ?? "Consumidor final";
-      setLastReceipt({ sale, values, customerName });
+      setLastReceipt({ sale, values: normalizedValues, customerName });
       setSuccess(`Venda ${sale.code} cadastrada com total de ${formatCurrency(sale.total)}.`);
       form.reset({
         customerId: "",
@@ -132,7 +150,13 @@ export function SaleCreatePage() {
     let y = 60;
     for (const item of lastReceipt.values.items) {
       const lineTotal = Number(item.quantity) * Number(item.unitPrice);
-      document.text(`${item.description} - ${item.quantity} x ${formatCurrency(Number(item.unitPrice))}`, 20, y);
+      const product = products.find((candidate) => candidate.id === item.productId);
+      const bulkWeightProduct = isBulkWeightProduct(product);
+      const quantityLabel = bulkWeightProduct
+        ? `${(Number(item.quantity) * 1000).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} g`
+        : String(item.quantity);
+      const priceLabel = `${formatCurrency(Number(item.unitPrice))}${bulkWeightProduct ? "/kg" : ""}`;
+      document.text(`${item.description} - ${quantityLabel} x ${priceLabel}`, 20, y);
       document.text(formatCurrency(lineTotal), 170, y, { align: "right" });
       y += 7;
     }
@@ -202,8 +226,12 @@ export function SaleCreatePage() {
               {items.fields.map((field, index) => {
                 const search = normalizeSearch(debouncedProductSearches[field.id] ?? "");
                 const selectedProductId = watchedItems[index]?.productId;
-                const selectedProduct = (productsQuery.data?.products ?? []).find((product) => product.id === selectedProductId);
-                const matchingProducts = search ? (productsQuery.data?.products ?? []).filter((product) => {
+                const selectedProduct = products.find((product) => product.id === selectedProductId);
+                const bulkWeightProduct = isBulkWeightProduct(selectedProduct);
+                const enteredWeight = Number(parseBrazilianNumber(watchedItems[index]?.quantity) ?? 0);
+                const enteredUnitPrice = Number(parseBrazilianNumber(watchedItems[index]?.unitPrice) ?? 0);
+                const bulkItemTotal = Math.round((enteredWeight / 1000) * enteredUnitPrice * 100) / 100;
+                const matchingProducts = search ? products.filter((product) => {
                   const identifiers = [product.name, product.code, product.sku, product.barcode].filter(Boolean).join(" ");
                   return normalizeSearch(identifiers).includes(search);
                 }).slice(0, 10) : [];
@@ -217,7 +245,7 @@ export function SaleCreatePage() {
                       value={productSearches[field.id] ?? ""}
                       onChange={(event) => setProductSearches((current) => ({ ...current, [field.id]: event.target.value }))}
                     />
-                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}estoque {selectedProduct.stockQuantity} {unitLabels[selectedProduct.unit] ?? selectedProduct.unit}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => form.setValue(`items.${index}.productId`, "")}>Limpar</Button></div> : null}
+                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); }}>Limpar</Button></div> : null}
                     {search ? <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-white shadow-sm">
                       {matchingProducts.map((product) => <button
                         key={product.id}
@@ -227,12 +255,13 @@ export function SaleCreatePage() {
                           form.setValue(`items.${index}.productId`, product.id, { shouldValidate: true });
                           form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
                           form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
+                          form.setValue(`items.${index}.quantity`, isBulkWeightProduct(product) ? 0 : 1, { shouldValidate: true });
                           setProductSearches((current) => ({ ...current, [field.id]: "" }));
                           setDebouncedProductSearches((current) => ({ ...current, [field.id]: "" }));
                         }}
-                      ><strong className="block">{product.code ? `${product.code} · ` : ""}{product.name}</strong><span className="text-xs text-subdued">Estoque {product.stockQuantity} {unitLabels[product.unit] ?? product.unit}{product.sku ? ` · SKU ${product.sku}` : ""}</span></button>)}
+                      ><strong className="block">{product.code ? `${product.code} · ` : ""}{product.name}</strong><span className="text-xs text-subdued">{isBulkWeightProduct(product) ? `Preço ${formatCurrency(product.salePrice)}/kg · Estoque ${product.stockQuantity} kg` : `Estoque ${product.stockQuantity} ${unitLabels[product.unit] ?? product.unit}`}{product.sku ? ` · SKU ${product.sku}` : ""}</span></button>)}
                       {!matchingProducts.length ? <p className="px-3 py-4 text-center text-sm text-subdued">Nenhum produto encontrado. Preencha a descrição para usar um item avulso.</p> : null}
-                    </div> : <p className="text-xs text-subdued">Digite normalmente; os resultados aparecerão abaixo.</p>}
+                    </div> : <p className="sale-product-hint text-xs text-subdued">Os resultados aparecerão abaixo.</p>}
                   </div>
                   <Input
                     label="Descrição"
@@ -240,18 +269,23 @@ export function SaleCreatePage() {
                     {...form.register(`items.${index}.description`)}
                   />
                   <Input
-                    label="Quantidade"
+                    label={bulkWeightProduct ? "Peso (g)" : "Quantidade"}
+                    help={bulkWeightProduct ? "Digite o peso em gramas. Exemplo: 300 g de um produto a R$ 23,50/kg totaliza R$ 7,05." : undefined}
+                    placeholder={bulkWeightProduct ? "Ex.: 300" : undefined}
                     mask="decimal"
                     error={form.formState.errors.items?.[index]?.quantity?.message}
                     {...form.register(`items.${index}.quantity`)}
                   />
-                  <Input
-                    label="Preço unitário"
-                    help="Valor cobrado por uma unidade deste item."
-                    mask="currency"
-                    error={form.formState.errors.items?.[index]?.unitPrice?.message}
-                    {...form.register(`items.${index}.unitPrice`)}
-                  />
+                  <div className="space-y-2">
+                    <Input
+                      label={bulkWeightProduct ? "Preço por kg" : "Preço unitário"}
+                      help={bulkWeightProduct ? "Preço do quilograma usado para calcular automaticamente o valor do peso informado." : "Valor cobrado por uma unidade deste item."}
+                      mask="currency"
+                      error={form.formState.errors.items?.[index]?.unitPrice?.message}
+                      {...form.register(`items.${index}.unitPrice`)}
+                    />
+                    {bulkWeightProduct ? <p className="whitespace-nowrap text-xs font-semibold text-brand-700">Total: {formatCurrency(bulkItemTotal)}</p> : null}
+                  </div>
                   <Button
                     className="sale-item-remove mt-6 h-10 px-0"
                     variant="ghost"

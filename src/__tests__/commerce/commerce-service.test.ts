@@ -119,6 +119,19 @@ describe("CommerceService", () => {
     expect(result.total).toBe(45);
   });
 
+  it("calcula venda fracionada por quilograma", async () => {
+    vi.mocked(repository.createSale).mockResolvedValue({ id: "sale-granel", code: "VD-GRANEL", total: 7.05 });
+
+    await service.createSale("tenant-1", "branch-1", "user-1", {
+      paymentMethod: "PIX",
+      discount: 0,
+      surcharge: 0,
+      items: [{ productId: "racao-granel", description: "Racao a granel", quantity: 0.3, unitPrice: 23.5 }]
+    });
+
+    expect(repository.createSale).toHaveBeenCalledWith(expect.objectContaining({ subtotal: 7.05, total: 7.05 }));
+  });
+
   it("bloqueia venda para cliente de outro tenant", async () => {
     vi.mocked(repository.customerBelongsToTenant).mockResolvedValue(false);
 

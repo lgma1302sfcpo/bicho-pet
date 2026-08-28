@@ -101,14 +101,17 @@ export async function POST(request: NextRequest) {
           location: find(row, "localizacao", "localização")
         };
         const provided = new Set(Object.entries(raw).filter(([, value]) => text(value) !== "").map(([key]) => key));
+        const importedCategory = category(raw.category) || "Sem categoria";
+        const importedUnit = normalized(importedCategory).includes("granel") ? "KG" : text(raw.unit).toUpperCase() || "UN";
+        if (normalized(importedCategory).includes("granel")) provided.add("unit");
         data.push({ item: createProductSchema.parse({
         name: text(raw.name),
         code, sku, barcode,
-        category: category(raw.category) || "Sem categoria",
+        category: importedCategory,
         subcategory: text(raw.subcategory) || undefined,
         brand: text(raw.brand) || undefined,
         supplier: text(raw.supplier) || undefined,
-        unit: text(raw.unit).toUpperCase() || "UN",
+        unit: importedUnit,
         costPrice: number(raw.costPrice),
         salePrice: number(raw.salePrice),
         stockQuantity: Math.max(0, number(raw.stockQuantity)),
