@@ -38,6 +38,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   });
   const [searchText, setSearchText] = useState("");
   const productsQuery = useProducts(filters);
+  const [lastProductData, setLastProductData] = useState(productsQuery.data);
   const deleteProduct = useDeleteProduct();
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [importingProducts, setImportingProducts] = useState(false);
@@ -47,16 +48,21 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importPending, setImportPending] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItemDTO | null>(null);
-  const products = productsQuery.data?.products ?? [];
-  const summary = productsQuery.data?.summary;
+  const visibleProductData = productsQuery.data ?? lastProductData;
+  const products = visibleProductData?.products ?? [];
+  const summary = visibleProductData?.summary;
   const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.species ? `Espécie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setFilters((current) => ({ ...current, search: searchText.trim() || undefined }));
-    }, 450);
+    }, 650);
     return () => window.clearTimeout(timer);
   }, [searchText]);
+
+  useEffect(() => {
+    if (productsQuery.data) setLastProductData(productsQuery.data);
+  }, [productsQuery.data]);
 
   function updateFilter<Key extends keyof ProductFiltersDTO>(key: Key, value: ProductFiltersDTO[Key]) {
     setFilters((current) => ({
@@ -86,7 +92,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
     }
   }
 
-  if (productsQuery.isPending) {
+  if (productsQuery.isPending && !visibleProductData) {
     return (
       <div className="erp-page">
         <div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Produtos</h1><p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p></div></div>
@@ -95,7 +101,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
     );
   }
 
-  if (productsQuery.isError) {
+  if (productsQuery.isError && !visibleProductData) {
     return (
       <div className="erp-page">
         <div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Produtos</h1><p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p></div></div>
@@ -139,6 +145,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Input
+                id="product-search"
                 label="Buscar"
                 placeholder="nome, código, marca ou fornecedor"
                 value={searchText}
