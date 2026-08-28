@@ -8,7 +8,8 @@ export type InventoryData = {
 };
 
 export type FinancialEntry = { id: string; saleId?: string | null; type: "REVENUE" | "EXPENSE"; status: "PENDING" | "PAID" | "CANCELLED"; description: string; category: string; amount: number; dueDate: string; paidAt?: string | null; paymentMethod?: string | null; notes?: string | null };
-export type DashboardData = { metrics: { revenue: number; grossProfit: number; margin: number; pendingExpenses: number; lowStock: number }; cashFlow: Array<{ day: string; revenue: number; expense: number }>; topProducts: Array<{ name: string; quantity: number }>; latestSales: Array<{ id: string; code: string; customerName: string; paymentMethod: string; total: number; soldAt: string }>; upcomingExpenses: Array<{ id: string; description: string; amount: number; dueDate: string }> };
+export type DashboardFilters = { period?: 7 | 30 | 90 | 365; paymentMethod?: string; category?: string; brand?: string };
+export type DashboardData = { metrics: { revenue: number; grossProfit: number; margin: number; pendingExpenses: number; lowStock: number }; cashFlow: Array<{ day: string; revenue: number; expense: number }>; topProducts: Array<{ name: string; quantity: number }>; latestSales: Array<{ id: string; code: string; customerName: string; paymentMethod: string; total: number; soldAt: string }>; upcomingExpenses: Array<{ id: string; description: string; amount: number; dueDate: string }>; filterOptions: { categories: string[]; brands: string[]; paymentMethods: Array<{ value: string; label: string }> } };
 
 async function api<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, cache: "no-store", headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -21,8 +22,10 @@ export function useInventory() {
   return useQuery({ queryKey: ["inventory"], queryFn: () => api<InventoryData>("/api/inventory") });
 }
 
-export function useDashboard() {
-  return useQuery({ queryKey: ["dashboard"], queryFn: () => api<DashboardData>("/api/dashboard") });
+export function useDashboard(filters: DashboardFilters = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, String(value)); });
+  return useQuery({ queryKey: ["dashboard", filters], queryFn: () => api<DashboardData>(`/api/dashboard?${params.toString()}`), placeholderData: (previousData) => previousData });
 }
 
 export function useCreateInventoryMovement() {

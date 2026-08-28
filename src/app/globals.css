@@ -364,6 +364,48 @@ a {
   background: #f8fafc;
 }
 
+.sale-page {
+  --sale-border: #dbe3ef;
+}
+
+.sale-form-card {
+  overflow: visible;
+  border-top: 3px solid #2458bd;
+}
+
+.sale-item-row {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.sale-item-row:focus-within {
+  border-color: #9bb8ef;
+  box-shadow: 0 4px 14px rgba(36, 88, 189, 0.08);
+}
+
+.sale-summary-stack .erp-side-card {
+  border-top: 3px solid #16875a;
+}
+
+@media (max-width: 1535px) {
+  .sale-summary-stack {
+    position: static;
+  }
+}
+
+@media (max-width: 767px) {
+  .sale-page .erp-page-header {
+    padding-bottom: 0.75rem;
+  }
+
+  .sale-form-card {
+    padding: 0.875rem;
+  }
+
+  .sale-item-row {
+    background: #f8fafc;
+  }
+}
+
 .erp-side-card {
   align-self: start;
 }

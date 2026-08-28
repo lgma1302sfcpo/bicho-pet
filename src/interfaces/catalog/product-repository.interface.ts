@@ -42,6 +42,7 @@ export type ProductSummaryRecord = {
   lowStock: number;
   activeProducts: number;
   categories: string[];
+  suppliers: string[];
 };
 
 export interface ProductRepository {

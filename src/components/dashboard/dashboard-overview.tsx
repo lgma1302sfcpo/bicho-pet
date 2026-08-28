@@ -1,16 +1,18 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, Banknote, PackageSearch } from "lucide-react";
-import React from "react";
+import { ArrowDownRight, ArrowUpRight, Banknote, PackageSearch, SlidersHorizontal } from "lucide-react";
+import React, { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { Card } from "@/components/ui/card";
-import { useDashboard } from "@/hooks/use-operations";
+import { Select } from "@/components/ui/select";
+import { useDashboard, type DashboardFilters } from "@/hooks/use-operations";
 
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
 export function DashboardOverview() {
-  const dashboard = useDashboard();
+  const [filters, setFilters] = useState<DashboardFilters>({ period: 30 });
+  const dashboard = useDashboard(filters);
   const data = dashboard.data;
 
   if (dashboard.isPending || (dashboard.isFetching && !data)) {
@@ -33,14 +35,15 @@ export function DashboardOverview() {
   }
 
   const metrics = [
-    { label: "Faturamento dos últimos 30 dias", value: money(data.metrics.revenue), hint: "Calculado com as vendas registradas", icon: ArrowUpRight },
-    { label: "Lucro bruto dos últimos 30 dias", value: money(data.metrics.grossProfit), hint: `${data.metrics.margin.toFixed(1)}% de margem sobre as vendas`, icon: Banknote },
+    { label: `Faturamento dos últimos ${filters.period ?? 30} dias`, value: money(data.metrics.revenue), hint: "Calculado com as vendas registradas", icon: ArrowUpRight },
+    { label: `Lucro bruto dos últimos ${filters.period ?? 30} dias`, value: money(data.metrics.grossProfit), hint: `${data.metrics.margin.toFixed(1)}% de margem sobre as vendas`, icon: Banknote },
     { label: "Despesas pendentes", value: money(data.metrics.pendingExpenses), hint: "Lançamentos ainda não pagos", icon: ArrowDownRight },
     { label: "Produtos com estoque baixo", value: String(data.metrics.lowStock), hint: "Produtos que precisam de reposição", icon: PackageSearch }
   ];
 
   return <div className="erp-page">
     <div className="erp-page-header"><div><h1 className="text-2xl font-semibold text-ink">Visão geral</h1><p className="text-sm text-subdued">Indicadores calculados diretamente com vendas, estoque e financeiro.</p></div></div>
+    <Card className="erp-filter-card p-4"><div className="mb-4 flex items-center gap-2"><SlidersHorizontal size={18} className="text-brand-700" /><h2 className="font-semibold">Filtros de vendas e faturamento</h2></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Select label="Período" value={String(filters.period ?? 30)} onChange={(event) => setFilters((current) => ({ ...current, period: Number(event.target.value) as DashboardFilters["period"] }))}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Último ano</option></Select><Select label="Pagamento" value={filters.paymentMethod ?? ""} onChange={(event) => setFilters((current) => ({ ...current, paymentMethod: event.target.value || undefined }))}><option value="">Todos os pagamentos</option>{(data.filterOptions?.paymentMethods ?? []).map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}</Select><Select label="Categoria" value={filters.category ?? ""} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value || undefined }))}><option value="">Todas as categorias</option>{(data.filterOptions?.categories ?? []).map((category) => <option key={category} value={category}>{category}</option>)}</Select><Select label="Marca" value={filters.brand ?? ""} onChange={(event) => setFilters((current) => ({ ...current, brand: event.target.value || undefined }))}><option value="">Todas as marcas</option>{(data.filterOptions?.brands ?? []).map((brand) => <option key={brand} value={brand}>{brand}</option>)}</Select></div></Card>
     <section className="erp-metrics grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics.map((metric) => { const Icon = metric.icon; return <Card key={metric.label} className="p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-sm text-subdued">{metric.label}</p><p className="mt-2 text-2xl font-semibold">{metric.value}</p><p className="mt-1 text-xs text-subdued">{metric.hint}</p></div><div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-brand-50 text-brand-700"><Icon size={18} /></div></div></Card>; })}</section>
     <section className="grid gap-5 2xl:grid-cols-[minmax(0,1.3fr)_minmax(22rem,0.7fr)]">
       <Card className="erp-dashboard-chart min-w-0 p-4"><h2 className="font-semibold">Movimento dos últimos sete dias</h2><p className="mb-4 text-sm text-subdued">Vendas e despesas pagas em cada dia.</p><div className="h-64 min-w-0 sm:h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={data.cashFlow} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}><CartesianGrid stroke="#e6ebf2" vertical={false} /><XAxis dataKey="day" tickLine={false} axisLine={false} /><YAxis tickLine={false} axisLine={false} width={45} /><Tooltip formatter={(value) => money(Number(value))} /><Line name="Vendas" type="monotone" dataKey="revenue" stroke="#16875a" strokeWidth={3} dot={false} activeDot={{ r: 5 }} /><Line name="Despesas" type="monotone" dataKey="expense" stroke="#c2413b" strokeWidth={3} dot={false} activeDot={{ r: 5 }} /></LineChart></ResponsiveContainer></div></Card>

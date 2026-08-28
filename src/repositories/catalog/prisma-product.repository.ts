@@ -218,6 +218,10 @@ export class PrismaProductRepository implements ProductRepository {
       and.push({ category: filters.category });
     }
 
+    if (filters.supplier) {
+      and.push({ supplier: filters.supplier });
+    }
+
     if (filters.species) {
       and.push({ species: filters.species });
     }
@@ -252,6 +256,7 @@ export class PrismaProductRepository implements ProductRepository {
         where: { tenantId, status: { not: "DISCONTINUED" } },
         select: {
           category: true,
+          supplier: true,
           branchStocks: { where: branchId ? { branchId } : {}, select: { stockQuantity: true, minStock: true } }
         }
       }),
@@ -269,7 +274,8 @@ export class PrismaProductRepository implements ProductRepository {
         }
         return product.branchStocks.some((stock) => toNumber(stock.minStock) > 0 && toNumber(stock.stockQuantity) <= toNumber(stock.minStock));
       }).length,
-      categories: Array.from(new Set(products.map((product) => product.category))).sort()
+      categories: Array.from(new Set(products.map((product) => product.category))).sort(),
+      suppliers: Array.from(new Set(products.map((product) => product.supplier).filter((supplier): supplier is string => Boolean(supplier)))).sort()
     };
   }
 

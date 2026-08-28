@@ -145,7 +145,7 @@ export function SaleCreatePage() {
   }
 
   return (
-    <div className="erp-page">
+    <div className="erp-page sale-page">
       <div className="erp-page-header">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Cadastrar venda</h1>
@@ -153,8 +153,8 @@ export function SaleCreatePage() {
         </div>
       </div>
 
-      <section className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="p-4">
+      <section className="sale-layout grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Card className="sale-form-card p-4 sm:p-5">
           <form className="space-y-5" noValidate onSubmit={form.handleSubmit(onSubmit)}>
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-2">
@@ -208,7 +208,7 @@ export function SaleCreatePage() {
                   return normalizeSearch(identifiers).includes(search);
                 }).slice(0, 10) : [];
                 return (
-                <div key={field.id} className="grid gap-3 rounded-md border border-border p-3 md:grid-cols-[1.2fr_1fr_100px_130px_44px]">
+                <div key={field.id} className="sale-item-row grid gap-3 rounded-lg border border-border bg-slate-50/60 p-3 md:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_100px_130px_44px]">
                   <div className="space-y-2">
                     <input type="hidden" {...form.register(`items.${index}.productId`)} />
                     <Input
@@ -290,7 +290,7 @@ export function SaleCreatePage() {
           </form>
         </Card>
 
-        <div className="erp-side-stack space-y-5">
+        <div className="erp-side-stack sale-summary-stack space-y-5">
           <Card className="erp-side-card p-4">
             <div className="mb-3 flex items-center gap-2">
               <ReceiptText size={18} className="text-brand-700" />

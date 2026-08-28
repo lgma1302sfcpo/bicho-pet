@@ -51,7 +51,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const visibleProductData = productsQuery.data ?? lastProductData;
   const products = visibleProductData?.products ?? [];
   const summary = visibleProductData?.summary;
-  const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.species ? `Espécie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
+  const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.supplier ? `Fornecedor: ${filters.supplier}` : null, filters.species ? `Espécie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -143,7 +143,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               </div>
               <Button variant="ghost" onClick={() => { setSearchText(""); setFilters({ lowStockOnly: false }); }}>Limpar filtros</Button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               <Input
                 id="product-search"
                 label="Buscar"
@@ -160,6 +160,18 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                 {(summary?.categories ?? []).map((category) => (
                   <option key={category} value={category}>
                     {category}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                label="Fornecedor"
+                value={filters.supplier ?? ""}
+                onChange={(event) => updateFilter("supplier", event.target.value || undefined)}
+              >
+                <option value="">Todos</option>
+                {(summary?.suppliers ?? []).map((supplier) => (
+                  <option key={supplier} value={supplier}>
+                    {supplier}
                   </option>
                 ))}
               </Select>
@@ -211,7 +223,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="font-semibold">{product.name}</h3>
-                      <p className="text-xs text-subdued">{product.category}{product.brand ? ` · ${product.brand}` : ""}</p>
+                      <p className="text-xs text-subdued">{product.category}{product.brand ? ` · ${product.brand}` : ""}{product.supplier ? ` · ${product.supplier}` : ""}</p>
                     </div>
                     {product.isLowStock ? <Badge className="shrink-0 border-amber-200 bg-amber-50 text-warning">Estoque baixo</Badge> : null}
                   </div>
@@ -228,12 +240,13 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               {products.length === 0 ? <p className="p-6 text-center text-sm text-subdued">Nenhum produto encontrado.</p> : null}
             </div>
             <div className="erp-table-scroll hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1120px] text-left text-sm">
+              <table className="w-full min-w-[1240px] text-left text-sm">
                 <thead className="bg-muted text-xs uppercase text-subdued">
                   <tr>
                     <th className="px-4 py-3">Produto</th>
                     <th className="px-4 py-3">Categoria</th>
                     <th className="px-4 py-3">Marca</th>
+                    <th className="px-4 py-3">Fornecedor</th>
                     <th className="px-4 py-3">Espécie</th>
                     <th className="px-4 py-3">Custo</th>
                     <th className="px-4 py-3">Preço de venda</th>
@@ -249,7 +262,6 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                         <div className="font-medium">{product.name}</div>
                         <div className="text-xs text-subdued">
                           {product.sku || product.code || product.barcode || "Sem código"}
-                          {product.supplier ? ` · ${product.supplier}` : ""}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -257,6 +269,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                         {product.subcategory ? <div className="text-xs text-subdued">{product.subcategory}</div> : null}
                       </td>
                       <td className="px-4 py-3">{product.brand ?? "Sem marca"}</td>
+                      <td className="px-4 py-3">{product.supplier ?? "Não informado"}</td>
                       <td className="px-4 py-3">{speciesLabels[product.species] ?? product.species}</td>
                       <td className="px-4 py-3 font-semibold">{formatCurrency(product.costPrice)}</td>
                       <td className="px-4 py-3 font-semibold">{formatCurrency(product.salePrice)}</td>
@@ -298,7 +311,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                   ))}
                   {products.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-subdued" colSpan={9}>
+                      <td className="px-4 py-8 text-center text-subdued" colSpan={10}>
                         Nenhum produto encontrado.
                       </td>
                     </tr>

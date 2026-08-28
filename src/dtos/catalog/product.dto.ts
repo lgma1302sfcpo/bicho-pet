@@ -53,4 +53,5 @@ export type ProductSummaryDTO = {
   lowStock: number;
   activeProducts: number;
   categories: string[];
+  suppliers: string[];
 };

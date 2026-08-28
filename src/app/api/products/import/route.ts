@@ -61,10 +61,15 @@ export async function POST(request: NextRequest) {
     });
     const rows = Array.from(mergedRows.values());
     if (!rows.length) throw new Error("A planilha não possui produtos.");
-    const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
     const find = (row: Record<string, unknown>, ...names: string[]) => {
-      const key = keys.find((candidate) => names.includes(normalized(candidate)));
-      return key ? row[key] : undefined;
+      let fallback: unknown;
+      for (const name of names) {
+        const entry = Object.entries(row).find(([key]) => normalized(key) === normalized(name));
+        if (!entry) continue;
+        fallback ??= entry[1];
+        if (text(entry[1]) !== "") return entry[1];
+      }
+      return fallback;
     };
     const seen = new Set<string>();
     const data: Array<{ item: ReturnType<typeof createProductSchema.parse>; provided: Set<string> }> = [];
@@ -86,7 +91,7 @@ export async function POST(request: NextRequest) {
           category: find(row, "categoria"),
           subcategory: find(row, "sub categoria", "subcategoria"),
           brand: find(row, "marca"),
-          supplier: find(row, "fornecedor principal", "fornecedor"),
+          supplier: find(row, "fornecedor principal", "fornecedor", "nome fornecedor", "fornec.", "fornec"),
           unit: find(row, "unidade", "unid.", "unid"),
           costPrice: find(row, "preco de custo", "preço de custo", "custo"),
           salePrice: find(row, "preco", "preço", "preco de venda", "preço de venda"),

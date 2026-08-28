@@ -119,7 +119,10 @@ export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormP
           </Select>
           <Select label="Subcategoria" error={form.formState.errors.subcategory?.message} {...form.register("subcategory")}><option value="">Sem subcategoria</option>{subcategorySuggestions.map((item) => <option key={item}>{item}</option>)}</Select>
           <Select label="Marca" error={form.formState.errors.brand?.message} {...form.register("brand")}><option value="">Sem marca</option>{brandSuggestions.map((item) => <option key={item}>{item}</option>)}</Select>
-          <Select label="Fornecedor" help="Empresa de quem a loja compra este produto." error={form.formState.errors.supplier?.message} {...form.register("supplier")}><option value="">Fornecedor não informado</option>{supplierSuggestions.map((item) => <option key={item}>{item}</option>)}</Select>
+          <div>
+            <Input label="Fornecedor" list="supplier-suggestions" placeholder="Digite ou selecione o fornecedor" help="Empresa de quem a loja compra este produto." error={form.formState.errors.supplier?.message} {...form.register("supplier")} />
+            <datalist id="supplier-suggestions">{supplierSuggestions.map((item) => <option key={item} value={item} />)}</datalist>
+          </div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <Select label="Espécie" error={form.formState.errors.species?.message} {...form.register("species")}>

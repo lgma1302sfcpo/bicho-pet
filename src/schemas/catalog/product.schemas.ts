@@ -70,6 +70,7 @@ export const updateProductSchema = createProductSchema.extend({
 export const productFiltersSchema = z.object({
   search: z.string().trim().optional(),
   category: z.string().trim().optional(),
+  supplier: z.string().trim().optional(),
   species: z.enum(["ALL", "DOG", "CAT", "BIRD", "FISH", "RODENT", "OTHER"]).optional(),
   status: z.enum(["ACTIVE", "INACTIVE", "DISCONTINUED"]).optional(),
   lowStockOnly: queryBoolean.default(false)

@@ -13,6 +13,7 @@ function getFilters(request: NextRequest) {
   return productFiltersSchema.parse({
     search: params.get("search") ?? undefined,
     category: params.get("category") ?? undefined,
+    supplier: params.get("supplier") ?? undefined,
     species: params.get("species") ?? undefined,
     status: params.get("status") ?? undefined,
     lowStockOnly: params.get("lowStockOnly") ?? undefined
