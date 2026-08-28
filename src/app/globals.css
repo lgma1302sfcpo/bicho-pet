@@ -368,6 +368,20 @@ a {
   --sale-border: #dbe3ef;
 }
 
+.sale-layout {
+  align-items: start;
+}
+
+.sale-page form,
+.sale-page form > * {
+  min-width: 0;
+}
+
+.sale-page form > .grid:first-child {
+  align-items: end;
+  padding-bottom: 0.25rem;
+}
+
 .sale-form-card {
   overflow: visible;
   border-top: 3px solid #2458bd;
@@ -375,6 +389,14 @@ a {
 
 .sale-item-row {
   transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.sale-item-row > * {
+  min-width: 0;
+}
+
+.sale-item-row .ui-control {
+  max-width: 100%;
 }
 
 .sale-item-row:focus-within {
@@ -403,6 +425,14 @@ a {
 
   .sale-item-row {
     background: #f8fafc;
+  }
+
+  .sale-page .sale-item-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sale-page .sale-item-row .sale-item-remove {
+    margin-top: 0;
   }
 }
 

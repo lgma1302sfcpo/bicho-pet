@@ -5,7 +5,7 @@ import { getEffectivePermissions } from "@/lib/effective-permissions";
 import { getCurrentSession } from "./auth";
 import { AppError } from "./errors";
 
-export async function requirePermission(permission: PermissionKey) {
+export async function requirePermission(permission: PermissionKey | PermissionKey[]) {
   const session = await getCurrentSession();
 
   if (!session?.user) {
@@ -14,7 +14,8 @@ export async function requirePermission(permission: PermissionKey) {
 
   const permissions = await getEffectivePermissions(session.user.id, session.user.currentTenantId);
 
-  if (!hasPermission(permissions, permission)) {
+  const allowed = Array.isArray(permission) ? permission : [permission];
+  if (!allowed.some((item) => hasPermission(permissions, item))) {
     throw new AppError("Permissão insuficiente.", "FORBIDDEN", 403, { permission });
   }
 

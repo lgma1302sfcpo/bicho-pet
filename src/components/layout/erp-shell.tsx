@@ -11,7 +11,6 @@ import {
   Menu,
   Settings,
   ShieldCheck,
-  ShoppingCart,
   Users,
   WalletCards,
   X
@@ -49,7 +48,7 @@ type EnabledNavItem = {
   href: Route;
   label: string;
   icon: typeof BarChart3;
-  permission: PermissionKey;
+  permission: PermissionKey | PermissionKey[];
   enabled: true;
 };
 
@@ -57,9 +56,8 @@ const navItems: EnabledNavItem[] = [
   { href: "/dashboard", label: "Visão geral", icon: BarChart3, permission: AUTH_PERMISSIONS.DASHBOARD_READ, enabled: true },
   { href: "/clientes", label: "Clientes", icon: Users, permission: AUTH_PERMISSIONS.CUSTOMERS_READ, enabled: true },
   { href: "/produtos", label: "Produtos", icon: Package, permission: AUTH_PERMISSIONS.PRODUCTS_READ, enabled: true },
-  { href: "/vendas/nova", label: "Vendas", icon: ReceiptText, permission: AUTH_PERMISSIONS.SALES_WRITE, enabled: true },
+  { href: "/vendas/nova", label: "Vendas", icon: ReceiptText, permission: [AUTH_PERMISSIONS.SALES_WRITE, AUTH_PERMISSIONS.SALES_PDV], enabled: true },
   { href: "/estoque", label: "Estoque", icon: Boxes, permission: AUTH_PERMISSIONS.INVENTORY_READ, enabled: true },
-  { href: "/ponto-de-venda", label: "Ponto de venda", icon: ShoppingCart, permission: AUTH_PERMISSIONS.SALES_PDV, enabled: true },
   { href: "/financeiro", label: "Financeiro", icon: WalletCards, permission: AUTH_PERMISSIONS.FINANCE_READ, enabled: true },
   { href: "/relatorios", label: "Relatórios", icon: ClipboardList, permission: AUTH_PERMISSIONS.REPORTS_READ, enabled: true },
   { href: "/fiscal", label: "Fiscal", icon: Landmark, permission: AUTH_PERMISSIONS.FISCAL_READ, enabled: true },
@@ -72,7 +70,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
   const [switchingBranch, setSwitchingBranch] = useState(false);
   const [branchSwitchError, setBranchSwitchError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const availableNavItems = navItems.filter((item) => hasPermission(user.permissions, item.permission));
+  const availableNavItems = navItems.filter((item) => Array.isArray(item.permission) ? item.permission.some((permission) => hasPermission(user.permissions, permission)) : hasPermission(user.permissions, item.permission));
 
   async function switchBranch(branchId: string) {
     setSwitchingBranch(true);
