@@ -199,39 +199,40 @@ export function SaleCreatePage() {
                   Item
                 </Button>
               </div>
-              {items.fields.map((field, index) => (
+              {items.fields.map((field, index) => {
+                const search = normalizeSearch(debouncedProductSearches[field.id] ?? "");
+                const selectedProductId = watchedItems[index]?.productId;
+                const selectedProduct = (productsQuery.data?.products ?? []).find((product) => product.id === selectedProductId);
+                const matchingProducts = search ? (productsQuery.data?.products ?? []).filter((product) => {
+                  const identifiers = [product.name, product.code, product.sku, product.barcode].filter(Boolean).join(" ");
+                  return normalizeSearch(identifiers).includes(search);
+                }).slice(0, 10) : [];
+                return (
                 <div key={field.id} className="grid gap-3 rounded-md border border-border p-3 md:grid-cols-[1.2fr_1fr_100px_130px_44px]">
                   <div className="space-y-2">
+                    <input type="hidden" {...form.register(`items.${index}.productId`)} />
                     <Input
                       label="Buscar produto"
-                      placeholder="Nome ou código"
+                      placeholder="Digite nome, código, SKU ou código de barras"
                       value={productSearches[field.id] ?? ""}
                       onChange={(event) => setProductSearches((current) => ({ ...current, [field.id]: event.target.value }))}
                     />
-                    <Select
-                      label="Produto cadastrado"
-                      {...form.register(`items.${index}.productId`)}
-                      onChange={(event) => {
-                        form.setValue(`items.${index}.productId`, event.target.value, { shouldValidate: true });
-                        const product = productsQuery.data?.products.find((candidate) => candidate.id === event.target.value);
-                        if (product) {
+                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}estoque {selectedProduct.stockQuantity} {unitLabels[selectedProduct.unit] ?? selectedProduct.unit}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => form.setValue(`items.${index}.productId`, "")}>Limpar</Button></div> : null}
+                    {search ? <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-white shadow-sm">
+                      {matchingProducts.map((product) => <button
+                        key={product.id}
+                        type="button"
+                        className="block w-full border-b border-border px-3 py-2 text-left text-sm transition last:border-b-0 hover:bg-brand-50 focus:bg-brand-50 focus:outline-none"
+                        onClick={() => {
+                          form.setValue(`items.${index}.productId`, product.id, { shouldValidate: true });
                           form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
                           form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
-                        }
-                      }}
-                    >
-                      <option value="">Item avulso / serviço</option>
-                      {(productsQuery.data?.products ?? []).filter((product) => {
-                        const search = normalizeSearch(debouncedProductSearches[field.id] ?? "");
-                        if (!search || product.id === form.getValues(`items.${index}.productId`)) return true;
-                        const identifiers = [product.name, product.code, product.sku, product.barcode].filter(Boolean).join(" ");
-                        return normalizeSearch(identifiers).includes(search);
-                      }).map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.code ? `${product.code} · ` : ""}{product.name} · estoque {product.stockQuantity} {unitLabels[product.unit] ?? product.unit}
-                        </option>
-                      ))}
-                    </Select>
+                          setProductSearches((current) => ({ ...current, [field.id]: "" }));
+                          setDebouncedProductSearches((current) => ({ ...current, [field.id]: "" }));
+                        }}
+                      ><strong className="block">{product.code ? `${product.code} · ` : ""}{product.name}</strong><span className="text-xs text-subdued">Estoque {product.stockQuantity} {unitLabels[product.unit] ?? product.unit}{product.sku ? ` · SKU ${product.sku}` : ""}</span></button>)}
+                      {!matchingProducts.length ? <p className="px-3 py-4 text-center text-sm text-subdued">Nenhum produto encontrado. Preencha a descrição para usar um item avulso.</p> : null}
+                    </div> : <p className="text-xs text-subdued">Digite normalmente; os resultados aparecerão abaixo.</p>}
                   </div>
                   <Input
                     label="Descrição"
@@ -260,7 +261,8 @@ export function SaleCreatePage() {
                     <Minus size={18} />
                   </Button>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">

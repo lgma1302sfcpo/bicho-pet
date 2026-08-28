@@ -28,12 +28,31 @@ export async function POST(request: NextRequest) {
     const branchId = requireSelectedBranch(session.user.currentBranchId);
     const form = await request.formData();
     const file = form.get("file");
-    if (!(file instanceof File)) throw new Error("Selecione um arquivo Excel.");
-    const workbook = XLSX.read(Buffer.from(await file.arrayBuffer()), { type: "buffer", cellDates: true });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+    const stockFile = form.get("stockFile");
+    if (!(file instanceof File)) throw new Error("Selecione a planilha de produtos ou de estoque.");
+    const inputFiles = [file, ...(stockFile instanceof File ? [stockFile] : [])];
+    const sourceRows: Array<Record<string, unknown>> = [];
+    for (const inputFile of inputFiles) {
+      const workbook = XLSX.read(Buffer.from(await inputFile.arrayBuffer()), { type: "buffer", cellDates: true });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      sourceRows.push(...XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" }));
+    }
+    const rowValue = (row: Record<string, unknown>, ...names: string[]) => {
+      const entry = Object.entries(row).find(([key]) => names.includes(normalized(key)));
+      return entry?.[1];
+    };
+    const mergedRows = new Map<string, Record<string, unknown>>();
+    sourceRows.forEach((row, index) => {
+      const identity = text(rowValue(row, "codigo", "código")) || text(rowValue(row, "codigo ref.", "codigo ref", "sku")) || text(rowValue(row, "ean / gtin", "ean", "gtin", "codigo extra")) || normalized(text(rowValue(row, "nome", "produto"))) || `linha-${index}`;
+      const current = mergedRows.get(identity) ?? {};
+      for (const [key, value] of Object.entries(row)) {
+        if (text(value) !== "" || !(key in current)) current[key] = value;
+      }
+      mergedRows.set(identity, current);
+    });
+    const rows = Array.from(mergedRows.values());
     if (!rows.length) throw new Error("A planilha não possui produtos.");
-    const keys = Object.keys(rows[0]);
+    const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
     const find = (row: Record<string, unknown>, ...names: string[]) => {
       const key = keys.find((candidate) => names.includes(normalized(candidate)));
       return key ? row[key] : undefined;

@@ -41,6 +41,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [importingProducts, setImportingProducts] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [stockImportFile, setStockImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importPending, setImportPending] = useState(false);
@@ -57,16 +58,18 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   }
 
   async function submitImport() {
-    if (!importFile) return;
+    if (!importFile && !stockImportFile) return;
     setImportPending(true); setImportError(null); setImportResult(null);
     try {
       const formData = new FormData();
-      formData.set("file", importFile);
+      formData.set("file", importFile ?? stockImportFile!);
+      if (importFile && stockImportFile) formData.set("stockFile", stockImportFile);
       const response = await fetch("/api/products/import", { method: "POST", body: formData });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error?.message ?? "Não foi possível importar a planilha.");
       setImportResult(`${payload.data.imported} produto(s) novo(s) e ${payload.data.updated} produto(s) atualizado(s).`);
       setImportFile(null);
+      setStockImportFile(null);
       await productsQuery.refetch();
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Não foi possível importar a planilha.");
@@ -338,14 +341,15 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
         open={importingProducts}
         className="max-w-xl"
         title="Importar produtos e estoque"
-        description="Importe primeiro produtos.xls e depois ESTOQUE.xls. O segundo arquivo completa custo, categoria, marca e saldo sem duplicar os produtos."
+        description="Selecione as duas planilhas juntas. Os dados serão combinados pelo código, SKU ou EAN, e o estoque completará custo, categoria, marca e saldo."
         onClose={() => setImportingProducts(false)}
       >
         <div className="space-y-4">
-          <Input label="Arquivo Excel" type="file" accept=".xls,.xlsx" onChange={(event) => { setImportFile(event.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }} />
+          <Input label="Planilha de produtos" type="file" accept=".xls,.xlsx" onChange={(event) => { setImportFile(event.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }} />
+          <Input label="Planilha de estoque (contém o custo)" type="file" accept=".xls,.xlsx" onChange={(event) => { setStockImportFile(event.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }} />
           {importError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{importError}</p> : null}
           {importResult ? <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-success">{importResult}</p> : null}
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setImportingProducts(false)}>Fechar</Button><Button disabled={!importFile || importPending} onClick={() => void submitImport()}><FileUp size={17}/>{importPending ? "Importando..." : "Importar arquivo"}</Button></div>
+          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setImportingProducts(false)}>Fechar</Button><Button disabled={(!importFile && !stockImportFile) || importPending} onClick={() => void submitImport()}><FileUp size={17}/>{importPending ? "Importando..." : "Importar e atualizar"}</Button></div>
         </div>
       </Modal>
     </div>
