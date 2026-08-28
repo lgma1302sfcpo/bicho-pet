@@ -1,7 +1,7 @@
 "use client";
 
 import { Boxes, FileUp, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ProductCreateForm } from "@/components/products/product-create-form";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const [filters, setFilters] = useState<ProductFiltersDTO>({
     lowStockOnly: false
   });
+  const [searchText, setSearchText] = useState("");
   const productsQuery = useProducts(filters);
   const deleteProduct = useDeleteProduct();
   const [creatingProduct, setCreatingProduct] = useState(false);
@@ -49,6 +50,13 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const products = productsQuery.data?.products ?? [];
   const summary = productsQuery.data?.summary;
   const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.species ? `Espécie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFilters((current) => ({ ...current, search: searchText.trim() || undefined }));
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
 
   function updateFilter<Key extends keyof ProductFiltersDTO>(key: Key, value: ProductFiltersDTO[Key]) {
     setFilters((current) => ({
@@ -127,14 +135,14 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               <SlidersHorizontal size={18} className="text-brand-700" />
               <h2 className="text-base font-semibold">Filtros</h2>
               </div>
-              <Button variant="ghost" onClick={() => setFilters({ lowStockOnly: false })}>Limpar filtros</Button>
+              <Button variant="ghost" onClick={() => { setSearchText(""); setFilters({ lowStockOnly: false }); }}>Limpar filtros</Button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Input
                 label="Buscar"
                 placeholder="nome, código, marca ou fornecedor"
-                value={filters.search ?? ""}
-                onChange={(event) => updateFilter("search", event.target.value)}
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
               />
               <Select
                 label="Categoria"

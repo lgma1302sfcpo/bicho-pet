@@ -58,7 +58,8 @@ export function useProducts(filters: ProductFiltersDTO) {
     queryFn: () => {
       const query = buildProductQuery(filters);
       return apiFetch<ProductListResponse>(`/api/products${query ? `?${query}` : ""}`);
-    }
+    },
+    placeholderData: (previousData) => previousData
   });
 }
 

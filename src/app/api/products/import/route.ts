@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import * as XLSX from "xlsx";
 
 import { created, errorResponse } from "@/lib/api-response";
@@ -7,6 +8,8 @@ import { requireSelectedBranch } from "@/lib/branch-context";
 import { requirePermission } from "@/lib/require-permission";
 import { prisma } from "@/lib/prisma";
 import { createProductSchema } from "@/schemas/catalog/product.schemas";
+
+export const maxDuration = 300;
 
 const text = (value: unknown) => value === undefined || value === null ? "" : String(value).trim();
 const number = (value: unknown) => typeof value === "number" ? value : Number(text(value).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "")) || 0;
@@ -20,6 +23,12 @@ const categoryNames: Record<string, string> = {
 const category = (value: unknown) => {
   const original = text(value);
   return categoryNames[normalized(original)] ?? original;
+};
+
+const chunks = <T,>(items: T[], size = 300) => {
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+  return result;
 };
 
 export async function POST(request: NextRequest) {
@@ -123,36 +132,75 @@ export async function POST(request: NextRequest) {
       const product = [entry.item.code, entry.item.sku, entry.item.barcode].filter(Boolean).map(String).map((value) => existingByIdentifier.get(value)).find(Boolean);
       return product ? [{ ...entry, product }] : [];
     });
-    const result = await prisma.$transaction(async (tx) => {
-      const productRows = pending.map(({ item }) => {
-        const margin = item.costPrice > 0 ? ((item.salePrice - item.costPrice) / item.costPrice) * 100 : 0;
-        return { ...item, tenantId: session.user.currentTenantId, marginPercent: margin };
+    const productRows = pending.map(({ item }) => {
+      const margin = item.costPrice > 0 ? ((item.salePrice - item.costPrice) / item.costPrice) * 100 : 0;
+      return { ...item, tenantId: session.user.currentTenantId, marginPercent: margin };
+    });
+    const inserted = await prisma.product.createManyAndReturn({ data: productRows, select: { id: true, stockQuantity: true, minStock: true, maxStock: true, location: true } });
+    if (inserted.length) {
+      await prisma.productBranchStock.createMany({
+        data: inserted.map((item) => ({ tenantId: session.user.currentTenantId, branchId, productId: item.id, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location })),
+        skipDuplicates: true
       });
-      const inserted = await tx.product.createManyAndReturn({ data: productRows, select: { id: true, stockQuantity: true, minStock: true, maxStock: true, location: true } });
-      await tx.productBranchStock.createMany({ data: inserted.map((item) => ({ tenantId: session.user.currentTenantId, branchId, productId: item.id, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location })) });
-      for (const { item, provided, product } of updates) {
+    }
+
+    // As atualizações são enviadas ao PostgreSQL em lotes. Fazer um update por
+    // produto mantinha uma transação aberta por minutos e estourava o limite da produção.
+    for (const batch of chunks(updates)) {
+      const values = batch.map(({ item, provided, product }) => {
         const nextCost = provided.has("costPrice") ? item.costPrice : Number(product.costPrice);
         const nextSale = provided.has("salePrice") ? item.salePrice : Number(product.salePrice);
-        await tx.product.update({ where: { id: product.id }, data: {
-          ...(provided.has("name") ? { name: item.name } : {}), ...(provided.has("category") ? { category: item.category } : {}),
-          ...(provided.has("subcategory") ? { subcategory: item.subcategory } : {}), ...(provided.has("brand") ? { brand: item.brand } : {}),
-          ...(provided.has("supplier") ? { supplier: item.supplier } : {}), ...(provided.has("unit") ? { unit: item.unit } : {}),
-          ...(provided.has("costPrice") ? { costPrice: item.costPrice } : {}), ...(provided.has("salePrice") ? { salePrice: item.salePrice } : {}),
-          ...(provided.has("stockQuantity") ? { stockQuantity: item.stockQuantity } : {}), ...(provided.has("minStock") ? { minStock: item.minStock } : {}),
-          ...(provided.has("maxStock") ? { maxStock: item.maxStock } : {}), ...(provided.has("location") ? { location: item.location } : {}),
-          marginPercent: nextCost > 0 ? ((nextSale - nextCost) / nextCost) * 100 : 0
-        } });
-        if (["stockQuantity", "minStock", "maxStock", "location"].some((field) => provided.has(field))) {
-          await tx.productBranchStock.upsert({
-            where: { branchId_productId: { branchId, productId: product.id } },
-            create: { tenantId: session.user.currentTenantId, branchId, productId: product.id, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location },
-            update: { ...(provided.has("stockQuantity") ? { stockQuantity: item.stockQuantity } : {}), ...(provided.has("minStock") ? { minStock: item.minStock } : {}), ...(provided.has("maxStock") ? { maxStock: item.maxStock } : {}), ...(provided.has("location") ? { location: item.location } : {}) }
-          });
-        }
+        const margin = nextCost > 0 ? ((nextSale - nextCost) / nextCost) * 100 : 0;
+        return Prisma.sql`(${product.id}::text, ${item.name}::text, ${provided.has("name")}::boolean, ${item.category}::text, ${provided.has("category")}::boolean, ${item.subcategory ?? null}::text, ${provided.has("subcategory")}::boolean, ${item.brand ?? null}::text, ${provided.has("brand")}::boolean, ${item.supplier ?? null}::text, ${provided.has("supplier")}::boolean, ${item.unit}::text, ${provided.has("unit")}::boolean, ${item.costPrice}::numeric, ${provided.has("costPrice")}::boolean, ${item.salePrice}::numeric, ${provided.has("salePrice")}::boolean, ${item.stockQuantity}::numeric, ${provided.has("stockQuantity")}::boolean, ${item.minStock}::numeric, ${provided.has("minStock")}::boolean, ${item.maxStock}::numeric, ${provided.has("maxStock")}::boolean, ${item.location ?? null}::text, ${provided.has("location")}::boolean, ${margin}::numeric)`;
+      });
+      await prisma.$executeRaw(Prisma.sql`
+        UPDATE "products" AS p SET
+          "name" = CASE WHEN v.name_set THEN v.name ELSE p."name" END,
+          "category" = CASE WHEN v.category_set THEN v.category ELSE p."category" END,
+          "subcategory" = CASE WHEN v.subcategory_set THEN v.subcategory ELSE p."subcategory" END,
+          "brand" = CASE WHEN v.brand_set THEN v.brand ELSE p."brand" END,
+          "supplier" = CASE WHEN v.supplier_set THEN v.supplier ELSE p."supplier" END,
+          "unit" = CASE WHEN v.unit_set THEN v.unit ELSE p."unit" END,
+          "costPrice" = CASE WHEN v.cost_set THEN v.cost ELSE p."costPrice" END,
+          "salePrice" = CASE WHEN v.sale_set THEN v.sale ELSE p."salePrice" END,
+          "stockQuantity" = CASE WHEN v.stock_set THEN v.stock ELSE p."stockQuantity" END,
+          "minStock" = CASE WHEN v.min_set THEN v.min_stock ELSE p."minStock" END,
+          "maxStock" = CASE WHEN v.max_set THEN v.max_stock ELSE p."maxStock" END,
+          "location" = CASE WHEN v.location_set THEN v.location ELSE p."location" END,
+          "marginPercent" = v.margin,
+          "updatedAt" = NOW()
+        FROM (VALUES ${Prisma.join(values)}) AS v(
+          id, name, name_set, category, category_set, subcategory, subcategory_set,
+          brand, brand_set, supplier, supplier_set, unit, unit_set, cost, cost_set,
+          sale, sale_set, stock, stock_set, min_stock, min_set, max_stock, max_set,
+          location, location_set, margin
+        )
+        WHERE p."id" = v.id
+      `);
+    }
+
+    const stockUpdates = updates.filter(({ provided }) => ["stockQuantity", "minStock", "maxStock", "location"].some((field) => provided.has(field)));
+    if (stockUpdates.length) {
+      await prisma.productBranchStock.createMany({
+        data: stockUpdates.map(({ item, product }) => ({ tenantId: session.user.currentTenantId, branchId, productId: product.id, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location })),
+        skipDuplicates: true
+      });
+      for (const batch of chunks(stockUpdates)) {
+        const values = batch.map(({ item, provided, product }) => Prisma.sql`(${product.id}::text, ${item.stockQuantity}::numeric, ${provided.has("stockQuantity")}::boolean, ${item.minStock}::numeric, ${provided.has("minStock")}::boolean, ${item.maxStock}::numeric, ${provided.has("maxStock")}::boolean, ${item.location ?? null}::text, ${provided.has("location")}::boolean)`);
+        await prisma.$executeRaw(Prisma.sql`
+          UPDATE "product_branch_stocks" AS s SET
+            "stockQuantity" = CASE WHEN v.stock_set THEN v.stock ELSE s."stockQuantity" END,
+            "minStock" = CASE WHEN v.min_set THEN v.min_stock ELSE s."minStock" END,
+            "maxStock" = CASE WHEN v.max_set THEN v.max_stock ELSE s."maxStock" END,
+            "location" = CASE WHEN v.location_set THEN v.location ELSE s."location" END,
+            "updatedAt" = NOW()
+          FROM (VALUES ${Prisma.join(values)}) AS v(product_id, stock, stock_set, min_stock, min_set, max_stock, max_set, location, location_set)
+          WHERE s."branchId" = ${branchId} AND s."productId" = v.product_id
+        `);
       }
-      return { inserted: inserted.length, updated: updates.length };
-    }, { timeout: 240000, maxWait: 15000 });
-    const resultData = { imported: result.inserted, updated: result.updated, skipped: 0, failed: 0, failures: [], total: rows.length, duplicateRows, invalidRows: invalid };
+    }
+
+    const resultData = { imported: inserted.length, updated: updates.length, skipped: 0, failed: 0, failures: [], total: rows.length, duplicateRows, invalidRows: invalid };
     return created(resultData);
   } catch (error) {
     return errorResponse(error);
