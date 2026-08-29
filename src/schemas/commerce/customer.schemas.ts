@@ -31,6 +31,15 @@ const queryBoolean = z.preprocess((value) => {
   return Boolean(value);
 }, z.boolean());
 
+export const customerPetSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome do pet."),
+  species: z.enum(["DOG", "CAT"], { message: "Selecione se o pet é cão ou gato." }),
+  sex: z.enum(["MALE", "FEMALE"], { message: "Selecione o sexo do pet." }),
+  breed: optionalText,
+  birthDate: optionalDate,
+  notes: optionalText
+});
+
 export const createCustomerSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do cliente."),
   document: optionalDigits,
@@ -50,7 +59,8 @@ export const createCustomerSchema = z.object({
   stateRegistration: optionalDigits,
   creditLimit: z.preprocess(parseBrazilianNumber, z.number().min(0)).default(0),
   notes: optionalText,
-  tags: z.array(z.string().trim().min(1)).default([])
+  tags: z.array(z.string().trim().min(1)).default([]),
+  pets: z.array(customerPetSchema).default([])
 });
 
 export const updateCustomerSchema = createCustomerSchema.extend({

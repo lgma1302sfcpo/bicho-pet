@@ -6,6 +6,16 @@ export type CreateCustomerDTO = z.infer<typeof createCustomerSchema>;
 export type UpdateCustomerDTO = z.infer<typeof updateCustomerSchema>;
 export type CustomerFiltersDTO = z.infer<typeof customerFiltersSchema>;
 
+export type CustomerPetDTO = {
+  id?: string;
+  name: string;
+  species: "DOG" | "CAT";
+  sex: "MALE" | "FEMALE";
+  breed?: string | null;
+  birthDate?: string | Date | null;
+  notes?: string | null;
+};
+
 export type CustomerListItemDTO = {
   id: string;
   name: string;
@@ -33,6 +43,7 @@ export type CustomerListItemDTO = {
   totalSpent: number;
   creditLimit: number;
   reactivationLabel: string;
+  pets: CustomerPetDTO[];
 };
 
 export type CustomerEngagementSummaryDTO = {

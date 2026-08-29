@@ -158,6 +158,10 @@ export class CommerceService {
       purchaseCount: customer.purchaseCount,
       totalSpent: customer.totalSpent,
       creditLimit: customer.creditLimit,
+      pets: customer.pets.map((pet) => ({
+        ...pet,
+        birthDate: pet.birthDate?.toISOString() ?? null
+      })),
       reactivationLabel: this.getReactivationLabel(daysSinceLastPurchase, customer.purchaseCount)
     };
   }

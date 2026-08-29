@@ -9,6 +9,8 @@ function toNumber(value: Prisma.Decimal | number | null | undefined) {
   return Number(value ?? 0);
 }
 
+type CustomerWithPets = Prisma.CustomerGetPayload<{ include: { pets: true } }>;
+
 export class PrismaCommerceRepository implements CommerceRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
 
@@ -36,7 +38,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
   }
 
   async findCustomerById(tenantId: string, customerId: string) {
-    const customer = await this.db.customer.findFirst({ where: { id: customerId, tenantId } });
+    const customer = await this.db.customer.findFirst({ where: { id: customerId, tenantId }, include: { pets: true } });
     return customer ? this.mapCustomer(customer) : null;
   }
 
@@ -62,45 +64,71 @@ export class PrismaCommerceRepository implements CommerceRepository {
         stateRegistration: data.stateRegistration,
         creditLimit: data.creditLimit,
         notes: data.notes,
-        tags: data.tags
-      }
+        tags: data.tags,
+        pets: data.pets.length ? {
+          create: data.pets.map((pet) => ({
+            name: pet.name,
+            species: pet.species,
+            sex: pet.sex,
+            breed: pet.breed,
+            birthDate: pet.birthDate,
+            notes: pet.notes
+          }))
+        } : undefined
+      },
+      include: { pets: true }
     });
 
     return this.mapCustomer(customer);
   }
 
   async updateCustomer(tenantId: string, customerId: string, data: UpdateCustomerDTO) {
-    const updated = await this.db.customer.updateMany({
-      where: { id: customerId, tenantId },
-      data: {
-        name: data.name,
-        document: data.document ?? null,
-        email: data.email || null,
-        phone: data.phone ?? null,
-        whatsapp: data.whatsapp ?? null,
-        birthDate: data.birthDate ?? null,
-        address: data.address ?? null,
-        street: data.street ?? null,
-        addressNumber: data.addressNumber ?? null,
-        complement: data.complement ?? null,
-        district: data.district ?? null,
-        city: data.city ?? null,
-        cityCode: data.cityCode ?? null,
-        state: data.state ?? null,
-        zipCode: data.zipCode ?? null,
-        stateRegistration: data.stateRegistration ?? null,
-        creditLimit: data.creditLimit,
-        notes: data.notes ?? null,
-        tags: data.tags,
-        status: data.status
+    const customer = await this.db.$transaction(async (tx) => {
+      const updated = await tx.customer.updateMany({
+        where: { id: customerId, tenantId },
+        data: {
+          name: data.name,
+          document: data.document ?? null,
+          email: data.email || null,
+          phone: data.phone ?? null,
+          whatsapp: data.whatsapp ?? null,
+          birthDate: data.birthDate ?? null,
+          address: data.address ?? null,
+          street: data.street ?? null,
+          addressNumber: data.addressNumber ?? null,
+          complement: data.complement ?? null,
+          district: data.district ?? null,
+          city: data.city ?? null,
+          cityCode: data.cityCode ?? null,
+          state: data.state ?? null,
+          zipCode: data.zipCode ?? null,
+          stateRegistration: data.stateRegistration ?? null,
+          creditLimit: data.creditLimit,
+          notes: data.notes ?? null,
+          tags: data.tags,
+          status: data.status
+        }
+      });
+
+      if (updated.count === 0) return null;
+
+      await tx.pet.deleteMany({ where: { customerId } });
+      if (data.pets.length) {
+        await tx.pet.createMany({
+          data: data.pets.map((pet) => ({
+            customerId,
+            name: pet.name,
+            species: pet.species,
+            sex: pet.sex,
+            breed: pet.breed,
+            birthDate: pet.birthDate,
+            notes: pet.notes
+          }))
+        });
       }
+
+      return tx.customer.findFirst({ where: { id: customerId, tenantId }, include: { pets: true } });
     });
-
-    if (updated.count === 0) {
-      return null;
-    }
-
-    const customer = await this.db.customer.findFirst({ where: { id: customerId, tenantId } });
     return customer ? this.mapCustomer(customer) : null;
   }
 
@@ -120,7 +148,6 @@ export class PrismaCommerceRepository implements CommerceRepository {
       and.push({
         OR: [
           { name: { contains: filters.search, mode: "insensitive" } },
-          { email: { contains: filters.search, mode: "insensitive" } },
           { phone: { contains: filters.search } },
           { whatsapp: { contains: filters.search } },
           { document: { contains: filters.search } }
@@ -141,9 +168,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
     if (filters.contactableOnly) {
       and.push({
         OR: [
-          { whatsapp: { not: null } },
-          { phone: { not: null } },
-          { email: { not: null } }
+          { whatsapp: { not: null } }
         ]
       });
     }
@@ -172,6 +197,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
 
     const customers = await this.db.customer.findMany({
       where: { AND: and },
+      include: { pets: true },
       orderBy: [{ lastPurchaseAt: "asc" }, { name: "asc" }],
       take: 200
     });
@@ -386,32 +412,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
     }));
   }
 
-  private mapCustomer(customer: {
-    id: string;
-    name: string;
-    document: string | null;
-    email: string | null;
-    phone: string | null;
-    whatsapp: string | null;
-    birthDate: Date | null;
-    address: string | null;
-    street: string | null;
-    addressNumber: string | null;
-    complement: string | null;
-    district: string | null;
-    city: string | null;
-    cityCode: string | null;
-    state: string | null;
-    zipCode: string | null;
-    stateRegistration: string | null;
-    notes: string | null;
-    tags: string[];
-    status: string;
-    lastPurchaseAt: Date | null;
-    purchaseCount: number;
-    totalSpent: Prisma.Decimal;
-    creditLimit: Prisma.Decimal;
-  }) {
+  private mapCustomer(customer: CustomerWithPets) {
     return {
       id: customer.id,
       name: customer.name,
@@ -436,7 +437,16 @@ export class PrismaCommerceRepository implements CommerceRepository {
       lastPurchaseAt: customer.lastPurchaseAt,
       purchaseCount: customer.purchaseCount,
       totalSpent: toNumber(customer.totalSpent),
-      creditLimit: toNumber(customer.creditLimit)
+      creditLimit: toNumber(customer.creditLimit),
+      pets: customer.pets.map((pet) => ({
+        id: pet.id,
+        name: pet.name,
+        species: pet.species as "DOG" | "CAT",
+        sex: pet.sex,
+        breed: pet.breed,
+        birthDate: pet.birthDate,
+        notes: pet.notes
+      }))
     };
   }
 }

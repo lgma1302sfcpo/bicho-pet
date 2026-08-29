@@ -59,7 +59,6 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
     filters.minTotalSpent !== undefined ? `Gasto mínimo: ${formatCurrency(filters.minTotalSpent)}` : null,
     filters.maxTotalSpent !== undefined ? `Gasto máximo: ${formatCurrency(filters.maxTotalSpent)}` : null,
     filters.birthdayMonth ? "Mês de aniversário" : null,
-    filters.tag ? `Perfil: ${filters.tag}` : null,
     filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Bloqueado"}` : null
   ].filter(Boolean) as string[];
 
@@ -227,7 +226,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
                 onChange={(event) => updateFilter("contactableOnly", event.target.value === "true")}
               >
                 <option value="false">Todos</option>
-                <option value="true">Com telefone ou e-mail</option>
+                <option value="true">Com WhatsApp</option>
               </Select>
               <Input
                 label="Gasto mínimo"
@@ -276,7 +275,6 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
                   </option>
                 ))}
               </Select>
-              <Select label="Perfil do cliente" value={filters.tag ?? ""} onChange={(event) => updateFilter("tag", event.target.value || undefined)}><option value="">Todos os perfis</option><option>Cliente recorrente</option><option>Cliente de banho e tosa</option><option>Compra ração</option><option>Compra medicamentos</option><option>Tutor de filhote</option><option>Cliente com atendimento especial</option></Select>
               <Select
                 label="Status"
                 value={filters.status ?? ""}
@@ -308,6 +306,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
                     <div className="min-w-0">
                       <h3 className="font-semibold">{customer.name}</h3>
                       <p className="text-xs text-subdued">{customer.whatsapp || customer.phone || "Sem telefone"}</p>
+                      {customer.pets?.length ? <p className="mt-1 text-xs text-brand-700">{customer.pets.map((pet) => pet.name).join(", ")}</p> : null}
                     </div>
                     <Badge className="shrink-0 border-brand-100 bg-brand-50 text-brand-700">{customer.reactivationLabel}</Badge>
                   </div>
@@ -341,17 +340,10 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
                     <tr key={customer.id} className="transition hover:bg-slate-50">
                       <td className="px-4 py-3">
                         <div className="font-medium">{customer.name}</div>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {customer.tags.map((tag) => (
-                            <Badge key={tag} className="bg-white">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
+                        {customer.pets?.length ? <div className="mt-1 text-xs text-brand-700">Pets: {customer.pets.map((pet) => pet.name).join(", ")}</div> : null}
                       </td>
                       <td className="px-4 py-3 text-subdued">
                         <div>{customer.whatsapp || customer.phone || "Sem telefone"}</div>
-                        <div>{customer.email || "Sem email"}</div>
                       </td>
                       <td className="px-4 py-3">
                         <div>{formatDate(customer.lastPurchaseAt)}</div>
@@ -445,12 +437,6 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
               {activeFilterLabels.length ? (
                 <div className="mb-4 rounded-md border border-brand-100 bg-brand-50 p-3 text-xs text-brand-700">
                   <strong>Cliente encontrado pelos filtros:</strong> {activeFilterLabels.join(" · ")}
-                </div>
-              ) : null}
-
-              {whatsappCustomer.tags.length ? (
-                <div className="mb-4 flex flex-wrap gap-1">
-                  {whatsappCustomer.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}
                 </div>
               ) : null}
 

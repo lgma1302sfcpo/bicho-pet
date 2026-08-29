@@ -19,6 +19,22 @@ describe("commerce schemas", () => {
     expect(parsed.creditLimit).toBe(150.5);
   });
 
+  it("aceita mais de um pet no cadastro do cliente", () => {
+    const parsed = createCustomerSchema.parse({
+      name: "Ana Cliente",
+      whatsapp: "(13) 98888-0000",
+      pets: [
+        { name: "Mel", species: "DOG", sex: "FEMALE", breed: "Shih-tzu", birthDate: "2024-02-10" },
+        { name: "Tom", species: "CAT", sex: "MALE", notes: "Não gosta de colo" }
+      ]
+    });
+
+    expect(parsed.pets).toHaveLength(2);
+    expect(parsed.pets[0]).toMatchObject({ name: "Mel", species: "DOG", sex: "FEMALE" });
+    expect(parsed.pets[0].birthDate).toBeInstanceOf(Date);
+    expect(parsed.whatsapp).toBe("13988880000");
+  });
+
   it("converte booleano de query string corretamente", () => {
     const parsed = customerFiltersSchema.parse({
       inactiveDays: "60",

@@ -75,6 +75,11 @@ enum PetSpecies {
   OTHER
 }
 
+enum PetSex {
+  MALE
+  FEMALE
+}
+
 enum InventoryMovementType {
   ENTRY
   EXIT
@@ -366,12 +371,31 @@ model Customer {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sales  Sale[]
+  pets   Pet[]
 
   @@unique([tenantId, document])
   @@index([tenantId, name])
   @@index([tenantId, lastPurchaseAt])
   @@index([tenantId, purchaseCount])
   @@map("customers")
+}
+
+model Pet {
+  id         String     @id @default(cuid())
+  customerId String
+  name       String
+  species    PetSpecies
+  sex        PetSex
+  breed      String?
+  birthDate  DateTime?
+  notes      String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("pets")
 }
 
 model Sale {

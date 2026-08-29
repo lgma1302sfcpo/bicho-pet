@@ -19,6 +19,7 @@ function customer(overrides: Partial<CustomerListItemDTO> = {}): CustomerListIte
     purchaseCount: 0,
     totalSpent: 0,
     creditLimit: 0,
+    pets: [],
     reactivationLabel: "Primeira compra",
     ...overrides
   };

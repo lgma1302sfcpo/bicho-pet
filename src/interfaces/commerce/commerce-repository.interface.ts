@@ -30,6 +30,15 @@ export type CustomerRecord = {
   purchaseCount: number;
   totalSpent: number;
   creditLimit: number;
+  pets: Array<{
+    id: string;
+    name: string;
+    species: "DOG" | "CAT";
+    sex: "MALE" | "FEMALE";
+    breed?: string | null;
+    birthDate?: Date | null;
+    notes?: string | null;
+  }>;
 };
 
 export type CustomerSummaryRecord = {

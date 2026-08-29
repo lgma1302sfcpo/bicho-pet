@@ -38,6 +38,7 @@ describe("CommerceService", () => {
         purchaseCount: 0,
         totalSpent: 0,
         creditLimit: 0,
+        pets: [],
         lastPurchaseAt: null
       }
     ]);
@@ -69,6 +70,7 @@ describe("CommerceService", () => {
         purchaseCount: 5,
         totalSpent: 950,
         creditLimit: 0,
+        pets: [],
         lastPurchaseAt: new Date(Date.now() - 95 * 86_400_000)
       }
     ]);
@@ -157,7 +159,8 @@ describe("CommerceService", () => {
       status: "ACTIVE",
       purchaseCount: 0,
       totalSpent: 0,
-      creditLimit: 100
+      creditLimit: 100,
+      pets: []
     });
 
     const result = await service.updateCustomer("tenant-1", "customer-1", {
@@ -166,6 +169,7 @@ describe("CommerceService", () => {
       email: "cliente@example.invalid",
       creditLimit: 100,
       tags: ["vip"],
+      pets: [],
       status: "ACTIVE"
     });
 
