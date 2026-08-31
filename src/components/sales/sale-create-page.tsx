@@ -56,6 +56,10 @@ export function SaleCreatePage() {
   const [productSearches, setProductSearches] = useState<Record<string, string>>({});
   const [debouncedProductSearches, setDebouncedProductSearches] = useState<Record<string, string>>({});
   const [selectedProducts, setSelectedProducts] = useState<Record<string, ProductListItemDTO>>({});
+  const [activeBulkItemId, setActiveBulkItemId] = useState<string | null>(null);
+  const [priceCalculatorItemId, setPriceCalculatorItemId] = useState<string | null>(null);
+  const [desiredSaleValue, setDesiredSaleValue] = useState("");
+  const [priceCalculatorError, setPriceCalculatorError] = useState<string | null>(null);
   const [lastReceipt, setLastReceipt] = useState<{
     sale: SaleCreatedDTO;
     values: CreateSaleDTO;
@@ -100,20 +104,82 @@ export function SaleCreatePage() {
   }, [selectedProducts]);
   const discount = Number(parseBrazilianNumber(form.watch("discount")) ?? 0);
   const surcharge = Number(parseBrazilianNumber(form.watch("surcharge")) ?? 0);
+  const priceCalculatorIndex = priceCalculatorItemId
+    ? items.fields.findIndex((field) => field.id === priceCalculatorItemId)
+    : -1;
+  const priceCalculatorProduct = priceCalculatorItemId ? selectedProducts[priceCalculatorItemId] : undefined;
+  const pricePerKilogram = priceCalculatorIndex >= 0
+    ? Number(parseBrazilianNumber(watchedItems[priceCalculatorIndex]?.unitPrice) ?? priceCalculatorProduct?.salePrice ?? 0)
+    : 0;
+  const desiredAmount = Number(parseBrazilianNumber(desiredSaleValue) ?? 0);
+  const calculatedWeightGrams = desiredAmount > 0 && pricePerKilogram > 0
+    ? Math.round((desiredAmount / pricePerKilogram) * 1_000_000) / 1000
+    : 0;
 
-  const subtotal = useMemo(
-    () =>
-      Math.round(
-        watchedItems.reduce((total, item) => {
-          const product = item.productId ? knownProducts.get(item.productId) : undefined;
-          const enteredQuantity = Number(parseBrazilianNumber(item.quantity) ?? 0);
-          const saleQuantity = isBulkWeightProduct(product) ? enteredQuantity / 1000 : enteredQuantity;
-          return total + saleQuantity * Number(parseBrazilianNumber(item.unitPrice) ?? 0);
-        }, 0) * 100
-      ) / 100,
-    [knownProducts, watchedItems]
-  );
+  useEffect(() => {
+    function handlePriceShortcut(event: KeyboardEvent) {
+      if (!event.altKey || event.key.toLocaleLowerCase("pt-BR") !== "p") return;
+      event.preventDefault();
+
+      const bulkItemIds = items.fields
+        .filter((field) => isBulkWeightProduct(selectedProducts[field.id]))
+        .map((field) => field.id);
+      const targetItemId = activeBulkItemId && bulkItemIds.includes(activeBulkItemId)
+        ? activeBulkItemId
+        : bulkItemIds[0];
+
+      if (!targetItemId) {
+        setError("Selecione um produto a granel antes de usar o atalho Alt + P.");
+        return;
+      }
+
+      setError(null);
+      setActiveBulkItemId(targetItemId);
+      setPriceCalculatorItemId(targetItemId);
+      setDesiredSaleValue("");
+      setPriceCalculatorError(null);
+    }
+
+    window.addEventListener("keydown", handlePriceShortcut);
+    return () => window.removeEventListener("keydown", handlePriceShortcut);
+  }, [activeBulkItemId, items.fields, selectedProducts]);
+
+  const subtotal = Math.round(
+    watchedItems.reduce((runningTotal, item) => {
+      const product = item.productId ? knownProducts.get(item.productId) : undefined;
+      const enteredQuantity = Number(parseBrazilianNumber(item.quantity) ?? 0);
+      const saleQuantity = isBulkWeightProduct(product) ? enteredQuantity / 1000 : enteredQuantity;
+      return runningTotal + saleQuantity * Number(parseBrazilianNumber(item.unitPrice) ?? 0);
+    }, 0) * 100
+  ) / 100;
   const total = Math.round((subtotal - discount + surcharge) * 100) / 100;
+
+  function openPriceCalculator(itemId: string) {
+    setActiveBulkItemId(itemId);
+    setPriceCalculatorItemId(itemId);
+    setDesiredSaleValue("");
+    setPriceCalculatorError(null);
+  }
+
+  function applyPriceCalculation() {
+    if (priceCalculatorIndex < 0 || !priceCalculatorProduct || !isBulkWeightProduct(priceCalculatorProduct)) {
+      setPriceCalculatorError("Selecione novamente o produto a granel.");
+      return;
+    }
+    if (desiredAmount <= 0) {
+      setPriceCalculatorError("Informe o valor que o cliente deseja comprar.");
+      return;
+    }
+    if (pricePerKilogram <= 0) {
+      setPriceCalculatorError("O produto precisa ter um preço por kg maior que zero.");
+      return;
+    }
+
+    form.setValue(`items.${priceCalculatorIndex}.quantity`, calculatedWeightGrams, { shouldDirty: true, shouldValidate: true });
+    setPriceCalculatorItemId(null);
+    setDesiredSaleValue("");
+    setPriceCalculatorError(null);
+  }
 
   async function onSubmit(values: CreateSaleDTO) {
     setError(null);
@@ -151,6 +217,8 @@ export function SaleCreatePage() {
       setProductSearches({});
       setDebouncedProductSearches({});
       setSelectedProducts({});
+      setActiveBulkItemId(null);
+      setPriceCalculatorItemId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar a venda.");
     }
@@ -256,7 +324,7 @@ export function SaleCreatePage() {
                 const bulkItemTotal = Math.round((enteredWeight / 1000) * enteredUnitPrice * 100) / 100;
                 const matchingProducts = search.length >= 2 ? (productSearchQuery?.data ?? []) : [];
                 return (
-                <div key={field.id} className="sale-item-row grid gap-3 rounded-lg border border-border bg-slate-50/60 p-3 md:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_100px_130px_44px]">
+                <div key={field.id} className="sale-item-row grid gap-3 rounded-lg border border-border bg-slate-50/60 p-3 md:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_100px_130px_44px]" onFocus={() => { if (bulkWeightProduct) setActiveBulkItemId(field.id); }}>
                   <div className="space-y-2">
                     <input type="hidden" {...form.register(`items.${index}.productId`)} />
                     <Input
@@ -265,7 +333,7 @@ export function SaleCreatePage() {
                       value={productSearches[field.id] ?? ""}
                       onChange={(event) => setProductSearches((current) => ({ ...current, [field.id]: event.target.value }))}
                     />
-                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); setSelectedProducts((current) => { const next = { ...current }; delete next[field.id]; return next; }); }}>Limpar</Button></div> : null}
+                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); if (activeBulkItemId === field.id) setActiveBulkItemId(null); setSelectedProducts((current) => { const next = { ...current }; delete next[field.id]; return next; }); }}>Limpar</Button></div> : null}
                     {search.length >= 2 ? <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-white shadow-sm">
                       {productSearchQuery?.isFetching && !productSearchQuery.data ? <p className="px-3 py-4 text-center text-sm text-subdued">Buscando produtos...</p> : null}
                       {matchingProducts.map((product) => <button
@@ -278,6 +346,7 @@ export function SaleCreatePage() {
                           form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
                           form.setValue(`items.${index}.quantity`, isBulkWeightProduct(product) ? 0 : 1, { shouldValidate: true });
                           setSelectedProducts((current) => ({ ...current, [field.id]: product }));
+                          setActiveBulkItemId(isBulkWeightProduct(product) ? field.id : null);
                           setProductSearches((current) => ({ ...current, [field.id]: "" }));
                           setDebouncedProductSearches((current) => ({ ...current, [field.id]: "" }));
                         }}
@@ -308,6 +377,7 @@ export function SaleCreatePage() {
                       {...form.register(`items.${index}.unitPrice`)}
                     />
                     {bulkWeightProduct ? <p className="whitespace-nowrap text-xs font-semibold text-brand-700">Total: {formatCurrency(bulkItemTotal)}</p> : null}
+                    {bulkWeightProduct ? <Button type="button" variant="secondary" className="h-8 w-full px-2 text-xs" onClick={() => openPriceCalculator(field.id)}>Por valor (Alt+P)</Button> : null}
                   </div>
                   <Button
                     className="sale-item-remove mt-6 h-10 px-0"
@@ -398,6 +468,40 @@ export function SaleCreatePage() {
           </Card>
         </div>
       </section>
+      <Modal
+        open={Boolean(priceCalculatorItemId)}
+        className="max-w-lg"
+        title="Venda de granel por valor"
+        description="Informe quanto o cliente quer pagar e o peso será calculado automaticamente."
+        onClose={() => { setPriceCalculatorItemId(null); setDesiredSaleValue(""); setPriceCalculatorError(null); }}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-brand-100 bg-brand-50 p-3 text-sm">
+            <p className="font-semibold text-brand-800">{priceCalculatorProduct?.name ?? "Produto a granel"}</p>
+            <p className="mt-1 text-brand-700">Preço atual: {formatCurrency(pricePerKilogram)} por kg</p>
+          </div>
+          <Input
+            id="bulk-sale-value"
+            autoFocus
+            label="Valor que o cliente quer pagar"
+            placeholder="Ex.: R$ 12,00"
+            mask="currency"
+            value={desiredSaleValue}
+            onChange={(event) => { setDesiredSaleValue(event.target.value); setPriceCalculatorError(null); }}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); applyPriceCalculation(); } }}
+          />
+          <div className="rounded-lg border border-border bg-muted p-4 text-center">
+            <p className="text-xs text-subdued">Peso calculado</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">{calculatedWeightGrams.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} g</p>
+            <p className="mt-1 text-xs text-subdued">{formatCurrency(desiredAmount)} ÷ {formatCurrency(pricePerKilogram)}/kg</p>
+          </div>
+          {priceCalculatorError ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">{priceCalculatorError}</p> : null}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={() => { setPriceCalculatorItemId(null); setDesiredSaleValue(""); setPriceCalculatorError(null); }}>Cancelar</Button>
+            <Button type="button" onClick={applyPriceCalculation}>Aplicar valor e peso</Button>
+          </div>
+        </div>
+      </Modal>
       <Modal
         open={creatingCustomer}
         title="Cadastrar cliente"

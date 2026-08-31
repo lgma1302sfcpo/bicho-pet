@@ -38,20 +38,24 @@ const golden: ProductListItemDTO = {
   isLowStock: false
 };
 
+function mockPage(product: ProductListItemDTO) {
+  vi.mocked(useCustomers).mockReturnValue({
+    data: { customers: [], summary: {} },
+    isPending: false,
+    isError: false
+  } as unknown as ReturnType<typeof useCustomers>);
+  vi.mocked(useSales).mockReturnValue({ data: [], isPending: false, isFetching: false } as unknown as ReturnType<typeof useSales>);
+  vi.mocked(useCreateSale).mockReturnValue({ isPending: false, mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateSale>);
+  vi.mocked(useProductSearches).mockImplementation((searches) => ([{
+    data: searches[0] === "golden" ? [product] : undefined,
+    isFetching: false,
+    isError: false
+  }] as unknown as ReturnType<typeof useProductSearches>));
+}
+
 describe("busca de produtos na venda", () => {
   it("consulta e exibe produtos que não estão no primeiro lote da listagem", async () => {
-    vi.mocked(useCustomers).mockReturnValue({
-      data: { customers: [], summary: {} },
-      isPending: false,
-      isError: false
-    } as unknown as ReturnType<typeof useCustomers>);
-    vi.mocked(useSales).mockReturnValue({ data: [], isPending: false, isFetching: false } as unknown as ReturnType<typeof useSales>);
-    vi.mocked(useCreateSale).mockReturnValue({ isPending: false, mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateSale>);
-    vi.mocked(useProductSearches).mockImplementation((searches) => ([{
-      data: searches[0] === "golden" ? [golden] : undefined,
-      isFetching: false,
-      isError: false
-    }] as unknown as ReturnType<typeof useProductSearches>));
+    mockPage(golden);
 
     render(<SaleCreatePage />);
     fireEvent.change(screen.getByPlaceholderText("Digite nome, código, SKU ou código de barras"), {
@@ -61,5 +65,32 @@ describe("busca de produtos na venda", () => {
     await waitFor(() => expect(screen.getByText(/Golden cães adultos pequeno porte/)).toBeInTheDocument(), { timeout: 1500 });
     expect(screen.getByRole("button", { name: /Golden cães adultos pequeno porte/ })).toBeInTheDocument();
     expect(screen.queryByText("Carregando produtos e saldos de estoque...")).not.toBeInTheDocument();
+  });
+
+  it("calcula o peso do granel pelo valor informado com Alt+P", async () => {
+    mockPage({
+      ...golden,
+      id: "golden-granel",
+      name: "Golden granel por kg",
+      category: "Granel",
+      unit: "KG",
+      salePrice: 23.5
+    });
+
+    render(<SaleCreatePage />);
+    fireEvent.change(screen.getByPlaceholderText("Digite nome, código, SKU ou código de barras"), {
+      target: { value: "golden" }
+    });
+    const productButton = await screen.findByRole("button", { name: /Golden granel por kg/ }, { timeout: 1500 });
+    fireEvent.click(productButton);
+    fireEvent.keyDown(window, { key: "p", altKey: true });
+
+    expect(await screen.findByRole("dialog", { name: "Venda de granel por valor" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Valor que o cliente quer pagar"), { target: { value: "12" } });
+    expect(screen.getByText("510,638 g")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar valor e peso" }));
+
+    expect(screen.getByLabelText("Peso (g)")).toHaveValue("510.638");
+    await waitFor(() => expect(screen.getAllByText("R$ 12,00").length).toBeGreaterThan(0));
   });
 });
