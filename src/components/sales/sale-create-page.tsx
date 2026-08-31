@@ -15,7 +15,7 @@ import { Select } from "@/components/ui/select";
 import type { ProductListItemDTO } from "@/dtos/catalog/product.dto";
 import type { CustomerListItemDTO } from "@/dtos/commerce/customer.dto";
 import type { CreateSaleDTO, SaleCreatedDTO } from "@/dtos/commerce/sale.dto";
-import { useProducts } from "@/hooks/catalog/use-products";
+import { useProductSearches } from "@/hooks/catalog/use-products";
 import { useCreateSale, useCustomers, useSales } from "@/hooks/commerce/use-commerce";
 import { createSaleSchema } from "@/schemas/commerce/sale.schemas";
 import { parseBrazilianNumber } from "@/lib/utils";
@@ -47,7 +47,6 @@ function isBulkWeightProduct(product?: ProductListItemDTO) {
 
 export function SaleCreatePage() {
   const customersQuery = useCustomers({ includeNeverPurchased: true, contactableOnly: false });
-  const productsQuery = useProducts({ status: "ACTIVE", lowStockOnly: false });
   const salesQuery = useSales();
   const createSale = useCreateSale();
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +55,13 @@ export function SaleCreatePage() {
   const [newCustomer, setNewCustomer] = useState<CustomerListItemDTO | null>(null);
   const [productSearches, setProductSearches] = useState<Record<string, string>>({});
   const [debouncedProductSearches, setDebouncedProductSearches] = useState<Record<string, string>>({});
-  const [lastReceipt, setLastReceipt] = useState<{ sale: SaleCreatedDTO; values: CreateSaleDTO; customerName: string } | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<Record<string, ProductListItemDTO>>({});
+  const [lastReceipt, setLastReceipt] = useState<{
+    sale: SaleCreatedDTO;
+    values: CreateSaleDTO;
+    customerName: string;
+    productsById: Record<string, ProductListItemDTO>;
+  } | null>(null);
   const form = useForm<SaleFormValues, unknown, CreateSaleDTO>({
     resolver: zodResolver(createSaleSchema) as Resolver<SaleFormValues, unknown, CreateSaleDTO>,
     defaultValues: {
@@ -83,8 +88,16 @@ export function SaleCreatePage() {
     return () => window.clearTimeout(timer);
   }, [productSearches]);
 
+  const productSearchQueries = useProductSearches(
+    items.fields.map((field) => debouncedProductSearches[field.id] ?? "")
+  );
+
   const watchedItems = form.watch("items");
-  const products = useMemo(() => productsQuery.data?.products ?? [], [productsQuery.data?.products]);
+  const knownProducts = useMemo(() => {
+    const productsById = new Map<string, ProductListItemDTO>();
+    Object.values(selectedProducts).forEach((product) => productsById.set(product.id, product));
+    return productsById;
+  }, [selectedProducts]);
   const discount = Number(parseBrazilianNumber(form.watch("discount")) ?? 0);
   const surcharge = Number(parseBrazilianNumber(form.watch("surcharge")) ?? 0);
 
@@ -92,13 +105,13 @@ export function SaleCreatePage() {
     () =>
       Math.round(
         watchedItems.reduce((total, item) => {
-          const product = products.find((candidate) => candidate.id === item.productId);
+          const product = item.productId ? knownProducts.get(item.productId) : undefined;
           const enteredQuantity = Number(parseBrazilianNumber(item.quantity) ?? 0);
           const saleQuantity = isBulkWeightProduct(product) ? enteredQuantity / 1000 : enteredQuantity;
           return total + saleQuantity * Number(parseBrazilianNumber(item.unitPrice) ?? 0);
         }, 0) * 100
       ) / 100,
-    [products, watchedItems]
+    [knownProducts, watchedItems]
   );
   const total = Math.round((subtotal - discount + surcharge) * 100) / 100;
 
@@ -111,7 +124,7 @@ export function SaleCreatePage() {
         ...values,
         customerId: values.customerId || undefined,
         items: values.items.map((item) => {
-          const product = products.find((candidate) => candidate.id === item.productId);
+          const product = item.productId ? knownProducts.get(item.productId) : undefined;
           return { ...item, quantity: isBulkWeightProduct(product) ? item.quantity / 1000 : item.quantity };
         })
       };
@@ -119,7 +132,13 @@ export function SaleCreatePage() {
         ...normalizedValues
       });
       const customerName = customers.find((customer) => customer.id === values.customerId)?.name ?? "Consumidor final";
-      setLastReceipt({ sale, values: normalizedValues, customerName });
+      const productsById = Object.fromEntries(
+        normalizedValues.items.flatMap((item) => {
+          const product = item.productId ? knownProducts.get(item.productId) : undefined;
+          return product ? [[product.id, product]] : [];
+        })
+      );
+      setLastReceipt({ sale, values: normalizedValues, customerName, productsById });
       setSuccess(`Venda ${sale.code} cadastrada com total de ${formatCurrency(sale.total)}.`);
       form.reset({
         customerId: "",
@@ -131,6 +150,7 @@ export function SaleCreatePage() {
       });
       setProductSearches({});
       setDebouncedProductSearches({});
+      setSelectedProducts({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar a venda.");
     }
@@ -150,7 +170,7 @@ export function SaleCreatePage() {
     let y = 60;
     for (const item of lastReceipt.values.items) {
       const lineTotal = Number(item.quantity) * Number(item.unitPrice);
-      const product = products.find((candidate) => candidate.id === item.productId);
+      const product = item.productId ? lastReceipt.productsById[item.productId] : undefined;
       const bulkWeightProduct = isBulkWeightProduct(product);
       const quantityLabel = bulkWeightProduct
         ? `${(Number(item.quantity) * 1000).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} g`
@@ -224,17 +244,17 @@ export function SaleCreatePage() {
                 </Button>
               </div>
               {items.fields.map((field, index) => {
-                const search = normalizeSearch(debouncedProductSearches[field.id] ?? "");
+                const rawSearch = productSearches[field.id]?.trim() ?? "";
+                const search = debouncedProductSearches[field.id]?.trim() ?? "";
+                const productSearchQuery = productSearchQueries[index];
                 const selectedProductId = watchedItems[index]?.productId;
-                const selectedProduct = products.find((product) => product.id === selectedProductId);
+                const selectedProduct = selectedProducts[field.id]
+                  ?? (selectedProductId ? knownProducts.get(selectedProductId) : undefined);
                 const bulkWeightProduct = isBulkWeightProduct(selectedProduct);
                 const enteredWeight = Number(parseBrazilianNumber(watchedItems[index]?.quantity) ?? 0);
                 const enteredUnitPrice = Number(parseBrazilianNumber(watchedItems[index]?.unitPrice) ?? 0);
                 const bulkItemTotal = Math.round((enteredWeight / 1000) * enteredUnitPrice * 100) / 100;
-                const matchingProducts = search ? products.filter((product) => {
-                  const identifiers = [product.name, product.code, product.sku, product.barcode].filter(Boolean).join(" ");
-                  return normalizeSearch(identifiers).includes(search);
-                }).slice(0, 10) : [];
+                const matchingProducts = search.length >= 2 ? (productSearchQuery?.data ?? []) : [];
                 return (
                 <div key={field.id} className="sale-item-row grid gap-3 rounded-lg border border-border bg-slate-50/60 p-3 md:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_100px_130px_44px]">
                   <div className="space-y-2">
@@ -245,8 +265,9 @@ export function SaleCreatePage() {
                       value={productSearches[field.id] ?? ""}
                       onChange={(event) => setProductSearches((current) => ({ ...current, [field.id]: event.target.value }))}
                     />
-                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); }}>Limpar</Button></div> : null}
-                    {search ? <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-white shadow-sm">
+                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); setSelectedProducts((current) => { const next = { ...current }; delete next[field.id]; return next; }); }}>Limpar</Button></div> : null}
+                    {search.length >= 2 ? <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-white shadow-sm">
+                      {productSearchQuery?.isFetching && !productSearchQuery.data ? <p className="px-3 py-4 text-center text-sm text-subdued">Buscando produtos...</p> : null}
                       {matchingProducts.map((product) => <button
                         key={product.id}
                         type="button"
@@ -256,12 +277,14 @@ export function SaleCreatePage() {
                           form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
                           form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
                           form.setValue(`items.${index}.quantity`, isBulkWeightProduct(product) ? 0 : 1, { shouldValidate: true });
+                          setSelectedProducts((current) => ({ ...current, [field.id]: product }));
                           setProductSearches((current) => ({ ...current, [field.id]: "" }));
                           setDebouncedProductSearches((current) => ({ ...current, [field.id]: "" }));
                         }}
                       ><strong className="block">{product.code ? `${product.code} · ` : ""}{product.name}</strong><span className="text-xs text-subdued">{isBulkWeightProduct(product) ? `Preço ${formatCurrency(product.salePrice)}/kg · Estoque ${product.stockQuantity} kg` : `Estoque ${product.stockQuantity} ${unitLabels[product.unit] ?? product.unit}`}{product.sku ? ` · SKU ${product.sku}` : ""}</span></button>)}
-                      {!matchingProducts.length ? <p className="px-3 py-4 text-center text-sm text-subdued">Nenhum produto encontrado. Preencha a descrição para usar um item avulso.</p> : null}
-                    </div> : <p className="sale-product-hint text-xs text-subdued">Os resultados aparecerão abaixo.</p>}
+                      {!productSearchQuery?.isFetching && !matchingProducts.length ? <p className="px-3 py-4 text-center text-sm text-subdued">Nenhum produto encontrado. Preencha a descrição para usar um item avulso.</p> : null}
+                      {productSearchQuery?.isError ? <p className="px-3 py-4 text-center text-sm text-danger">Não foi possível buscar os produtos. Tente novamente.</p> : null}
+                    </div> : <p className="sale-product-hint text-xs text-subdued">{rawSearch.length === 1 ? "Digite mais um caractere para pesquisar." : "Os resultados aparecerão abaixo."}</p>}
                   </div>
                   <Input
                     label="Descrição"

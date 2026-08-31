@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   CreateProductDTO,
@@ -60,6 +60,20 @@ export function useProducts(filters: ProductFiltersDTO) {
       return apiFetch<ProductListResponse>(`/api/products${query ? `?${query}` : ""}`);
     },
     placeholderData: (previousData) => previousData
+  });
+}
+
+export function useProductSearches(searches: string[]) {
+  return useQueries({
+    queries: searches.map((search, index) => {
+      const normalizedSearch = search.trim();
+      return {
+        queryKey: ["catalog", "product-search", index, normalizedSearch],
+        queryFn: () => apiFetch<ProductListItemDTO[]>(`/api/products/search?q=${encodeURIComponent(normalizedSearch)}`),
+        enabled: normalizedSearch.length >= 2,
+        staleTime: 60_000
+      };
+    })
   });
 }
 

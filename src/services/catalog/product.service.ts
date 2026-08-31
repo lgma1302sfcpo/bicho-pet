@@ -42,6 +42,16 @@ export class ProductService {
     };
   }
 
+  async searchProducts(tenantId: string, branchId: string | null, search: string): Promise<ProductListItemDTO[]> {
+    const products = await this.repository.listProducts(tenantId, branchId, {
+      search,
+      status: "ACTIVE",
+      lowStockOnly: false
+    });
+
+    return products.slice(0, 20).map((product) => this.mapProduct(product));
+  }
+
   async updateProduct(tenantId: string, branchId: string, productId: string, input: UpdateProductDTO): Promise<ProductListItemDTO> {
     const duplicatedField = await this.repository.productIdentifierExists(
       tenantId,

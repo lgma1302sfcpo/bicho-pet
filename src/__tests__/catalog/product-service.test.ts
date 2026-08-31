@@ -122,4 +122,32 @@ describe("ProductService", () => {
     await expect(service.deleteProduct("tenant-1", "product-1")).resolves.toBeUndefined();
     expect(repository.deleteProduct).toHaveBeenCalledWith("tenant-1", "product-1");
   });
+
+  it("pesquisa produtos ativos no banco sem limitar ao primeiro lote da listagem", async () => {
+    vi.mocked(repository.listProducts).mockResolvedValue([{
+      id: "golden-1",
+      name: "Golden cães adultos pequeno porte",
+      code: "001009",
+      category: "Sacaria",
+      unit: "UN",
+      species: "DOG",
+      costPrice: 15,
+      salePrice: 22.5,
+      marginPercent: 50,
+      stockQuantity: -2,
+      minStock: 0,
+      maxStock: 0,
+      status: "ACTIVE"
+    }]);
+
+    const result = await service.searchProducts("tenant-1", "branch-1", "golden");
+
+    expect(repository.listProducts).toHaveBeenCalledWith("tenant-1", "branch-1", {
+      search: "golden",
+      status: "ACTIVE",
+      lowStockOnly: false
+    });
+    expect(repository.getProductSummary).not.toHaveBeenCalled();
+    expect(result[0]).toMatchObject({ name: "Golden cães adultos pequeno porte", salePrice: 22.5 });
+  });
 });
