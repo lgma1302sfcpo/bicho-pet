@@ -37,15 +37,18 @@ const golden: ProductListItemDTO = {
   status: "ACTIVE",
   isLowStock: false
 };
+const createSaleMutation = vi.fn();
 
 function mockPage(product: ProductListItemDTO) {
+  createSaleMutation.mockReset();
+  createSaleMutation.mockResolvedValue({ id: "sale-1", code: "VEN-1", total: 13 });
   vi.mocked(useCustomers).mockReturnValue({
     data: { customers: [], summary: {} },
     isPending: false,
     isError: false
   } as unknown as ReturnType<typeof useCustomers>);
   vi.mocked(useSales).mockReturnValue({ data: [], isPending: false, isFetching: false } as unknown as ReturnType<typeof useSales>);
-  vi.mocked(useCreateSale).mockReturnValue({ isPending: false, mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateSale>);
+  vi.mocked(useCreateSale).mockReturnValue({ isPending: false, mutateAsync: createSaleMutation } as unknown as ReturnType<typeof useCreateSale>);
   vi.mocked(useProductSearches).mockImplementation((searches) => ([{
     data: searches[0] === "golden" ? [product] : undefined,
     isFetching: false,
@@ -74,7 +77,7 @@ describe("busca de produtos na venda", () => {
       name: "Golden granel por kg",
       category: "Granel",
       unit: "KG",
-      salePrice: 17
+      salePrice: 19.5
     });
 
     render(<SaleCreatePage />);
@@ -86,12 +89,22 @@ describe("busca de produtos na venda", () => {
     fireEvent.keyDown(window, { key: "p", altKey: true });
 
     expect(await screen.findByRole("dialog", { name: "Venda de granel por valor" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Valor que o cliente quer pagar"), { target: { value: "12" } });
-    expect(screen.getByText("706 g")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Valor que o cliente quer pagar"), { target: { value: "13" } });
+    expect(screen.getByText("667 g")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Aplicar valor e peso" }));
 
     expect(screen.getByLabelText("Preço por kg")).toHaveAttribute("readonly");
-    expect(screen.getByLabelText("Peso (g)")).toHaveValue("706");
-    await waitFor(() => expect(screen.getAllByText("R$ 12,00").length).toBeGreaterThan(0));
+    expect(screen.getByLabelText("Peso (g)")).toHaveValue("667");
+    expect(screen.getByText("Ajuste de arredondamento do granel")).toBeInTheDocument();
+    expect(screen.getByText("- R$ 0,01")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("R$ 13,00").length).toBeGreaterThan(0));
+
+    fireEvent.change(screen.getByLabelText("Pagamento"), { target: { value: "CASH" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar venda" }));
+    await waitFor(() => expect(createSaleMutation).toHaveBeenCalledWith(expect.objectContaining({
+      discount: 0.01,
+      surcharge: 0,
+      items: [expect.objectContaining({ quantity: 0.667, unitPrice: 19.5 })]
+    })));
   });
 });

@@ -60,6 +60,7 @@ export function SaleCreatePage() {
   const [priceCalculatorItemId, setPriceCalculatorItemId] = useState<string | null>(null);
   const [desiredSaleValue, setDesiredSaleValue] = useState("");
   const [priceCalculatorError, setPriceCalculatorError] = useState<string | null>(null);
+  const [bulkAmountOverrides, setBulkAmountOverrides] = useState<Record<string, { productId: string; quantityGrams: number; amount: number }>>({});
   const [lastReceipt, setLastReceipt] = useState<{
     sale: SaleCreatedDTO;
     values: CreateSaleDTO;
@@ -142,8 +143,7 @@ export function SaleCreatePage() {
     return () => window.removeEventListener("keydown", handlePriceShortcut);
   }, [activeBulkItemId, items.fields, selectedProducts]);
 
-  const subtotal = Math.round(
-    watchedItems.reduce((runningTotal, item) => {
+  const rawSubtotal = watchedItems.reduce((runningTotal, item) => {
       const product = item.productId ? knownProducts.get(item.productId) : undefined;
       const enteredQuantity = Number(parseBrazilianNumber(item.quantity) ?? 0);
       const saleQuantity = isBulkWeightProduct(product) ? enteredQuantity / 1000 : enteredQuantity;
@@ -151,9 +151,20 @@ export function SaleCreatePage() {
         ? product?.salePrice ?? 0
         : Number(parseBrazilianNumber(item.unitPrice) ?? 0);
       return runningTotal + saleQuantity * unitPrice;
-    }, 0) * 100
-  ) / 100;
-  const total = Math.round((subtotal - discount + surcharge) * 100) / 100;
+    }, 0);
+  const subtotal = Math.round(rawSubtotal * 100) / 100;
+  const targetSubtotal = Math.round((rawSubtotal + items.fields.reduce((adjustment, field, index) => {
+    const override = bulkAmountOverrides[field.id];
+    const item = watchedItems[index];
+    const product = item?.productId ? knownProducts.get(item.productId) : undefined;
+    const quantityGrams = Number(parseBrazilianNumber(item?.quantity) ?? 0);
+    if (!override || !product || override.productId !== product.id || override.quantityGrams !== quantityGrams) return adjustment;
+    return adjustment + override.amount - (quantityGrams / 1000) * product.salePrice;
+  }, 0)) * 100) / 100;
+  const bulkRoundingAdjustment = Math.round((subtotal - targetSubtotal) * 100) / 100;
+  const appliedDiscount = Math.round((discount + Math.max(bulkRoundingAdjustment, 0)) * 100) / 100;
+  const appliedSurcharge = Math.round((surcharge + Math.max(-bulkRoundingAdjustment, 0)) * 100) / 100;
+  const total = Math.round((subtotal - appliedDiscount + appliedSurcharge) * 100) / 100;
 
   function openPriceCalculator(itemId: string) {
     setActiveBulkItemId(itemId);
@@ -177,6 +188,14 @@ export function SaleCreatePage() {
     }
 
     form.setValue(`items.${priceCalculatorIndex}.quantity`, calculatedWeightGrams, { shouldDirty: true, shouldValidate: true });
+    setBulkAmountOverrides((current) => ({
+      ...current,
+      [items.fields[priceCalculatorIndex].id]: {
+        productId: priceCalculatorProduct.id,
+        quantityGrams: calculatedWeightGrams,
+        amount: Math.round(desiredAmount * 100) / 100
+      }
+    }));
     setPriceCalculatorItemId(null);
     setDesiredSaleValue("");
     setPriceCalculatorError(null);
@@ -190,6 +209,8 @@ export function SaleCreatePage() {
       const normalizedValues: CreateSaleDTO = {
         ...values,
         customerId: values.customerId || undefined,
+        discount: appliedDiscount,
+        surcharge: appliedSurcharge,
         items: values.items.map((item) => {
           const product = item.productId ? knownProducts.get(item.productId) : undefined;
           if (!isBulkWeightProduct(product)) return item;
@@ -219,6 +240,7 @@ export function SaleCreatePage() {
       setProductSearches({});
       setDebouncedProductSearches({});
       setSelectedProducts({});
+      setBulkAmountOverrides({});
       setActiveBulkItemId(null);
       setPriceCalculatorItemId(null);
     } catch (err) {
@@ -325,7 +347,13 @@ export function SaleCreatePage() {
                 const enteredUnitPrice = bulkWeightProduct
                   ? selectedProduct?.salePrice ?? 0
                   : Number(parseBrazilianNumber(watchedItems[index]?.unitPrice) ?? 0);
-                const bulkItemTotal = Math.round((enteredWeight / 1000) * enteredUnitPrice * 100) / 100;
+                const bulkAmountOverride = bulkAmountOverrides[field.id];
+                const validBulkAmountOverride = bulkAmountOverride
+                  && bulkAmountOverride.productId === selectedProduct?.id
+                  && bulkAmountOverride.quantityGrams === enteredWeight;
+                const bulkItemTotal = validBulkAmountOverride
+                  ? bulkAmountOverride.amount
+                  : Math.round((enteredWeight / 1000) * enteredUnitPrice * 100) / 100;
                 const matchingProducts = search.length >= 2 ? (productSearchQuery?.data ?? []) : [];
                 return (
                 <div key={field.id} className="sale-item-row grid gap-3 rounded-lg border border-border bg-slate-50/60 p-3 md:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_100px_130px_44px]" onFocus={() => { if (bulkWeightProduct) setActiveBulkItemId(field.id); }}>
@@ -337,7 +365,7 @@ export function SaleCreatePage() {
                       value={productSearches[field.id] ?? ""}
                       onChange={(event) => setProductSearches((current) => ({ ...current, [field.id]: event.target.value }))}
                     />
-                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); if (activeBulkItemId === field.id) setActiveBulkItemId(null); setSelectedProducts((current) => { const next = { ...current }; delete next[field.id]; return next; }); }}>Limpar</Button></div> : null}
+                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); if (activeBulkItemId === field.id) setActiveBulkItemId(null); setBulkAmountOverrides((current) => { const next = { ...current }; delete next[field.id]; return next; }); setSelectedProducts((current) => { const next = { ...current }; delete next[field.id]; return next; }); }}>Limpar</Button></div> : null}
                     {search.length >= 2 ? <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-white shadow-sm">
                       {productSearchQuery?.isFetching && !productSearchQuery.data ? <p className="px-3 py-4 text-center text-sm text-subdued">Buscando produtos...</p> : null}
                       {matchingProducts.map((product) => <button
@@ -349,6 +377,7 @@ export function SaleCreatePage() {
                           form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
                           form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
                           form.setValue(`items.${index}.quantity`, isBulkWeightProduct(product) ? 0 : 1, { shouldValidate: true });
+                          setBulkAmountOverrides((current) => { const next = { ...current }; delete next[field.id]; return next; });
                           setSelectedProducts((current) => ({ ...current, [field.id]: product }));
                           setActiveBulkItemId(isBulkWeightProduct(product) ? field.id : null);
                           setProductSearches((current) => ({ ...current, [field.id]: "" }));
@@ -383,13 +412,14 @@ export function SaleCreatePage() {
                       {...form.register(`items.${index}.unitPrice`)}
                     />
                     {bulkWeightProduct ? <p className="whitespace-nowrap text-xs font-semibold text-brand-700">Total: {formatCurrency(bulkItemTotal)}</p> : null}
+                    {validBulkAmountOverride ? <p className="text-[11px] text-subdued">Valor informado pelo cliente</p> : null}
                     {bulkWeightProduct ? <Button type="button" variant="secondary" className="h-8 w-full px-2 text-xs" onClick={() => openPriceCalculator(field.id)}>Por valor (Alt+P)</Button> : null}
                   </div>
                   <Button
                     className="sale-item-remove mt-6 h-10 px-0"
                     variant="ghost"
                     title="Remover item"
-                    onClick={() => items.fields.length > 1 && items.remove(index)}
+                    onClick={() => { if (items.fields.length > 1) { setBulkAmountOverrides((current) => { const next = { ...current }; delete next[field.id]; return next; }); items.remove(index); } }}
                   >
                     <Minus size={18} />
                   </Button>
@@ -438,6 +468,10 @@ export function SaleCreatePage() {
                 <span className="text-subdued">Desconto</span>
                 <strong>{formatCurrency(discount)}</strong>
               </div>
+              {bulkRoundingAdjustment !== 0 ? <div className="flex justify-between text-xs">
+                <span className="text-subdued">Ajuste de arredondamento do granel</span>
+                <strong>{bulkRoundingAdjustment > 0 ? "- " : "+ "}{formatCurrency(Math.abs(bulkRoundingAdjustment))}</strong>
+              </div> : null}
               <div className="flex justify-between">
                 <span className="text-subdued">Acréscimo</span>
                 <strong>{formatCurrency(surcharge)}</strong>
