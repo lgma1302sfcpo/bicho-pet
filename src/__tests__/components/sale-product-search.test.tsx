@@ -74,7 +74,7 @@ describe("busca de produtos na venda", () => {
       name: "Golden granel por kg",
       category: "Granel",
       unit: "KG",
-      salePrice: 23.5
+      salePrice: 17
     });
 
     render(<SaleCreatePage />);
@@ -87,10 +87,11 @@ describe("busca de produtos na venda", () => {
 
     expect(await screen.findByRole("dialog", { name: "Venda de granel por valor" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Valor que o cliente quer pagar"), { target: { value: "12" } });
-    expect(screen.getByText("510,638 g")).toBeInTheDocument();
+    expect(screen.getByText("706 g")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Aplicar valor e peso" }));
 
-    expect(screen.getByLabelText("Peso (g)")).toHaveValue("510.638");
+    expect(screen.getByLabelText("Preço por kg")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Peso (g)")).toHaveValue("706");
     await waitFor(() => expect(screen.getAllByText("R$ 12,00").length).toBeGreaterThan(0));
   });
 });

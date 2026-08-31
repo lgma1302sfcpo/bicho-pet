@@ -108,12 +108,10 @@ export function SaleCreatePage() {
     ? items.fields.findIndex((field) => field.id === priceCalculatorItemId)
     : -1;
   const priceCalculatorProduct = priceCalculatorItemId ? selectedProducts[priceCalculatorItemId] : undefined;
-  const pricePerKilogram = priceCalculatorIndex >= 0
-    ? Number(parseBrazilianNumber(watchedItems[priceCalculatorIndex]?.unitPrice) ?? priceCalculatorProduct?.salePrice ?? 0)
-    : 0;
+  const pricePerKilogram = priceCalculatorProduct?.salePrice ?? 0;
   const desiredAmount = Number(parseBrazilianNumber(desiredSaleValue) ?? 0);
   const calculatedWeightGrams = desiredAmount > 0 && pricePerKilogram > 0
-    ? Math.round((desiredAmount / pricePerKilogram) * 1_000_000) / 1000
+    ? Math.round((desiredAmount / pricePerKilogram) * 1000)
     : 0;
 
   useEffect(() => {
@@ -149,7 +147,10 @@ export function SaleCreatePage() {
       const product = item.productId ? knownProducts.get(item.productId) : undefined;
       const enteredQuantity = Number(parseBrazilianNumber(item.quantity) ?? 0);
       const saleQuantity = isBulkWeightProduct(product) ? enteredQuantity / 1000 : enteredQuantity;
-      return runningTotal + saleQuantity * Number(parseBrazilianNumber(item.unitPrice) ?? 0);
+      const unitPrice = isBulkWeightProduct(product)
+        ? product?.salePrice ?? 0
+        : Number(parseBrazilianNumber(item.unitPrice) ?? 0);
+      return runningTotal + saleQuantity * unitPrice;
     }, 0) * 100
   ) / 100;
   const total = Math.round((subtotal - discount + surcharge) * 100) / 100;
@@ -191,7 +192,8 @@ export function SaleCreatePage() {
         customerId: values.customerId || undefined,
         items: values.items.map((item) => {
           const product = item.productId ? knownProducts.get(item.productId) : undefined;
-          return { ...item, quantity: isBulkWeightProduct(product) ? item.quantity / 1000 : item.quantity };
+          if (!isBulkWeightProduct(product)) return item;
+          return { ...item, quantity: item.quantity / 1000, unitPrice: product?.salePrice ?? item.unitPrice };
         })
       };
       const sale = await createSale.mutateAsync({
@@ -320,7 +322,9 @@ export function SaleCreatePage() {
                   ?? (selectedProductId ? knownProducts.get(selectedProductId) : undefined);
                 const bulkWeightProduct = isBulkWeightProduct(selectedProduct);
                 const enteredWeight = Number(parseBrazilianNumber(watchedItems[index]?.quantity) ?? 0);
-                const enteredUnitPrice = Number(parseBrazilianNumber(watchedItems[index]?.unitPrice) ?? 0);
+                const enteredUnitPrice = bulkWeightProduct
+                  ? selectedProduct?.salePrice ?? 0
+                  : Number(parseBrazilianNumber(watchedItems[index]?.unitPrice) ?? 0);
                 const bulkItemTotal = Math.round((enteredWeight / 1000) * enteredUnitPrice * 100) / 100;
                 const matchingProducts = search.length >= 2 ? (productSearchQuery?.data ?? []) : [];
                 return (
@@ -371,8 +375,10 @@ export function SaleCreatePage() {
                   <div className="space-y-2">
                     <Input
                       label={bulkWeightProduct ? "Preço por kg" : "Preço unitário"}
-                      help={bulkWeightProduct ? "Preço do quilograma usado para calcular automaticamente o valor do peso informado." : "Valor cobrado por uma unidade deste item."}
+                      help={bulkWeightProduct ? "Preço fixo definido no cadastro do produto. Para alterá-lo, edite o produto." : "Valor cobrado por uma unidade deste item."}
                       mask="currency"
+                      readOnly={bulkWeightProduct}
+                      className={bulkWeightProduct ? "cursor-not-allowed bg-slate-100 text-slate-700" : undefined}
                       error={form.formState.errors.items?.[index]?.unitPrice?.message}
                       {...form.register(`items.${index}.unitPrice`)}
                     />
