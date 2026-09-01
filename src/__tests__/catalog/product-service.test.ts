@@ -150,4 +150,26 @@ describe("ProductService", () => {
     expect(repository.getProductSummary).not.toHaveBeenCalled();
     expect(result[0]).toMatchObject({ name: "Golden cães adultos pequeno porte", salePrice: 22.5 });
   });
+
+  it("devolve todos os produtos encontrados pela busca", async () => {
+    vi.mocked(repository.listProducts).mockResolvedValue(Array.from({ length: 25 }, (_, index) => ({
+      id: `origens-${index}`,
+      name: `Origens cães adultos ${index}`,
+      code: `G${index}`,
+      category: "Racao",
+      unit: "KG",
+      species: "DOG",
+      costPrice: 10,
+      salePrice: 14,
+      marginPercent: 40,
+      stockQuantity: 1,
+      minStock: 0,
+      maxStock: 0,
+      status: "ACTIVE"
+    })));
+
+    const result = await service.searchProducts("tenant-1", "branch-1", "origens cães");
+
+    expect(result).toHaveLength(25);
+  });
 });

@@ -8,6 +8,25 @@ function toNumber(value: Prisma.Decimal | number | null | undefined) {
   return Number(value ?? 0);
 }
 
+export function buildProductSearchConditions(search: string): Prisma.ProductWhereInput[] {
+  const terms = search
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return terms.map((term) => ({
+    OR: [
+      { name: { contains: term, mode: "insensitive" } },
+      { code: { contains: term, mode: "insensitive" } },
+      { sku: { contains: term, mode: "insensitive" } },
+      { barcode: { contains: term } },
+      { brand: { contains: term, mode: "insensitive" } },
+      { supplier: { contains: term, mode: "insensitive" } },
+      { subcategory: { contains: term, mode: "insensitive" } }
+    ]
+  }));
+}
+
 export class PrismaProductRepository implements ProductRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
 
@@ -201,17 +220,7 @@ export class PrismaProductRepository implements ProductRepository {
     const and: Prisma.ProductWhereInput[] = [{ tenantId }];
 
     if (filters.search) {
-      and.push({
-        OR: [
-          { name: { contains: filters.search, mode: "insensitive" } },
-          { code: { contains: filters.search, mode: "insensitive" } },
-          { sku: { contains: filters.search, mode: "insensitive" } },
-          { barcode: { contains: filters.search } },
-          { brand: { contains: filters.search, mode: "insensitive" } },
-          { supplier: { contains: filters.search, mode: "insensitive" } },
-          { subcategory: { contains: filters.search, mode: "insensitive" } }
-        ]
-      });
+      and.push(...buildProductSearchConditions(filters.search));
     }
 
     if (filters.category) {

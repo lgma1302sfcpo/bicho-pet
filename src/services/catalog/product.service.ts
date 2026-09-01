@@ -49,7 +49,7 @@ export class ProductService {
       lowStockOnly: false
     });
 
-    return products.slice(0, 20).map((product) => this.mapProduct(product));
+    return products.map((product) => this.mapProduct(product));
   }
 
   async updateProduct(tenantId: string, branchId: string, productId: string, input: UpdateProductDTO): Promise<ProductListItemDTO> {
