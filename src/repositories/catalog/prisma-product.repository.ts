@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import type { CreateProductDTO, ProductFiltersDTO, UpdateProductDTO } from "@/dtos/catalog/product.dto";
 import type { ProductRepository } from "@/interfaces/catalog/product-repository.interface";
@@ -8,23 +8,15 @@ function toNumber(value: Prisma.Decimal | number | null | undefined) {
   return Number(value ?? 0);
 }
 
-export function buildProductSearchConditions(search: string): Prisma.ProductWhereInput[] {
-  const terms = search
+const SEARCH_ACCENTED_CHARACTERS = "áàâãäéèêëíìîïóòôõöúùûüç";
+const SEARCH_PLAIN_CHARACTERS = "aaaaaeeeeiiiiooooouuuuc";
+
+export function normalizeProductSearchTerms(search: string) {
+  return search
     .trim()
     .split(/\s+/)
-    .filter(Boolean);
-
-  return terms.map((term) => ({
-    OR: [
-      { name: { contains: term, mode: "insensitive" } },
-      { code: { contains: term, mode: "insensitive" } },
-      { sku: { contains: term, mode: "insensitive" } },
-      { barcode: { contains: term } },
-      { brand: { contains: term, mode: "insensitive" } },
-      { supplier: { contains: term, mode: "insensitive" } },
-      { subcategory: { contains: term, mode: "insensitive" } }
-    ]
-  }));
+    .filter(Boolean)
+    .map((term) => term.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"));
 }
 
 export class PrismaProductRepository implements ProductRepository {
@@ -220,7 +212,26 @@ export class PrismaProductRepository implements ProductRepository {
     const and: Prisma.ProductWhereInput[] = [{ tenantId }];
 
     if (filters.search) {
-      and.push(...buildProductSearchConditions(filters.search));
+      const terms = normalizeProductSearchTerms(filters.search);
+      if (terms.length > 0) {
+        const matches = await this.db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          SELECT "id"
+          FROM "products"
+          WHERE "tenantId" = ${tenantId}
+            AND ${Prisma.join(terms.map((term) => Prisma.sql`
+              strpos(
+                translate(
+                  lower(concat_ws(' ', "name", "code", "sku", "barcode", "brand", "supplier", "subcategory")),
+                  ${SEARCH_ACCENTED_CHARACTERS},
+                  ${SEARCH_PLAIN_CHARACTERS}
+                ),
+                ${term}
+              ) > 0
+            `), " AND ")}
+        `);
+
+        and.push({ id: { in: matches.map((product) => product.id) } });
+      }
     }
 
     if (filters.category) {
