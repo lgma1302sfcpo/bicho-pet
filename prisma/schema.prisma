@@ -59,6 +59,17 @@ enum PaymentMethod {
   MIXED
 }
 
+enum CashRegisterStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMovementType {
+  CASH_SALE
+  SUPPLY
+  WITHDRAWAL
+}
+
 enum ProductStatus {
   ACTIVE
   INACTIVE
@@ -78,6 +89,15 @@ enum PetSpecies {
 enum PetSex {
   MALE
   FEMALE
+}
+
+enum GroomingAppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_SERVICE
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
 
 enum InventoryMovementType {
@@ -145,22 +165,28 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  branches            Branch[]
-  roles               Role[]
-  memberships         UserTenantRole[]
-  auditLogs           AuditLog[]
-  customers           Customer[]
-  sales               Sale[]
-  products            Product[]
-  productStocks       ProductBranchStock[]
-  inventoryMovements  InventoryMovement[]
-  financialEntries    FinancialEntry[]
-  fiscalConfiguration FiscalConfiguration?
-  fiscalSequences     FiscalSequence[]
-  fiscalDocuments     FiscalDocument[]
-  fiscalEvents        FiscalEvent[]
-  fiscalNumberVoids   FiscalNumberVoid[]
-  userInvitations     UserInvitation[]
+  branches               Branch[]
+  roles                  Role[]
+  memberships            UserTenantRole[]
+  auditLogs              AuditLog[]
+  customers              Customer[]
+  sales                  Sale[]
+  products               Product[]
+  productStocks          ProductBranchStock[]
+  inventoryMovements     InventoryMovement[]
+  financialEntries       FinancialEntry[]
+  fiscalConfiguration    FiscalConfiguration?
+  fiscalSequences        FiscalSequence[]
+  fiscalDocuments        FiscalDocument[]
+  fiscalEvents           FiscalEvent[]
+  fiscalNumberVoids      FiscalNumberVoid[]
+  userInvitations        UserInvitation[]
+  groomingProfessionals  GroomingProfessional[]
+  groomingServices       GroomingService[]
+  groomingAppointments   GroomingAppointment[]
+  groomingScheduleBlocks GroomingScheduleBlock[]
+  cashRegisterSessions   CashRegisterSession[]
+  cashRegisterMovements  CashRegisterMovement[]
 
   @@map("tenants")
 }
@@ -175,13 +201,19 @@ model Branch {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships        UserTenantRole[]
-  productStocks      ProductBranchStock[]
-  sales              Sale[]
-  inventoryMovements InventoryMovement[]
-  financialEntries   FinancialEntry[]
-  userInvitations    UserInvitation[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships            UserTenantRole[]
+  productStocks          ProductBranchStock[]
+  sales                  Sale[]
+  inventoryMovements     InventoryMovement[]
+  financialEntries       FinancialEntry[]
+  userInvitations        UserInvitation[]
+  groomingProfessionals  GroomingProfessional[]
+  groomingServices       GroomingService[]
+  groomingAppointments   GroomingAppointment[]
+  groomingScheduleBlocks GroomingScheduleBlock[]
+  cashRegisterSessions   CashRegisterSession[]
+  cashRegisterMovements  CashRegisterMovement[]
 
   @@unique([tenantId, document])
   @@index([tenantId])
@@ -200,14 +232,19 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  memberships         UserTenantRole[]
-  passwordResetTokens PasswordResetToken[]
-  auditLogs           AuditLog[]
-  sales               Sale[]
-  inventoryMovements  InventoryMovement[]
-  accounts            Account[]
-  sessions            Session[]
-  sentInvitations     UserInvitation[]     @relation("InvitationSender")
+  memberships                 UserTenantRole[]
+  passwordResetTokens         PasswordResetToken[]
+  auditLogs                   AuditLog[]
+  sales                       Sale[]
+  inventoryMovements          InventoryMovement[]
+  createdGroomingAppointments GroomingAppointment[]  @relation("GroomingAppointmentCreator")
+  accounts                    Account[]
+  sessions                    Session[]
+  sentInvitations             UserInvitation[]       @relation("InvitationSender")
+  openedCashRegisters         CashRegisterSession[]  @relation("CashRegisterOpenedBy")
+  closedCashRegisters         CashRegisterSession[]  @relation("CashRegisterClosedBy")
+  reopenedCashRegisters       CashRegisterSession[]  @relation("CashRegisterReopenedBy")
+  cashRegisterMovements       CashRegisterMovement[]
 
   @@map("users")
 }
@@ -369,9 +406,10 @@ model Customer {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sales  Sale[]
-  pets   Pet[]
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales                Sale[]
+  pets                 Pet[]
+  groomingAppointments GroomingAppointment[]
 
   @@unique([tenantId, document])
   @@index([tenantId, name])
@@ -392,59 +430,215 @@ model Pet {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer             Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  groomingAppointments GroomingAppointment[]
 
   @@index([customerId])
   @@map("pets")
 }
 
-model Sale {
-  id            String        @id @default(cuid())
-  tenantId      String
-  branchId      String
-  customerId    String?
-  userId        String?
-  code          String
-  status        SaleStatus    @default(COMPLETED)
-  paymentMethod PaymentMethod
-  subtotal      Decimal       @db.Decimal(12, 2)
-  discount      Decimal       @default(0) @db.Decimal(12, 2)
-  surcharge     Decimal       @default(0) @db.Decimal(12, 2)
-  total         Decimal       @db.Decimal(12, 2)
-  notes         String?
-  soldAt        DateTime      @default(now())
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+model GroomingProfessional {
+  id                String   @id @default(cuid())
+  tenantId          String
+  branchId          String
+  name              String
+  commissionPercent Decimal  @default(0) @db.Decimal(5, 2)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch           Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  customer         Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  user             User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  items            SaleItem[]
-  financialEntries FinancialEntry[]
-  fiscalDocuments  FiscalDocument[]
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch                  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  appointments   GroomingAppointment[]
+  scheduleBlocks GroomingScheduleBlock[]
+
+  @@unique([branchId, name])
+  @@index([tenantId, branchId, active])
+  @@map("grooming_professionals")
+}
+
+model GroomingService {
+  id              String   @id @default(cuid())
+  tenantId        String
+  branchId        String
+  name            String
+  durationMinutes Int
+  defaultPrice    Decimal  @default(0) @db.Decimal(12, 2)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch                @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  appointments GroomingAppointment[]
+
+  @@unique([branchId, name])
+  @@index([tenantId, branchId, active])
+  @@map("grooming_services")
+}
+
+model GroomingAppointment {
+  id                String                    @id @default(cuid())
+  tenantId          String
+  branchId          String
+  customerId        String
+  petId             String
+  serviceId         String
+  professionalId    String
+  createdById       String?
+  startAt           DateTime
+  endAt             DateTime
+  status            GroomingAppointmentStatus @default(SCHEDULED)
+  price             Decimal                   @db.Decimal(12, 2)
+  commissionAmount  Decimal                   @default(0) @db.Decimal(12, 2)
+  isPackage         Boolean                   @default(false)
+  purchasedProducts Boolean                   @default(false)
+  photoTaken        Boolean                   @default(false)
+  reminderSentAt    DateTime?
+  notes             String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  pet          Pet                  @relation(fields: [petId], references: [id], onDelete: Restrict)
+  service      GroomingService      @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  professional GroomingProfessional @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  createdBy    User?                @relation("GroomingAppointmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, branchId, startAt])
+  @@index([professionalId, startAt, endAt])
+  @@index([customerId, startAt])
+  @@index([petId, startAt])
+  @@map("grooming_appointments")
+}
+
+model GroomingScheduleBlock {
+  id             String   @id @default(cuid())
+  tenantId       String
+  branchId       String
+  professionalId String?
+  startAt        DateTime
+  endAt          DateTime
+  reason         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch                @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  professional GroomingProfessional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, branchId, startAt])
+  @@index([professionalId, startAt, endAt])
+  @@map("grooming_schedule_blocks")
+}
+
+model Sale {
+  id                    String        @id @default(cuid())
+  tenantId              String
+  branchId              String
+  customerId            String?
+  userId                String?
+  cashRegisterSessionId String?
+  code                  String
+  status                SaleStatus    @default(COMPLETED)
+  paymentMethod         PaymentMethod
+  subtotal              Decimal       @db.Decimal(12, 2)
+  discount              Decimal       @default(0) @db.Decimal(12, 2)
+  surcharge             Decimal       @default(0) @db.Decimal(12, 2)
+  total                 Decimal       @db.Decimal(12, 2)
+  notes                 String?
+  soldAt                DateTime      @default(now())
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch              Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer            Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  cashRegisterSession CashRegisterSession? @relation(fields: [cashRegisterSessionId], references: [id], onDelete: SetNull)
+  items               SaleItem[]
+  financialEntries    FinancialEntry[]
+  fiscalDocuments     FiscalDocument[]
 
   @@unique([tenantId, code])
   @@index([tenantId, soldAt])
   @@index([branchId, soldAt])
   @@index([customerId])
+  @@index([cashRegisterSessionId])
   @@map("sales")
 }
 
+model CashRegisterSession {
+  id                    String             @id @default(cuid())
+  tenantId              String
+  branchId              String
+  openedById            String?
+  closedById            String?
+  reopenedById          String?
+  status                CashRegisterStatus @default(OPEN)
+  openingAmount         Decimal            @db.Decimal(12, 2)
+  expectedClosingAmount Decimal?           @db.Decimal(12, 2)
+  actualClosingAmount   Decimal?           @db.Decimal(12, 2)
+  difference            Decimal?           @db.Decimal(12, 2)
+  openingNotes          String?
+  closingNotes          String?
+  openedAt              DateTime           @default(now())
+  closedAt              DateTime?
+  reopenedAt            DateTime?
+  reopenCount           Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  openedBy   User?                  @relation("CashRegisterOpenedBy", fields: [openedById], references: [id], onDelete: SetNull)
+  closedBy   User?                  @relation("CashRegisterClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  reopenedBy User?                  @relation("CashRegisterReopenedBy", fields: [reopenedById], references: [id], onDelete: SetNull)
+  movements  CashRegisterMovement[]
+  sales      Sale[]
+
+  @@index([tenantId, branchId, status])
+  @@index([branchId, openedAt])
+  @@map("cash_register_sessions")
+}
+
+model CashRegisterMovement {
+  id          String           @id @default(cuid())
+  sessionId   String
+  tenantId    String
+  branchId    String
+  userId      String?
+  type        CashMovementType
+  amount      Decimal          @db.Decimal(12, 2)
+  description String
+  createdAt   DateTime         @default(now())
+
+  session CashRegisterSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  user    User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, createdAt])
+  @@index([tenantId, branchId, createdAt])
+  @@map("cash_register_movements")
+}
+
 model SaleItem {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   saleId      String
   productId   String?
   description String
-  quantity    Decimal  @db.Decimal(12, 3)
-  unitPrice   Decimal  @db.Decimal(12, 2)
-  costPrice   Decimal  @default(0) @db.Decimal(12, 2)
+  quantity    Decimal     @db.Decimal(12, 3)
+  unitPrice   Decimal     @db.Decimal(12, 2)
+  costPrice   Decimal     @default(0) @db.Decimal(12, 2)
   category    String?
   species     PetSpecies?
   brand       String?
   supplier    String?
-  total       Decimal  @db.Decimal(12, 2)
-  createdAt   DateTime @default(now())
+  total       Decimal     @db.Decimal(12, 2)
+  createdAt   DateTime    @default(now())
 
   sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)

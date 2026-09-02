@@ -114,6 +114,14 @@ export class PrismaIdentityRepository implements IdentityRepository {
         }
       });
 
+      await tx.groomingService.createMany({
+        data: [
+          { tenantId: tenant.id, branchId: branch.id, name: "Banho", durationMinutes: 60, defaultPrice: 0 },
+          { tenantId: tenant.id, branchId: branch.id, name: "Banho e tosa completa", durationMinutes: 90, defaultPrice: 0 },
+          { tenantId: tenant.id, branchId: branch.id, name: "Tosa na tesoura", durationMinutes: 120, defaultPrice: 0 }
+        ]
+      });
+
       const user = await tx.user.create({
         data: {
           name: data.ownerName,

@@ -51,6 +51,13 @@ export async function POST(request: NextRequest) {
           }))
         });
       }
+      await transaction.groomingService.createMany({
+        data: [
+          { tenantId, branchId: createdBranch.id, name: "Banho", durationMinutes: 60, defaultPrice: 0 },
+          { tenantId, branchId: createdBranch.id, name: "Banho e tosa completa", durationMinutes: 90, defaultPrice: 0 },
+          { tenantId, branchId: createdBranch.id, name: "Tosa na tesoura", durationMinutes: 120, defaultPrice: 0 }
+        ]
+      });
       await transaction.auditLog.create({
         data: { tenantId, userId: session.user.id, action: "identity.branch.created", entity: "Branch", entityId: createdBranch.id, metadata: { name: createdBranch.name } }
       });

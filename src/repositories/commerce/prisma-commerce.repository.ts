@@ -260,6 +260,14 @@ export class PrismaCommerceRepository implements CommerceRepository {
         throw new AppError("Um dos produtos da venda nao existe ou esta inativo.", "INVALID_SALE_PRODUCT", 422);
       }
 
+      const cashRegister = await tx.cashRegisterSession.findFirst({
+        where: { tenantId: data.tenantId, branchId: data.branchId, status: "OPEN" },
+        select: { id: true }
+      });
+      if (!cashRegister) {
+        throw new AppError("Abra o caixa desta loja antes de concluir a venda.", "CASH_REGISTER_NOT_OPEN", 409);
+      }
+
       const quantitiesByProduct = new Map<string, number>();
       for (const item of data.sale.items) {
         if (item.productId) quantitiesByProduct.set(item.productId, (quantitiesByProduct.get(item.productId) ?? 0) + item.quantity);
@@ -269,6 +277,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
           tenantId: data.tenantId,
           branchId: data.branchId,
           userId: data.userId,
+          cashRegisterSessionId: cashRegister?.id,
           customerId: data.sale.customerId || undefined,
           code: data.code,
           paymentMethod: data.sale.paymentMethod,
@@ -296,6 +305,20 @@ export class PrismaCommerceRepository implements CommerceRepository {
           }
         }
       });
+
+      if (data.sale.paymentMethod === "CASH") {
+        await tx.cashRegisterMovement.create({
+          data: {
+            sessionId: cashRegister.id,
+            tenantId: data.tenantId,
+            branchId: data.branchId,
+            userId: data.userId,
+            type: "CASH_SALE",
+            amount: data.total,
+            description: `Venda ${sale.code}`
+          }
+        });
+      }
 
       for (const [productId, quantity] of quantitiesByProduct) {
         const product = productsById.get(productId)!;

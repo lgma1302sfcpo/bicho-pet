@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  CalendarDays,
   Boxes,
   ClipboardList,
   LogOut,
@@ -13,6 +14,7 @@ import {
   ShieldCheck,
   Users,
   WalletCards,
+  Banknote,
   X
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -57,6 +59,8 @@ const navItems: EnabledNavItem[] = [
   { href: "/clientes", label: "Clientes", icon: Users, permission: AUTH_PERMISSIONS.CUSTOMERS_READ, enabled: true },
   { href: "/produtos", label: "Produtos", icon: Package, permission: AUTH_PERMISSIONS.PRODUCTS_READ, enabled: true },
   { href: "/vendas/nova", label: "Vendas", icon: ReceiptText, permission: [AUTH_PERMISSIONS.SALES_WRITE, AUTH_PERMISSIONS.SALES_PDV], enabled: true },
+  { href: "/caixa" as Route, label: "Caixa", icon: Banknote, permission: AUTH_PERMISSIONS.CASH_READ, enabled: true },
+  { href: "/banho-e-tosa" as Route, label: "Banho e Tosa", icon: CalendarDays, permission: AUTH_PERMISSIONS.GROOMING_READ, enabled: true },
   { href: "/estoque", label: "Estoque", icon: Boxes, permission: AUTH_PERMISSIONS.INVENTORY_READ, enabled: true },
   { href: "/financeiro", label: "Financeiro", icon: WalletCards, permission: AUTH_PERMISSIONS.FINANCE_READ, enabled: true },
   { href: "/relatorios", label: "Relatórios", icon: ClipboardList, permission: AUTH_PERMISSIONS.REPORTS_READ, enabled: true },

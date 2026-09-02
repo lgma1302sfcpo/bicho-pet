@@ -28,6 +28,7 @@ import { createEmployeeUserSchema, createRoleSchema } from "@/schemas/identity/a
 const moduleLabels: Record<string, string> = {
   dashboard: "Visão geral", customers: "Clientes", products: "Produtos", inventory: "Estoque",
   sales: "Vendas e ponto de venda", finance: "Financeiro", reports: "Relatórios", fiscal: "Fiscal",
+    grooming: "Banho e Tosa", cash: "Caixa",
   identity: "Usuários", settings: "Configurações", audit: "Auditoria"
 };
 

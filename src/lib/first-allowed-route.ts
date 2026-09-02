@@ -7,6 +7,8 @@ const destinations: Array<{ route: Route; permission: (typeof AUTH_PERMISSIONS)[
   { route: "/clientes", permission: AUTH_PERMISSIONS.CUSTOMERS_READ },
   { route: "/produtos", permission: AUTH_PERMISSIONS.PRODUCTS_READ },
   { route: "/vendas/nova", permission: [AUTH_PERMISSIONS.SALES_WRITE, AUTH_PERMISSIONS.SALES_PDV] },
+  { route: "/caixa" as Route, permission: AUTH_PERMISSIONS.CASH_READ },
+  { route: "/banho-e-tosa" as Route, permission: AUTH_PERMISSIONS.GROOMING_READ },
   { route: "/estoque", permission: AUTH_PERMISSIONS.INVENTORY_READ },
   { route: "/financeiro", permission: AUTH_PERMISSIONS.FINANCE_READ },
   { route: "/relatorios", permission: AUTH_PERMISSIONS.REPORTS_READ },

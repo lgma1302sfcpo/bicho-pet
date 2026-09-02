@@ -16,9 +16,13 @@ export const AUTH_PERMISSIONS = {
   SALES_READ: "sales.read",
   SALES_WRITE: "sales.write",
   SALES_PDV: "sales.pdv",
+  CASH_READ: "cash.read",
+  CASH_WRITE: "cash.write",
   FINANCE_READ: "finance.read",
   FINANCE_WRITE: "finance.write",
   REPORTS_READ: "reports.read"
+  ,GROOMING_READ: "grooming.read"
+  ,GROOMING_WRITE: "grooming.write"
   ,FISCAL_READ: "fiscal.read"
   ,FISCAL_WRITE: "fiscal.write"
 } as const;
@@ -136,6 +140,18 @@ export const BASE_PERMISSIONS: PermissionSeed[] = [
     description: "Acessa e opera vendas no ponto de venda."
   },
   {
+    key: AUTH_PERMISSIONS.CASH_READ,
+    name: "Visualizar caixa",
+    module: "cash",
+    description: "Consulta abertura, movimentações, fechamento e histórico do caixa."
+  },
+  {
+    key: AUTH_PERMISSIONS.CASH_WRITE,
+    name: "Operar caixa",
+    module: "cash",
+    description: "Abre e fecha o caixa e registra sangrias e suprimentos."
+  },
+  {
     key: AUTH_PERMISSIONS.FINANCE_READ,
     name: "Visualizar financeiro",
     module: "finance",
@@ -152,6 +168,18 @@ export const BASE_PERMISSIONS: PermissionSeed[] = [
     name: "Visualizar relatórios",
     module: "reports",
     description: "Acessa relatórios e exportações."
+  },
+  {
+    key: AUTH_PERMISSIONS.GROOMING_READ,
+    name: "Visualizar agenda de banho e tosa",
+    module: "grooming",
+    description: "Consulta profissionais, serviços e horários agendados."
+  },
+  {
+    key: AUTH_PERMISSIONS.GROOMING_WRITE,
+    name: "Gerenciar agenda de banho e tosa",
+    module: "grooming",
+    description: "Cadastra serviços, profissionais e agendamentos."
   },
   {
     key: AUTH_PERMISSIONS.FISCAL_READ,
