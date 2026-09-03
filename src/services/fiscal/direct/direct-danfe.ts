@@ -47,7 +47,7 @@ export async function createDirectDanfe(input: { request: FiscalProviderRequest;
   y += 5;
   pdf.setFont("helvetica", "normal");
   for (const item of input.request.sale.items) {
-    const line = `${item.description}  ${item.quantity.toFixed(3)} x ${money(item.unitPrice)}  ${money(item.quantity * item.unitPrice)}`;
+    const line = `${item.description}  ${item.quantity.toFixed(3)} x ${money(item.unitPrice)}${item.discount > 0 ? `  desc. ${money(item.discount)}` : ""}  ${money(item.quantity * item.unitPrice - item.discount)}`;
     const wrapped = pdf.splitTextToSize(line, width - left * 2);
     pdf.text(wrapped, left, y);
     y += wrapped.length * (consumer ? 3.2 : 4.2) + 2;

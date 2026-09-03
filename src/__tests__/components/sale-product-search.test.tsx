@@ -57,6 +57,34 @@ function mockPage(product: ProductListItemDTO) {
 }
 
 describe("busca de produtos na venda", () => {
+  it("mantém um desconto independente para cada produto adicionado", async () => {
+    mockPage(golden);
+    render(<SaleCreatePage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Item" }));
+    const descriptions = screen.getAllByLabelText("Descrição");
+    const quantities = screen.getAllByLabelText("Quantidade");
+    const prices = screen.getAllByLabelText("Preço unitário");
+    const discounts = screen.getAllByLabelText("Desconto do item");
+
+    expect(discounts).toHaveLength(2);
+    fireEvent.change(descriptions[0], { target: { value: "Produto A" } });
+    fireEvent.change(descriptions[1], { target: { value: "Produto B" } });
+    fireEvent.change(quantities[0], { target: { value: "1" } });
+    fireEvent.change(quantities[1], { target: { value: "2" } });
+    fireEvent.change(prices[0], { target: { value: "10" } });
+    fireEvent.change(prices[1], { target: { value: "10" } });
+    fireEvent.change(discounts[0], { target: { value: "2" } });
+    fireEvent.change(discounts[1], { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Pagamento"), { target: { value: "PIX" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar venda" }));
+
+    await waitFor(() => expect(createSaleMutation).toHaveBeenCalledWith(expect.objectContaining({
+      discount: 5,
+      items: [expect.objectContaining({ discount: 2 }), expect.objectContaining({ discount: 3 })]
+    })));
+  });
+
   it("consulta e exibe produtos que não estão no primeiro lote da listagem", async () => {
     mockPage(golden);
 

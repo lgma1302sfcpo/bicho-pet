@@ -295,12 +295,13 @@ export class PrismaCommerceRepository implements CommerceRepository {
               description: product?.name ?? item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
+              discount: item.discount,
               costPrice: product?.costPrice ?? 0,
               category: product?.category,
               species: product?.species,
               brand: product?.brand,
               supplier: product?.supplier,
-              total: Math.round(item.quantity * item.unitPrice * 100) / 100
+              total: Math.round((item.quantity * item.unitPrice - item.discount) * 100) / 100
             };})
           }
         }
@@ -425,6 +426,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
         description: item.description,
         quantity: toNumber(item.quantity),
         unitPrice: toNumber(item.unitPrice),
+        discount: toNumber(item.discount),
         costPrice: toNumber(item.costPrice),
         total: toNumber(item.total),
         category: item.category,

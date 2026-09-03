@@ -107,8 +107,8 @@ describe("CommerceService", () => {
       discount: 5,
       surcharge: 0,
       items: [
-        { description: "Banho", quantity: 1, unitPrice: 40 },
-        { description: "Petisco", quantity: 2, unitPrice: 5 }
+        { description: "Banho", quantity: 1, unitPrice: 40, discount: 5 },
+        { description: "Petisco", quantity: 2, unitPrice: 5, discount: 0 }
       ]
     });
 
@@ -128,10 +128,19 @@ describe("CommerceService", () => {
       paymentMethod: "PIX",
       discount: 0,
       surcharge: 0,
-      items: [{ productId: "racao-granel", description: "Racao a granel", quantity: 0.3, unitPrice: 23.5 }]
+      items: [{ productId: "racao-granel", description: "Racao a granel", quantity: 0.3, unitPrice: 23.5, discount: 0 }]
     });
 
     expect(repository.createSale).toHaveBeenCalledWith(expect.objectContaining({ subtotal: 7.05, total: 7.05 }));
+  });
+
+  it("impede desconto maior que o valor do item", async () => {
+    await expect(service.createSale("tenant-1", "branch-1", "user-1", {
+      paymentMethod: "PIX",
+      discount: 11,
+      surcharge: 0,
+      items: [{ description: "Petisco", quantity: 1, unitPrice: 10, discount: 11 }]
+    })).rejects.toMatchObject({ code: "INVALID_SALE_ITEM_DISCOUNT" });
   });
 
   it("bloqueia venda para cliente de outro tenant", async () => {
@@ -143,7 +152,7 @@ describe("CommerceService", () => {
         paymentMethod: "PIX",
         discount: 0,
         surcharge: 0,
-        items: [{ description: "Banho", quantity: 1, unitPrice: 40 }]
+        items: [{ description: "Banho", quantity: 1, unitPrice: 40, discount: 0 }]
       })
     ).rejects.toMatchObject({ code: "CUSTOMER_NOT_FOUND" });
   });

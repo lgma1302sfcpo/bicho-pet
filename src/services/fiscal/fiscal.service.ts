@@ -406,7 +406,7 @@ export class FiscalService {
         customerStateRegistration: sale.customer?.stateRegistration, customerStreet: sale.customer?.street, customerNumber: sale.customer?.addressNumber, customerComplement: sale.customer?.complement, customerDistrict: sale.customer?.district, customerCity: sale.customer?.city, customerCityCode: sale.customer?.cityCode, customerState: sale.customer?.state, customerZipCode: sale.customer?.zipCode,
         paymentMethod: sale.paymentMethod, discount: number(sale.discount), surcharge: number(sale.surcharge),
         items: sale.items.map((item) => ({
-          code: item.product?.code || item.product?.sku || item.id, barcode: item.product?.barcode, description: item.description, quantity: number(item.quantity), unitPrice: number(item.unitPrice), unit: item.product?.unit || "UN",
+          code: item.product?.code || item.product?.sku || item.id, barcode: item.product?.barcode, description: item.description, quantity: number(item.quantity), unitPrice: number(item.unitPrice), discount: number(item.discount), unit: item.product?.unit || "UN",
           ncm: item.product?.ncm, cest: item.product?.cest, originCode: item.product?.originCode, cfop: item.product?.defaultCfop, icmsCode: item.product?.icmsCode, pisCode: item.product?.pisCode, cofinsCode: item.product?.cofinsCode, ibsCbsCode: item.product?.ibsCbsCode, taxClassificationCode: item.product?.taxClassificationCode, serviceCode: item.product?.serviceCode
         }))
       }

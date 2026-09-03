@@ -11,7 +11,7 @@ export class SandboxFiscalProvider implements FiscalProvider {
     const providerId = `TESTE-${input.documentId}`;
     const protocol = `HOMOLOGACAO-${Date.now()}`;
     const accessKey = `SEM-VALIDADE-FISCAL-${input.type}-${input.series}-${input.number}`;
-    const itemsXml = input.sale.items.map((item, index) => `<item numero="${index + 1}"><descricao>${escapeXml(item.description)}</descricao><quantidade>${item.quantity}</quantidade><valorUnitario>${item.unitPrice.toFixed(2)}</valorUnitario>${item.ncm ? `<ncm>${item.ncm}</ncm>` : ""}${item.serviceCode ? `<codigoServico>${escapeXml(item.serviceCode)}</codigoServico>` : ""}</item>`).join("");
+    const itemsXml = input.sale.items.map((item, index) => `<item numero="${index + 1}"><descricao>${escapeXml(item.description)}</descricao><quantidade>${item.quantity}</quantidade><valorUnitario>${item.unitPrice.toFixed(2)}</valorUnitario><desconto>${item.discount.toFixed(2)}</desconto>${item.ncm ? `<ncm>${item.ncm}</ncm>` : ""}${item.serviceCode ? `<codigoServico>${escapeXml(item.serviceCode)}</codigoServico>` : ""}</item>`).join("");
     const xml = `<?xml version="1.0" encoding="UTF-8"?><documentoFiscalDeTeste ambiente="homologacao" semValidadeFiscal="true"><tipo>${input.type}</tipo><serie>${input.series}</serie><numero>${input.number}</numero><emitente><razaoSocial>${escapeXml(input.issuer.legalName)}</razaoSocial><cnpj>${input.issuer.cnpj}</cnpj></emitente><venda codigo="${escapeXml(input.sale.code)}"><cliente>${escapeXml(input.sale.customerName)}</cliente>${itemsXml}<total>${input.sale.total.toFixed(2)}</total></venda><protocolo>${protocol}</protocolo></documentoFiscalDeTeste>`;
 
     const pdf = new jsPDF({ unit: "mm", format: "a4" });
@@ -25,7 +25,7 @@ export class SandboxFiscalProvider implements FiscalProvider {
     pdf.text(`Cliente: ${input.sale.customerName}`, 20, 66);
     let y = 80;
     for (const item of input.sale.items) {
-      pdf.text(`${item.description} - ${item.quantity} x R$ ${item.unitPrice.toFixed(2)}`, 20, y);
+      pdf.text(`${item.description} - ${item.quantity} x R$ ${item.unitPrice.toFixed(2)}${item.discount > 0 ? ` - desconto R$ ${item.discount.toFixed(2)}` : ""}`, 20, y);
       y += 7;
     }
     pdf.setFontSize(14);

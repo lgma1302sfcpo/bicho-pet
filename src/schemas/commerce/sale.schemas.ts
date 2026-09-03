@@ -8,7 +8,8 @@ export const saleItemSchema = z.object({
   productId: z.string().trim().optional().or(z.literal("")),
   description: z.string().trim().min(2, "Informe a descrição do item."),
   quantity: numeric.pipe(z.number().positive("A quantidade deve ser maior que zero.")),
-  unitPrice: numeric.pipe(z.number().min(0, "O preço não pode ser negativo."))
+  unitPrice: numeric.pipe(z.number().min(0, "O preço não pode ser negativo.")),
+  discount: numeric.pipe(z.number().min(0, "O desconto não pode ser negativo.")).default(0)
 });
 
 export const createSaleSchema = z.object({

@@ -87,6 +87,14 @@ export class CommerceService {
     const subtotal = this.roundMoney(
       input.items.reduce((total, item) => total + item.quantity * item.unitPrice, 0)
     );
+    const invalidItemDiscount = input.items.find((item) => item.discount > this.roundMoney(item.quantity * item.unitPrice));
+    if (invalidItemDiscount) {
+      throw new AppError(`O desconto de ${invalidItemDiscount.description} não pode ser maior que o valor do item.`, "INVALID_SALE_ITEM_DISCOUNT", 422);
+    }
+    const itemDiscountTotal = this.roundMoney(input.items.reduce((total, item) => total + item.discount, 0));
+    if (input.discount < itemDiscountTotal) {
+      throw new AppError("O desconto total da venda não confere com os descontos dos itens.", "INVALID_SALE_DISCOUNT", 422);
+    }
     const total = this.roundMoney(subtotal - input.discount + input.surcharge);
 
     if (total < 0) {

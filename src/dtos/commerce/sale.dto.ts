@@ -22,6 +22,7 @@ export type SaleListItemDTO = {
     description: string;
     quantity: number;
     unitPrice: number;
+    discount: number;
     costPrice: number;
     total: number;
     category?: string | null;

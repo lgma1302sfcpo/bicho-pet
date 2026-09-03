@@ -91,9 +91,10 @@ export function buildNfeXml(request: FiscalProviderRequest, privateKeyPem: strin
   const itemXml = request.sale.items.map((item, index) => {
     if (!item.ncm || !item.cfop) throw new AppError(`NCM e CFOP sao obrigatorios para ${item.description}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
     const itemTotal = Math.round(item.quantity * item.unitPrice * 100) / 100;
+    const itemDiscount = Math.round(item.discount * 100) / 100;
     const description = request.environment === "HOMOLOGATION" ? "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : cleanText(item.description, 120);
     const itemGtin = gtin(item.barcode);
-    return `<det nItem="${index + 1}"><prod><cProd>${escapeXml(item.code || String(index + 1))}</cProd><cEAN>${itemGtin}</cEAN><xProd>${escapeXml(description)}</xProd><NCM>${digits(item.ncm)}</NCM>${item.cest ? `<CEST>${digits(item.cest)}</CEST>` : ""}<CFOP>${digits(item.cfop)}</CFOP><uCom>${escapeXml(item.unit.slice(0, 6))}</uCom><qCom>${decimal(item.quantity, 4)}</qCom><vUnCom>${decimal(item.unitPrice, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${itemGtin}</cEANTrib><uTrib>${escapeXml(item.unit.slice(0, 6))}</uTrib><qTrib>${decimal(item.quantity, 4)}</qTrib><vUnTrib>${decimal(item.unitPrice, 10)}</vUnTrib><indTot>1</indTot></prod>${taxXml(item, itemTotal)}</det>`;
+    return `<det nItem="${index + 1}"><prod><cProd>${escapeXml(item.code || String(index + 1))}</cProd><cEAN>${itemGtin}</cEAN><xProd>${escapeXml(description)}</xProd><NCM>${digits(item.ncm)}</NCM>${item.cest ? `<CEST>${digits(item.cest)}</CEST>` : ""}<CFOP>${digits(item.cfop)}</CFOP><uCom>${escapeXml(item.unit.slice(0, 6))}</uCom><qCom>${decimal(item.quantity, 4)}</qCom><vUnCom>${decimal(item.unitPrice, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${itemGtin}</cEANTrib><uTrib>${escapeXml(item.unit.slice(0, 6))}</uTrib><qTrib>${decimal(item.quantity, 4)}</qTrib><vUnTrib>${decimal(item.unitPrice, 10)}</vUnTrib>${itemDiscount > 0 ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}<indTot>1</indTot></prod>${taxXml(item, itemTotal - itemDiscount)}</det>`;
   }).join("");
 
   let supplementary = "";

@@ -28,7 +28,7 @@ export type FiscalProviderRequest = {
     discount: number;
     surcharge: number;
     items: Array<{
-      code: string; barcode?: string | null; description: string; quantity: number; unitPrice: number; unit: string;
+      code: string; barcode?: string | null; description: string; quantity: number; unitPrice: number; discount: number; unit: string;
       ncm?: string | null; cest?: string | null; originCode?: string | null; cfop?: string | null;
       icmsCode?: string | null; pisCode?: string | null; cofinsCode?: string | null;
       ibsCbsCode?: string | null; taxClassificationCode?: string | null; serviceCode?: string | null;

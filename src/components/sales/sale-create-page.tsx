@@ -75,7 +75,7 @@ export function SaleCreatePage() {
       discount: 0,
       surcharge: 0,
       notes: "",
-      items: [{ productId: "", description: "", quantity: 1, unitPrice: 0 }]
+      items: [{ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0 }]
     }
   });
   const items = useFieldArray({
@@ -103,7 +103,6 @@ export function SaleCreatePage() {
     Object.values(selectedProducts).forEach((product) => productsById.set(product.id, product));
     return productsById;
   }, [selectedProducts]);
-  const discount = Number(parseBrazilianNumber(form.watch("discount")) ?? 0);
   const surcharge = Number(parseBrazilianNumber(form.watch("surcharge")) ?? 0);
   const priceCalculatorIndex = priceCalculatorItemId
     ? items.fields.findIndex((field) => field.id === priceCalculatorItemId)
@@ -153,17 +152,26 @@ export function SaleCreatePage() {
       return runningTotal + saleQuantity * unitPrice;
     }, 0);
   const subtotal = Math.round(rawSubtotal * 100) / 100;
-  const targetSubtotal = Math.round((rawSubtotal + items.fields.reduce((adjustment, field, index) => {
+  const itemDiscountTotal = Math.round(watchedItems.reduce((total, item) => total + Number(parseBrazilianNumber(item.discount) ?? 0), 0) * 100) / 100;
+  const bulkAdjustments = items.fields.reduce((result, field, index) => {
     const override = bulkAmountOverrides[field.id];
     const item = watchedItems[index];
     const product = item?.productId ? knownProducts.get(item.productId) : undefined;
     const quantityGrams = Number(parseBrazilianNumber(item?.quantity) ?? 0);
-    if (!override || !product || override.productId !== product.id || override.quantityGrams !== quantityGrams) return adjustment;
-    return adjustment + override.amount - (quantityGrams / 1000) * product.salePrice;
-  }, 0)) * 100) / 100;
-  const bulkRoundingAdjustment = Math.round((subtotal - targetSubtotal) * 100) / 100;
-  const appliedDiscount = Math.round((discount + Math.max(bulkRoundingAdjustment, 0)) * 100) / 100;
-  const appliedSurcharge = Math.round((surcharge + Math.max(-bulkRoundingAdjustment, 0)) * 100) / 100;
+    if (!override || !product || override.productId !== product.id || override.quantityGrams !== quantityGrams) return result;
+    const calculatedAmount = Math.round((quantityGrams / 1000) * product.salePrice * 100) / 100;
+    const difference = Math.round((calculatedAmount - override.amount) * 100) / 100;
+    if (difference > 0) {
+      result.discount += difference;
+      result.discountByItem[field.id] = difference;
+    } else if (difference < 0) {
+      result.surcharge += Math.abs(difference);
+    }
+    return result;
+  }, { discount: 0, surcharge: 0, discountByItem: {} as Record<string, number> });
+  const bulkRoundingAdjustment = Math.round((bulkAdjustments.discount - bulkAdjustments.surcharge) * 100) / 100;
+  const appliedDiscount = Math.round((itemDiscountTotal + bulkAdjustments.discount) * 100) / 100;
+  const appliedSurcharge = Math.round((surcharge + bulkAdjustments.surcharge) * 100) / 100;
   const total = Math.round((subtotal - appliedDiscount + appliedSurcharge) * 100) / 100;
 
   function openPriceCalculator(itemId: string) {
@@ -211,12 +219,22 @@ export function SaleCreatePage() {
         customerId: values.customerId || undefined,
         discount: appliedDiscount,
         surcharge: appliedSurcharge,
-        items: values.items.map((item) => {
+        items: values.items.map((item, index) => {
           const product = item.productId ? knownProducts.get(item.productId) : undefined;
           if (!isBulkWeightProduct(product)) return item;
-          return { ...item, quantity: item.quantity / 1000, unitPrice: product?.salePrice ?? item.unitPrice };
+          return {
+            ...item,
+            quantity: item.quantity / 1000,
+            unitPrice: product?.salePrice ?? item.unitPrice,
+            discount: Math.round((item.discount + (bulkAdjustments.discountByItem[items.fields[index]?.id] ?? 0)) * 100) / 100
+          };
         })
       };
+      const invalidDiscountItem = normalizedValues.items.find((item) => item.discount > Math.round(item.quantity * item.unitPrice * 100) / 100);
+      if (invalidDiscountItem) {
+        setError(`O desconto de ${invalidDiscountItem.description} não pode ser maior que o valor do item.`);
+        return;
+      }
       const sale = await createSale.mutateAsync({
         ...normalizedValues
       });
@@ -235,7 +253,7 @@ export function SaleCreatePage() {
         discount: 0,
         surcharge: 0,
         notes: "",
-        items: [{ productId: "", description: "", quantity: 1, unitPrice: 0 }]
+        items: [{ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0 }]
       });
       setProductSearches({});
       setDebouncedProductSearches({});
@@ -261,7 +279,7 @@ export function SaleCreatePage() {
     document.text(`Pagamento: ${lastReceipt.values.paymentMethod}`, 20, 48);
     let y = 60;
     for (const item of lastReceipt.values.items) {
-      const lineTotal = Number(item.quantity) * Number(item.unitPrice);
+      const lineTotal = Number(item.quantity) * Number(item.unitPrice) - Number(item.discount);
       const product = item.productId ? lastReceipt.productsById[item.productId] : undefined;
       const bulkWeightProduct = isBulkWeightProduct(product);
       const quantityLabel = bulkWeightProduct
@@ -271,6 +289,10 @@ export function SaleCreatePage() {
       document.text(`${item.description} - ${quantityLabel} x ${priceLabel}`, 20, y);
       document.text(formatCurrency(lineTotal), 170, y, { align: "right" });
       y += 7;
+      if (item.discount > 0) {
+        document.text(`Desconto do item: ${formatCurrency(item.discount)}`, 26, y);
+        y += 6;
+      }
     }
     document.line(20, y, 190, y);
     document.setFontSize(12);
@@ -329,7 +351,7 @@ export function SaleCreatePage() {
                 <h2 className="text-base font-semibold">Itens</h2>
                 <Button
                   variant="secondary"
-                  onClick={() => items.append({ productId: "", description: "", quantity: 1, unitPrice: 0 })}
+                  onClick={() => items.append({ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0 })}
                 >
                   <Plus size={18} />
                   Item
@@ -347,16 +369,18 @@ export function SaleCreatePage() {
                 const enteredUnitPrice = bulkWeightProduct
                   ? selectedProduct?.salePrice ?? 0
                   : Number(parseBrazilianNumber(watchedItems[index]?.unitPrice) ?? 0);
+                const enteredItemDiscount = Number(parseBrazilianNumber(watchedItems[index]?.discount) ?? 0);
                 const bulkAmountOverride = bulkAmountOverrides[field.id];
                 const validBulkAmountOverride = bulkAmountOverride
                   && bulkAmountOverride.productId === selectedProduct?.id
                   && bulkAmountOverride.quantityGrams === enteredWeight;
-                const bulkItemTotal = validBulkAmountOverride
+                const grossItemTotal = validBulkAmountOverride
                   ? bulkAmountOverride.amount
-                  : Math.round((enteredWeight / 1000) * enteredUnitPrice * 100) / 100;
+                  : Math.round((bulkWeightProduct ? (enteredWeight / 1000) * enteredUnitPrice : enteredWeight * enteredUnitPrice) * 100) / 100;
+                const itemTotal = Math.max(0, Math.round((grossItemTotal - enteredItemDiscount) * 100) / 100);
                 const matchingProducts = search.length >= 2 ? (productSearchQuery?.data ?? []) : [];
                 return (
-                <div key={field.id} className="sale-item-row grid gap-3 rounded-lg border border-border bg-slate-50/60 p-3 md:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_100px_130px_44px]" onFocus={() => { if (bulkWeightProduct) setActiveBulkItemId(field.id); }}>
+                <div key={field.id} className="sale-item-row grid gap-3 rounded-lg border border-border bg-slate-50/60 p-3 xl:grid-cols-[minmax(15rem,1.3fr)_minmax(11rem,1fr)_100px_130px_125px_44px]" onFocus={() => { if (bulkWeightProduct) setActiveBulkItemId(field.id); }}>
                   <div className="space-y-2">
                     <input type="hidden" {...form.register(`items.${index}.productId`)} />
                     <Input
@@ -376,6 +400,7 @@ export function SaleCreatePage() {
                           form.setValue(`items.${index}.productId`, product.id, { shouldValidate: true });
                           form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
                           form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
+                          form.setValue(`items.${index}.discount`, 0, { shouldValidate: true });
                           form.setValue(`items.${index}.quantity`, isBulkWeightProduct(product) ? 0 : 1, { shouldValidate: true });
                           setBulkAmountOverrides((current) => { const next = { ...current }; delete next[field.id]; return next; });
                           setSelectedProducts((current) => ({ ...current, [field.id]: product }));
@@ -411,9 +436,19 @@ export function SaleCreatePage() {
                       error={form.formState.errors.items?.[index]?.unitPrice?.message}
                       {...form.register(`items.${index}.unitPrice`)}
                     />
-                    {bulkWeightProduct ? <p className="whitespace-nowrap text-xs font-semibold text-brand-700">Total: {formatCurrency(bulkItemTotal)}</p> : null}
+                    {bulkWeightProduct ? <p className="whitespace-nowrap text-xs font-semibold text-brand-700">Subtotal: {formatCurrency(grossItemTotal)}</p> : null}
                     {validBulkAmountOverride ? <p className="text-[11px] text-subdued">Valor informado pelo cliente</p> : null}
                     {bulkWeightProduct ? <Button type="button" variant="secondary" className="h-8 w-full px-2 text-xs" onClick={() => openPriceCalculator(field.id)}>Por valor (Alt+P)</Button> : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Input
+                      label="Desconto do item"
+                      help="Desconto em reais aplicado somente a este produto."
+                      mask="currency"
+                      error={form.formState.errors.items?.[index]?.discount?.message}
+                      {...form.register(`items.${index}.discount`)}
+                    />
+                    <p className="whitespace-nowrap text-xs font-semibold text-success">Total: {formatCurrency(itemTotal)}</p>
                   </div>
                   <Button
                     className="sale-item-remove mt-6 h-10 px-0"
@@ -428,8 +463,7 @@ export function SaleCreatePage() {
               })}
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <Input label="Desconto" mask="currency" {...form.register("discount")} />
+            <div className="grid gap-3 md:grid-cols-2">
               <Input label="Acréscimo" mask="currency" {...form.register("surcharge")} />
               <Input label="Observações" {...form.register("notes")} />
             </div>
@@ -465,8 +499,8 @@ export function SaleCreatePage() {
                 <strong>{formatCurrency(subtotal)}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-subdued">Desconto</span>
-                <strong>{formatCurrency(discount)}</strong>
+                <span className="text-subdued">Descontos dos itens</span>
+                <strong>{formatCurrency(itemDiscountTotal)}</strong>
               </div>
               {bulkRoundingAdjustment !== 0 ? <div className="flex justify-between text-xs">
                 <span className="text-subdued">Ajuste de arredondamento do granel</span>

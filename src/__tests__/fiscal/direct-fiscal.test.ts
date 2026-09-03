@@ -56,6 +56,7 @@ function request(contingency = false): FiscalProviderRequest {
         description: "Racao para caes",
         quantity: 1,
         unitPrice: 49.9,
+        discount: 0,
         unit: "UN",
         ncm: "23091000",
         originCode: "0",
