@@ -118,11 +118,11 @@ describe("busca de produtos na venda", () => {
 
     expect(await screen.findByRole("dialog", { name: "Venda de granel por valor" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Valor que o cliente quer pagar"), { target: { value: "13" } });
-    expect(screen.getByText("667 g")).toBeInTheDocument();
+    expect(screen.getByText("0,667 kg")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Aplicar valor e peso" }));
 
     expect(screen.getByLabelText("Preço por kg")).toHaveAttribute("readonly");
-    expect(screen.getByLabelText("Peso (g)")).toHaveValue("667");
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue("0,667");
     expect(screen.getByText("Ajuste de arredondamento do granel")).toBeInTheDocument();
     expect(screen.getByText("- R$ 0,01")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("R$ 13,00").length).toBeGreaterThan(0));
@@ -133,6 +133,31 @@ describe("busca de produtos na venda", () => {
       discount: 0.01,
       surcharge: 0,
       items: [expect.objectContaining({ quantity: 0.667, unitPrice: 19.5 })]
+    })));
+  });
+
+  it("aceita o peso do granel digitado diretamente em quilogramas", async () => {
+    mockPage({
+      ...golden,
+      id: "golden-granel-manual",
+      name: "Golden granel manual",
+      category: "Granel",
+      unit: "KG",
+      salePrice: 20
+    });
+
+    render(<SaleCreatePage />);
+    fireEvent.change(screen.getByPlaceholderText("Digite nome, código, SKU ou código de barras"), { target: { value: "golden" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Golden granel manual/ }, { timeout: 1500 }));
+
+    expect(screen.queryByText("A quantidade deve ser maior que zero.")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Peso (kg)"), { target: { value: "0,300" } });
+    fireEvent.change(screen.getByLabelText("Pagamento"), { target: { value: "PIX" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar venda" }));
+
+    await waitFor(() => expect(createSaleMutation).toHaveBeenCalledWith(expect.objectContaining({
+      discount: 0,
+      items: [expect.objectContaining({ quantity: 0.3, unitPrice: 20 })]
     })));
   });
 });

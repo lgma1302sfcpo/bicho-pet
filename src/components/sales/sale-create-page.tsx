@@ -60,7 +60,7 @@ export function SaleCreatePage() {
   const [priceCalculatorItemId, setPriceCalculatorItemId] = useState<string | null>(null);
   const [desiredSaleValue, setDesiredSaleValue] = useState("");
   const [priceCalculatorError, setPriceCalculatorError] = useState<string | null>(null);
-  const [bulkAmountOverrides, setBulkAmountOverrides] = useState<Record<string, { productId: string; quantityGrams: number; amount: number }>>({});
+  const [bulkAmountOverrides, setBulkAmountOverrides] = useState<Record<string, { productId: string; quantityKg: number; amount: number }>>({});
   const [lastReceipt, setLastReceipt] = useState<{
     sale: SaleCreatedDTO;
     values: CreateSaleDTO;
@@ -110,8 +110,8 @@ export function SaleCreatePage() {
   const priceCalculatorProduct = priceCalculatorItemId ? selectedProducts[priceCalculatorItemId] : undefined;
   const pricePerKilogram = priceCalculatorProduct?.salePrice ?? 0;
   const desiredAmount = Number(parseBrazilianNumber(desiredSaleValue) ?? 0);
-  const calculatedWeightGrams = desiredAmount > 0 && pricePerKilogram > 0
-    ? Math.round((desiredAmount / pricePerKilogram) * 1000)
+  const calculatedWeightKg = desiredAmount > 0 && pricePerKilogram > 0
+    ? Math.round((desiredAmount / pricePerKilogram) * 1000) / 1000
     : 0;
 
   useEffect(() => {
@@ -145,7 +145,7 @@ export function SaleCreatePage() {
   const rawSubtotal = watchedItems.reduce((runningTotal, item) => {
       const product = item.productId ? knownProducts.get(item.productId) : undefined;
       const enteredQuantity = Number(parseBrazilianNumber(item.quantity) ?? 0);
-      const saleQuantity = isBulkWeightProduct(product) ? enteredQuantity / 1000 : enteredQuantity;
+      const saleQuantity = enteredQuantity;
       const unitPrice = isBulkWeightProduct(product)
         ? product?.salePrice ?? 0
         : Number(parseBrazilianNumber(item.unitPrice) ?? 0);
@@ -157,9 +157,9 @@ export function SaleCreatePage() {
     const override = bulkAmountOverrides[field.id];
     const item = watchedItems[index];
     const product = item?.productId ? knownProducts.get(item.productId) : undefined;
-    const quantityGrams = Number(parseBrazilianNumber(item?.quantity) ?? 0);
-    if (!override || !product || override.productId !== product.id || override.quantityGrams !== quantityGrams) return result;
-    const calculatedAmount = Math.round((quantityGrams / 1000) * product.salePrice * 100) / 100;
+    const quantityKg = Number(parseBrazilianNumber(item?.quantity) ?? 0);
+    if (!override || !product || override.productId !== product.id || override.quantityKg !== quantityKg) return result;
+    const calculatedAmount = Math.round(quantityKg * product.salePrice * 100) / 100;
     const difference = Math.round((calculatedAmount - override.amount) * 100) / 100;
     if (difference > 0) {
       result.discount += difference;
@@ -195,12 +195,16 @@ export function SaleCreatePage() {
       return;
     }
 
-    form.setValue(`items.${priceCalculatorIndex}.quantity`, calculatedWeightGrams, { shouldDirty: true, shouldValidate: true });
+    form.setValue(
+      `items.${priceCalculatorIndex}.quantity`,
+      calculatedWeightKg.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) as unknown as number,
+      { shouldDirty: true, shouldValidate: true }
+    );
     setBulkAmountOverrides((current) => ({
       ...current,
       [items.fields[priceCalculatorIndex].id]: {
         productId: priceCalculatorProduct.id,
-        quantityGrams: calculatedWeightGrams,
+        quantityKg: calculatedWeightKg,
         amount: Math.round(desiredAmount * 100) / 100
       }
     }));
@@ -224,7 +228,7 @@ export function SaleCreatePage() {
           if (!isBulkWeightProduct(product)) return item;
           return {
             ...item,
-            quantity: item.quantity / 1000,
+            quantity: item.quantity,
             unitPrice: product?.salePrice ?? item.unitPrice,
             discount: Math.round((item.discount + (bulkAdjustments.discountByItem[items.fields[index]?.id] ?? 0)) * 100) / 100
           };
@@ -283,7 +287,7 @@ export function SaleCreatePage() {
       const product = item.productId ? lastReceipt.productsById[item.productId] : undefined;
       const bulkWeightProduct = isBulkWeightProduct(product);
       const quantityLabel = bulkWeightProduct
-        ? `${(Number(item.quantity) * 1000).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} g`
+        ? `${Number(item.quantity).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`
         : String(item.quantity);
       const priceLabel = `${formatCurrency(Number(item.unitPrice))}${bulkWeightProduct ? "/kg" : ""}`;
       document.text(`${item.description} - ${quantityLabel} x ${priceLabel}`, 20, y);
@@ -373,10 +377,10 @@ export function SaleCreatePage() {
                 const bulkAmountOverride = bulkAmountOverrides[field.id];
                 const validBulkAmountOverride = bulkAmountOverride
                   && bulkAmountOverride.productId === selectedProduct?.id
-                  && bulkAmountOverride.quantityGrams === enteredWeight;
+                  && bulkAmountOverride.quantityKg === enteredWeight;
                 const grossItemTotal = validBulkAmountOverride
                   ? bulkAmountOverride.amount
-                  : Math.round((bulkWeightProduct ? (enteredWeight / 1000) * enteredUnitPrice : enteredWeight * enteredUnitPrice) * 100) / 100;
+                  : Math.round(enteredWeight * enteredUnitPrice * 100) / 100;
                 const itemTotal = Math.max(0, Math.round((grossItemTotal - enteredItemDiscount) * 100) / 100);
                 const matchingProducts = search.length >= 2 ? (productSearchQuery?.data ?? []) : [];
                 return (
@@ -401,7 +405,8 @@ export function SaleCreatePage() {
                           form.setValue(`items.${index}.description`, product.name, { shouldValidate: true });
                           form.setValue(`items.${index}.unitPrice`, product.salePrice, { shouldValidate: true });
                           form.setValue(`items.${index}.discount`, 0, { shouldValidate: true });
-                          form.setValue(`items.${index}.quantity`, isBulkWeightProduct(product) ? 0 : 1, { shouldValidate: true });
+                          form.setValue(`items.${index}.quantity`, isBulkWeightProduct(product) ? 0 : 1, { shouldDirty: true });
+                          form.clearErrors(`items.${index}.quantity`);
                           setBulkAmountOverrides((current) => { const next = { ...current }; delete next[field.id]; return next; });
                           setSelectedProducts((current) => ({ ...current, [field.id]: product }));
                           setActiveBulkItemId(isBulkWeightProduct(product) ? field.id : null);
@@ -419,9 +424,9 @@ export function SaleCreatePage() {
                     {...form.register(`items.${index}.description`)}
                   />
                   <Input
-                    label={bulkWeightProduct ? "Peso (g)" : "Quantidade"}
-                    help={bulkWeightProduct ? "Digite o peso em gramas. Exemplo: 300 g de um produto a R$ 23,50/kg totaliza R$ 7,05." : undefined}
-                    placeholder={bulkWeightProduct ? "Ex.: 300" : undefined}
+                    label={bulkWeightProduct ? "Peso (kg)" : "Quantidade"}
+                    help={bulkWeightProduct ? "Digite o peso em quilogramas. Exemplo: 0,300 kg de um produto a R$ 23,50/kg totaliza R$ 7,05." : undefined}
+                    placeholder={bulkWeightProduct ? "Ex.: 0,300" : undefined}
                     mask="decimal"
                     error={form.formState.errors.items?.[index]?.quantity?.message}
                     {...form.register(`items.${index}.quantity`)}
@@ -566,7 +571,7 @@ export function SaleCreatePage() {
           />
           <div className="rounded-lg border border-border bg-muted p-4 text-center">
             <p className="text-xs text-subdued">Peso calculado</p>
-            <p className="mt-1 text-2xl font-semibold text-ink">{calculatedWeightGrams.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} g</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">{calculatedWeightKg.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg</p>
             <p className="mt-1 text-xs text-subdued">{formatCurrency(desiredAmount)} ÷ {formatCurrency(pricePerKilogram)}/kg</p>
           </div>
           {priceCalculatorError ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">{priceCalculatorError}</p> : null}
