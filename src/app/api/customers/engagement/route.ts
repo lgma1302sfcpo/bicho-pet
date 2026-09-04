@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       inactiveDays: params.get("inactiveDays") ?? "60",
       includeNeverPurchased: params.get("includeNeverPurchased") ?? "true"
     });
-    const result = await commerceService.listCustomers(session.user.currentTenantId, filters);
+    const result = await commerceService.listCustomers(session.user.currentTenantId, session.user.currentBranchId ?? null, filters);
 
     return ok(result);
   } catch (error) {

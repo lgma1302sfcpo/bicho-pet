@@ -7,6 +7,7 @@ import { AUTH_PERMISSIONS } from "@/lib/permissions";
 import { requireSelectedBranch } from "@/lib/branch-context";
 import { requirePermission } from "@/lib/require-permission";
 import { prisma } from "@/lib/prisma";
+import { buildProductBranchStockRows } from "@/lib/product-branches";
 import { createProductSchema } from "@/schemas/catalog/product.schemas";
 
 export const maxDuration = 300;
@@ -35,6 +36,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.PRODUCTS_WRITE);
     const branchId = requireSelectedBranch(session.user.currentBranchId);
+    const activeBranches = await prisma.branch.findMany({
+      where: { tenantId: session.user.currentTenantId, status: "ACTIVE" },
+      select: { id: true }
+    });
+    const branchIds = Array.from(new Set([branchId, ...activeBranches.map((branch) => branch.id)]));
     const form = await request.formData();
     const file = form.get("file");
     const stockFile = form.get("stockFile");
@@ -146,10 +152,10 @@ export async function POST(request: NextRequest) {
     });
     const inserted = await prisma.product.createManyAndReturn({ data: productRows, select: { id: true, stockQuantity: true, minStock: true, maxStock: true, location: true } });
     if (inserted.length) {
-      await prisma.productBranchStock.createMany({
-        data: inserted.map((item) => ({ tenantId: session.user.currentTenantId, branchId, productId: item.id, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location })),
-        skipDuplicates: true
-      });
+      const stockRows = inserted.flatMap((item) => buildProductBranchStockRows({ tenantId: session.user.currentTenantId, productId: item.id, selectedBranchId: branchId, branchIds, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location }));
+      for (const batch of chunks(stockRows, 500)) {
+        await prisma.productBranchStock.createMany({ data: batch, skipDuplicates: true });
+      }
     }
 
     // As atualizações são enviadas ao PostgreSQL em lotes. Fazer um update por
@@ -188,11 +194,13 @@ export async function POST(request: NextRequest) {
     }
 
     const stockUpdates = updates.filter(({ provided }) => ["stockQuantity", "minStock", "maxStock", "location"].some((field) => provided.has(field)));
+    if (updates.length) {
+      const missingStockRows = updates.flatMap(({ item, product }) => buildProductBranchStockRows({ tenantId: session.user.currentTenantId, productId: product.id, selectedBranchId: branchId, branchIds, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location }));
+      for (const batch of chunks(missingStockRows, 500)) {
+        await prisma.productBranchStock.createMany({ data: batch, skipDuplicates: true });
+      }
+    }
     if (stockUpdates.length) {
-      await prisma.productBranchStock.createMany({
-        data: stockUpdates.map(({ item, product }) => ({ tenantId: session.user.currentTenantId, branchId, productId: product.id, stockQuantity: item.stockQuantity, minStock: item.minStock, maxStock: item.maxStock, location: item.location })),
-        skipDuplicates: true
-      });
       for (const batch of chunks(stockUpdates)) {
         const values = batch.map(({ item, provided, product }) => Prisma.sql`(${product.id}::text, ${item.stockQuantity}::numeric, ${provided.has("stockQuantity")}::boolean, ${item.minStock}::numeric, ${provided.has("minStock")}::boolean, ${item.maxStock}::numeric, ${provided.has("maxStock")}::boolean, ${item.location ?? null}::text, ${provided.has("location")}::boolean)`);
         await prisma.$executeRaw(Prisma.sql`

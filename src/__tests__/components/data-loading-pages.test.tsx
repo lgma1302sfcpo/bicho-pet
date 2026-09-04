@@ -23,7 +23,8 @@ vi.mock("@/hooks/catalog/use-products", () => ({
 vi.mock("@/hooks/commerce/use-commerce", () => ({
   useSales: vi.fn(),
   useCustomers: vi.fn(),
-  useDeleteCustomer: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() }))
+  useDeleteCustomer: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
+  useAssignCustomerBranch: vi.fn(() => ({ isPending: false, error: null, mutate: vi.fn() }))
 }));
 
 vi.mock("@/hooks/use-operations", () => ({

@@ -18,6 +18,8 @@ export type CustomerPetDTO = {
 
 export type CustomerListItemDTO = {
   id: string;
+  branchId?: string | null;
+  branchName?: string | null;
   name: string;
   document?: string | null;
   email?: string | null;

@@ -7,6 +7,8 @@ import type { CreateSaleDTO } from "@/dtos/commerce/sale.dto";
 
 export type CustomerRecord = {
   id: string;
+  branchId?: string | null;
+  branchName?: string | null;
   name: string;
   document?: string | null;
   email?: string | null;
@@ -78,14 +80,14 @@ export type SaleRecord = {
 };
 
 export interface CommerceRepository {
-  customerDocumentExists(tenantId: string, document: string, excludeCustomerId?: string): Promise<boolean>;
-  customerBelongsToTenant(tenantId: string, customerId: string): Promise<boolean>;
-  findCustomerById(tenantId: string, customerId: string): Promise<CustomerRecord | null>;
-  createCustomer(tenantId: string, data: CreateCustomerDTO): Promise<CustomerRecord>;
-  updateCustomer(tenantId: string, customerId: string, data: UpdateCustomerDTO): Promise<CustomerRecord | null>;
-  deleteCustomer(tenantId: string, customerId: string): Promise<boolean>;
-  listCustomers(tenantId: string, filters: CustomerFiltersDTO): Promise<CustomerRecord[]>;
-  getCustomerSummary(tenantId: string): Promise<CustomerSummaryRecord>;
+  customerDocumentExists(tenantId: string, branchId: string, document: string, excludeCustomerId?: string): Promise<boolean>;
+  customerBelongsToBranch(tenantId: string, branchId: string, customerId: string): Promise<boolean>;
+  findCustomerById(tenantId: string, branchId: string | null, customerId: string): Promise<CustomerRecord | null>;
+  createCustomer(tenantId: string, branchId: string, data: CreateCustomerDTO): Promise<CustomerRecord>;
+  updateCustomer(tenantId: string, branchId: string, customerId: string, data: UpdateCustomerDTO): Promise<CustomerRecord | null>;
+  deleteCustomer(tenantId: string, branchId: string, customerId: string): Promise<boolean>;
+  listCustomers(tenantId: string, branchId: string | null, filters: CustomerFiltersDTO): Promise<CustomerRecord[]>;
+  getCustomerSummary(tenantId: string, branchId: string | null): Promise<CustomerSummaryRecord>;
   createSale(data: {
     tenantId: string;
     branchId: string;

@@ -18,8 +18,8 @@ export class CustomerEmailService {
     private readonly sender: EmailSender
   ) {}
 
-  async sendToCustomer(tenantId: string, customerId: string, input: SendCustomerEmailInput) {
-    const customer = await this.repository.findCustomerById(tenantId, customerId);
+  async sendToCustomer(tenantId: string, branchId: string | null, customerId: string, input: SendCustomerEmailInput) {
+    const customer = await this.repository.findCustomerById(tenantId, branchId, customerId);
     if (!customer) {
       throw new AppError("Cliente não encontrado.", "CUSTOMER_NOT_FOUND", 404);
     }

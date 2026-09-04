@@ -6,7 +6,7 @@ import { CommerceService } from "@/services/commerce/commerce.service";
 function createRepositoryMock(): CommerceRepository {
   return {
     customerDocumentExists: vi.fn(),
-    customerBelongsToTenant: vi.fn(),
+    customerBelongsToBranch: vi.fn(),
     findCustomerById: vi.fn(),
     createCustomer: vi.fn(),
     updateCustomer: vi.fn(),
@@ -50,7 +50,7 @@ describe("CommerceService", () => {
       inactive90: 0
     });
 
-    const result = await service.listCustomers("tenant-1", {
+    const result = await service.listCustomers("tenant-1", "branch-1", {
       inactiveDays: 60,
       includeNeverPurchased: true,
       contactableOnly: false
@@ -58,6 +58,8 @@ describe("CommerceService", () => {
 
     expect(result.customers[0].reactivationLabel).toBe("Nunca comprou");
     expect(result.summary.totalFiltered).toBe(1);
+    expect(repository.listCustomers).toHaveBeenCalledWith("tenant-1", "branch-1", expect.any(Object));
+    expect(repository.getCustomerSummary).toHaveBeenCalledWith("tenant-1", "branch-1");
   });
 
   it("classifica cliente ha 90 dias sem comprar como prioridade alta", async () => {
@@ -82,7 +84,7 @@ describe("CommerceService", () => {
       inactive90: 1
     });
 
-    const result = await service.listCustomers("tenant-1", {
+    const result = await service.listCustomers("tenant-1", "branch-1", {
       inactiveDays: 90,
       includeNeverPurchased: false,
       contactableOnly: false
@@ -93,7 +95,7 @@ describe("CommerceService", () => {
   });
 
   it("calcula total da venda e delega persistencia", async () => {
-    vi.mocked(repository.customerBelongsToTenant).mockResolvedValue(true);
+    vi.mocked(repository.customerBelongsToBranch).mockResolvedValue(true);
     vi.mocked(repository.createSale).mockResolvedValue({
       id: "sale-1",
       code: "VD-1",
@@ -118,6 +120,7 @@ describe("CommerceService", () => {
         total: 45
       })
     );
+    expect(repository.customerBelongsToBranch).toHaveBeenCalledWith("tenant-1", "branch-1", "customer-1");
     expect(result.total).toBe(45);
   });
 
@@ -143,8 +146,8 @@ describe("CommerceService", () => {
     })).rejects.toMatchObject({ code: "INVALID_SALE_ITEM_DISCOUNT" });
   });
 
-  it("bloqueia venda para cliente de outro tenant", async () => {
-    vi.mocked(repository.customerBelongsToTenant).mockResolvedValue(false);
+  it("bloqueia venda para cliente de outra loja", async () => {
+    vi.mocked(repository.customerBelongsToBranch).mockResolvedValue(false);
 
     await expect(
       service.createSale("tenant-1", "branch-1", "user-1", {
@@ -172,7 +175,7 @@ describe("CommerceService", () => {
       pets: []
     });
 
-    const result = await service.updateCustomer("tenant-1", "customer-1", {
+    const result = await service.updateCustomer("tenant-1", "branch-1", "customer-1", {
       name: "Cliente Editado",
       document: "12345678901",
       email: "cliente@example.invalid",
@@ -182,13 +185,13 @@ describe("CommerceService", () => {
       status: "ACTIVE"
     });
 
-    expect(repository.customerDocumentExists).toHaveBeenCalledWith("tenant-1", "12345678901", "customer-1");
+    expect(repository.customerDocumentExists).toHaveBeenCalledWith("tenant-1", "branch-1", "12345678901", "customer-1");
     expect(result.name).toBe("Cliente Editado");
   });
 
   it("informa quando o cliente a excluir nao existe", async () => {
     vi.mocked(repository.deleteCustomer).mockResolvedValue(false);
-    await expect(service.deleteCustomer("tenant-1", "missing")).rejects.toMatchObject({
+    await expect(service.deleteCustomer("tenant-1", "branch-1", "missing")).rejects.toMatchObject({
       code: "CUSTOMER_NOT_FOUND"
     });
   });

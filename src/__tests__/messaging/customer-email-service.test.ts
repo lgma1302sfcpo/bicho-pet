@@ -21,7 +21,7 @@ describe("CustomerEmailService", () => {
     const sender = { send: vi.fn().mockResolvedValue({ id: "email-1" }) } as EmailSender;
     const service = new CustomerEmailService(repository, sender);
 
-    const result = await service.sendToCustomer("tenant-1", "customer-1", {
+    const result = await service.sendToCustomer("tenant-1", "branch-1", "customer-1", {
       subject: "Oferta especial",
       message: "Volte <agora>\nCupom PET10"
     });
@@ -48,7 +48,7 @@ describe("CustomerEmailService", () => {
     const sender = { send: vi.fn() } as EmailSender;
     const service = new CustomerEmailService(repository, sender);
 
-    await expect(service.sendToCustomer("tenant-1", "customer-1", {
+    await expect(service.sendToCustomer("tenant-1", "branch-1", "customer-1", {
       subject: "Oferta especial",
       message: "Volte esta semana"
     })).rejects.toMatchObject({ code: "CUSTOMER_WITHOUT_EMAIL" });

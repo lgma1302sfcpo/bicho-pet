@@ -3,6 +3,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import type { CreateProductDTO, ProductFiltersDTO, UpdateProductDTO } from "@/dtos/catalog/product.dto";
 import type { ProductRepository } from "@/interfaces/catalog/product-repository.interface";
 import { prisma } from "@/lib/prisma";
+import { buildProductBranchStockRows } from "@/lib/product-branches";
 
 function toNumber(value: Prisma.Decimal | number | null | undefined) {
   return Number(value ?? 0);
@@ -74,6 +75,11 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   async createProduct(tenantId: string, branchId: string, data: CreateProductDTO & { marginPercent: number }) {
+    const activeBranches = await this.db.branch.findMany({
+      where: { tenantId, status: "ACTIVE" },
+      select: { id: true }
+    });
+    const branchIds = Array.from(new Set([branchId, ...activeBranches.map((branch) => branch.id)]));
     const product = await this.db.product.create({
       data: {
         tenantId,
@@ -110,14 +116,23 @@ export class PrismaProductRepository implements ProductRepository {
         ,issRate: data.issRate
         ,fiscalApproved: data.fiscalApproved ?? false
         ,branchStocks: {
-          create: {
+          create: buildProductBranchStockRows({
             tenantId,
-            branchId,
+            productId: "",
+            selectedBranchId: branchId,
+            branchIds,
             stockQuantity: data.stockQuantity,
             minStock: data.minStock,
             maxStock: data.maxStock,
             location: data.location
-          }
+          }).map((stock) => ({
+            tenantId: stock.tenantId,
+            branchId: stock.branchId,
+            stockQuantity: stock.stockQuantity,
+            minStock: stock.minStock,
+            maxStock: stock.maxStock,
+            location: stock.location
+          }))
         }
       },
       include: { branchStocks: { where: { branchId } } }
@@ -169,6 +184,23 @@ export class PrismaProductRepository implements ProductRepository {
       });
 
       if (result.count > 0) {
+        const activeBranches = await transaction.branch.findMany({
+          where: { tenantId, status: "ACTIVE" },
+          select: { id: true }
+        });
+        await transaction.productBranchStock.createMany({
+          data: buildProductBranchStockRows({
+            tenantId,
+            productId,
+            selectedBranchId: branchId,
+            branchIds: activeBranches.map((branch) => branch.id),
+            stockQuantity: data.stockQuantity,
+            minStock: data.minStock,
+            maxStock: data.maxStock,
+            location: data.location
+          }),
+          skipDuplicates: true
+        });
         await transaction.productBranchStock.upsert({
           where: { branchId_productId: { branchId, productId } },
           create: {

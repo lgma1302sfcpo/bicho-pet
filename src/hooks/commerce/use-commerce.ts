@@ -100,6 +100,19 @@ export function useDeleteCustomer() {
   });
 }
 
+export function useAssignCustomerBranch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, branchId }: { id: string; branchId: string }) =>
+      apiFetch<{ customerId: string; branchId: string; branchName: string }>(`/api/customers/${id}/branch`, {
+        method: "PATCH",
+        body: JSON.stringify({ branchId })
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["commerce", "customers"] })
+  });
+}
+
 export function useSendCustomerEmail() {
   return useMutation({
     mutationFn: ({ id, subject, message }: { id: string; subject: string; message: string }) =>

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { created, errorResponse, ok } from "@/lib/api-response";
+import { requireSelectedBranch } from "@/lib/branch-context";
 import { AUTH_PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { createCustomerSchema, customerFiltersSchema } from "@/schemas/commerce/customer.schemas";
@@ -20,7 +21,8 @@ function getFilters(request: NextRequest) {
     maxPurchaseCount: params.get("maxPurchaseCount") ?? undefined,
     birthdayMonth: params.get("birthdayMonth") ?? undefined,
     tag: params.get("tag") ?? undefined,
-    status: params.get("status") ?? undefined
+    status: params.get("status") ?? undefined,
+    unassignedOnly: params.get("unassignedOnly") ?? undefined
   });
 }
 
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.CUSTOMERS_READ);
     const filters = getFilters(request);
-    const result = await commerceService.listCustomers(session.user.currentTenantId, filters);
+    const result = await commerceService.listCustomers(session.user.currentTenantId, session.user.currentBranchId ?? null, filters);
 
     return ok(result);
   } catch (error) {
@@ -39,9 +41,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.CUSTOMERS_WRITE);
+    const branchId = requireSelectedBranch(session.user.currentBranchId);
     const payload = await request.json();
     const input = createCustomerSchema.parse(payload);
-    const customer = await commerceService.createCustomer(session.user.currentTenantId, input);
+    const customer = await commerceService.createCustomer(session.user.currentTenantId, branchId, input);
 
     return created(customer);
   } catch (error) {

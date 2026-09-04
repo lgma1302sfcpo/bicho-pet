@@ -214,6 +214,7 @@ model Branch {
   groomingScheduleBlocks GroomingScheduleBlock[]
   cashRegisterSessions   CashRegisterSession[]
   cashRegisterMovements  CashRegisterMovement[]
+  customers              Customer[]
 
   @@unique([tenantId, document])
   @@index([tenantId])
@@ -379,6 +380,7 @@ model AuditLog {
 model Customer {
   id                String         @id @default(cuid())
   tenantId          String
+  branchId          String?
   name              String
   document          String?
   email             String?
@@ -407,14 +409,15 @@ model Customer {
   updatedAt         DateTime       @updatedAt
 
   tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch               Branch?               @relation(fields: [branchId], references: [id], onDelete: Restrict)
   sales                Sale[]
   pets                 Pet[]
   groomingAppointments GroomingAppointment[]
 
-  @@unique([tenantId, document])
-  @@index([tenantId, name])
-  @@index([tenantId, lastPurchaseAt])
-  @@index([tenantId, purchaseCount])
+  @@unique([tenantId, branchId, document])
+  @@index([tenantId, branchId, name])
+  @@index([tenantId, branchId, lastPurchaseAt])
+  @@index([tenantId, branchId, purchaseCount])
   @@map("customers")
 }
 

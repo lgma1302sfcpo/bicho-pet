@@ -13,7 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { CustomerCreateForm } from "@/components/customers/customer-create-form";
 import type { CustomerFiltersDTO, CustomerListItemDTO } from "@/dtos/commerce/customer.dto";
-import { useCustomers, useDeleteCustomer } from "@/hooks/commerce/use-commerce";
+import { useAssignCustomerBranch, useCustomers, useDeleteCustomer } from "@/hooks/commerce/use-commerce";
 import {
   buildCustomerWhatsAppMessage,
   buildWhatsAppUrl,
@@ -37,7 +37,13 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
 }
 
-export function CustomerEngagementPage({ canManage = false }: { canManage?: boolean }) {
+type CustomerEngagementPageProps = {
+  canManage?: boolean;
+  canAssignBranches?: boolean;
+  branches?: Array<{ id: string; name: string }>;
+};
+
+export function CustomerEngagementPage({ canManage = false, canAssignBranches = false, branches = [] }: CustomerEngagementPageProps) {
   const [filters, setFilters] = useState<CustomerFiltersDTO>({
     inactiveDays: 60,
     includeNeverPurchased: true,
@@ -45,6 +51,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
   });
   const customersQuery = useCustomers(filters);
   const deleteCustomer = useDeleteCustomer();
+  const assignCustomerBranch = useAssignCustomerBranch();
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerListItemDTO | null>(null);
   const [whatsappCustomer, setWhatsappCustomer] = useState<CustomerListItemDTO | null>(null);
@@ -59,6 +66,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
     filters.minTotalSpent !== undefined ? `Gasto mínimo: ${formatCurrency(filters.minTotalSpent)}` : null,
     filters.maxTotalSpent !== undefined ? `Gasto máximo: ${formatCurrency(filters.maxTotalSpent)}` : null,
     filters.birthdayMonth ? "Mês de aniversário" : null,
+    filters.unassignedOnly ? "Loja a definir" : null,
     filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Bloqueado"}` : null
   ].filter(Boolean) as string[];
 
@@ -153,6 +161,14 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
               <Button variant="ghost" onClick={() => setFilters({ includeNeverPurchased: true, contactableOnly: false })}>Limpar filtros</Button>
             </div>
             <div className="erp-filter-presets mb-4 flex flex-wrap gap-2">
+              {canAssignBranches ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => applyPreset({ includeNeverPurchased: true, contactableOnly: false, unassignedOnly: true })}
+                >
+                  Loja a definir
+                </Button>
+              ) : null}
               <Button
                 variant="secondary"
                 onClick={() => applyPreset({ inactiveDays: 60, includeNeverPurchased: true, contactableOnly: true })}
@@ -299,6 +315,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
               </div>
               <Badge className={activeFilterLabels.length ? "border-brand-200 bg-brand-50 text-brand-700" : ""}>{activeFilterLabels.length ? `Resultado filtrado: ${customers.length}` : `${customers.length} clientes`}</Badge>
             </div>
+            {assignCustomerBranch.error ? <p className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-danger">{assignCustomerBranch.error.message}</p> : null}
             <div className="divide-y divide-border md:hidden">
               {customers.map((customer) => (
                 <article key={customer.id} className="space-y-3 p-4">
@@ -306,10 +323,22 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
                     <div className="min-w-0">
                       <h3 className="font-semibold">{customer.name}</h3>
                       <p className="text-xs text-subdued">{customer.whatsapp || customer.phone || "Sem telefone"}</p>
+                      <p className="mt-1 text-xs font-medium text-subdued">Loja: {customer.branchName ?? "A definir"}</p>
                       {customer.pets?.length ? <p className="mt-1 text-xs text-brand-700">{customer.pets.map((pet) => pet.name).join(", ")}</p> : null}
                     </div>
                     <Badge className="shrink-0 border-brand-100 bg-brand-50 text-brand-700">{customer.reactivationLabel}</Badge>
                   </div>
+                  {!customer.branchId && canAssignBranches ? (
+                    <Select
+                      aria-label={`Definir loja de ${customer.name}`}
+                      defaultValue=""
+                      disabled={assignCustomerBranch.isPending}
+                      onChange={(event) => event.target.value && assignCustomerBranch.mutate({ id: customer.id, branchId: event.target.value })}
+                    >
+                      <option value="">Definir loja...</option>
+                      {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                    </Select>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Última compra</p><p className="font-semibold">{formatDate(customer.lastPurchaseAt)}</p></div>
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Tempo sem comprar</p><p className="font-semibold">{customer.daysSinceLastPurchase === null ? "Sem histórico" : `${customer.daysSinceLastPurchase} dias`}</p></div>
@@ -323,11 +352,12 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
               {customers.length === 0 ? <p className="p-6 text-center text-sm text-subdued">Nenhum cliente encontrado para os filtros atuais.</p> : null}
             </div>
             <div className="erp-table-scroll hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[860px] text-left text-sm">
+              <table className="w-full min-w-[980px] text-left text-sm">
                 <thead className="bg-muted text-xs uppercase text-subdued">
                   <tr>
                     <th className="px-4 py-3">Cliente</th>
                     <th className="px-4 py-3">Contato</th>
+                    <th className="px-4 py-3">Loja</th>
                     <th className="px-4 py-3">Última compra</th>
                     <th className="px-4 py-3">Compras</th>
                     <th className="px-4 py-3">Total gasto</th>
@@ -344,6 +374,21 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
                       </td>
                       <td className="px-4 py-3 text-subdued">
                         <div>{customer.whatsapp || customer.phone || "Sem telefone"}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {customer.branchId ? (
+                          <Badge>{customer.branchName ?? "Loja definida"}</Badge>
+                        ) : canAssignBranches ? (
+                          <Select
+                            aria-label={`Definir loja de ${customer.name}`}
+                            defaultValue=""
+                            disabled={assignCustomerBranch.isPending}
+                            onChange={(event) => event.target.value && assignCustomerBranch.mutate({ id: customer.id, branchId: event.target.value })}
+                          >
+                            <option value="">A definir...</option>
+                            {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                          </Select>
+                        ) : <Badge>A definir</Badge>}
                       </td>
                       <td className="px-4 py-3">
                         <div>{formatDate(customer.lastPurchaseAt)}</div>
@@ -384,7 +429,7 @@ export function CustomerEngagementPage({ canManage = false }: { canManage?: bool
                   ))}
                   {customers.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-subdued" colSpan={7}>
+                      <td className="px-4 py-8 text-center text-subdued" colSpan={8}>
                         Nenhum cliente encontrado para os filtros atuais.
                       </td>
                     </tr>

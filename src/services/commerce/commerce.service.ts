@@ -12,16 +12,16 @@ import { AppError } from "@/lib/errors";
 export class CommerceService {
   constructor(private readonly repository: CommerceRepository) {}
 
-  async createCustomer(tenantId: string, input: CreateCustomerDTO): Promise<CustomerListItemDTO> {
+  async createCustomer(tenantId: string, branchId: string, input: CreateCustomerDTO): Promise<CustomerListItemDTO> {
     if (input.document) {
-      const exists = await this.repository.customerDocumentExists(tenantId, input.document);
+      const exists = await this.repository.customerDocumentExists(tenantId, branchId, input.document);
 
       if (exists) {
         throw new AppError("Já existe um cliente com este documento.", "CUSTOMER_DOCUMENT_EXISTS", 409);
       }
     }
 
-    const customer = await this.repository.createCustomer(tenantId, {
+    const customer = await this.repository.createCustomer(tenantId, branchId, {
       ...input,
       email: input.email || undefined
     });
@@ -29,10 +29,10 @@ export class CommerceService {
     return this.mapCustomer(customer);
   }
 
-  async listCustomers(tenantId: string, filters: CustomerFiltersDTO) {
+  async listCustomers(tenantId: string, branchId: string | null, filters: CustomerFiltersDTO) {
     const [customers, summary] = await Promise.all([
-      this.repository.listCustomers(tenantId, filters),
-      this.repository.getCustomerSummary(tenantId)
+      this.repository.listCustomers(tenantId, branchId, filters),
+      this.repository.getCustomerSummary(tenantId, branchId)
     ]);
 
     return {
@@ -44,16 +44,16 @@ export class CommerceService {
     };
   }
 
-  async updateCustomer(tenantId: string, customerId: string, input: UpdateCustomerDTO): Promise<CustomerListItemDTO> {
+  async updateCustomer(tenantId: string, branchId: string, customerId: string, input: UpdateCustomerDTO): Promise<CustomerListItemDTO> {
     if (input.document) {
-      const exists = await this.repository.customerDocumentExists(tenantId, input.document, customerId);
+      const exists = await this.repository.customerDocumentExists(tenantId, branchId, input.document, customerId);
 
       if (exists) {
         throw new AppError("Já existe um cliente com este documento.", "CUSTOMER_DOCUMENT_EXISTS", 409);
       }
     }
 
-    const customer = await this.repository.updateCustomer(tenantId, customerId, {
+    const customer = await this.repository.updateCustomer(tenantId, branchId, customerId, {
       ...input,
       email: input.email || undefined
     });
@@ -65,8 +65,8 @@ export class CommerceService {
     return this.mapCustomer(customer);
   }
 
-  async deleteCustomer(tenantId: string, customerId: string) {
-    const deleted = await this.repository.deleteCustomer(tenantId, customerId);
+  async deleteCustomer(tenantId: string, branchId: string, customerId: string) {
+    const deleted = await this.repository.deleteCustomer(tenantId, branchId, customerId);
 
     if (!deleted) {
       throw new AppError("Cliente não encontrado.", "CUSTOMER_NOT_FOUND", 404);
@@ -77,10 +77,10 @@ export class CommerceService {
     const customerId = input.customerId || undefined;
 
     if (customerId) {
-      const belongsToTenant = await this.repository.customerBelongsToTenant(tenantId, customerId);
+      const belongsToBranch = await this.repository.customerBelongsToBranch(tenantId, branchId, customerId);
 
-      if (!belongsToTenant) {
-        throw new AppError("Cliente inválido para esta empresa.", "CUSTOMER_NOT_FOUND", 404);
+      if (!belongsToBranch) {
+        throw new AppError("Cliente inválido para esta loja.", "CUSTOMER_NOT_FOUND", 404);
       }
     }
 
@@ -142,6 +142,8 @@ export class CommerceService {
 
     return {
       id: customer.id,
+      branchId: customer.branchId,
+      branchName: customer.branchName,
       name: customer.name,
       document: customer.document,
       email: customer.email,

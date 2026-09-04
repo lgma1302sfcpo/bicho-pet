@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         orderBy: { name: "asc" }
       }),
       prisma.customer.findMany({
-        where: { tenantId: session.user.currentTenantId, status: "ACTIVE", pets: { some: {} } },
+        where: { tenantId: session.user.currentTenantId, branchId, status: "ACTIVE", pets: { some: {} } },
         select: { id: true, name: true, phone: true, whatsapp: true, pets: { select: { id: true, name: true, species: true, breed: true }, orderBy: { name: "asc" } } },
         orderBy: { name: "asc" },
         take: 300
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     const [professional, service, pet] = await Promise.all([
       prisma.groomingProfessional.findFirst({ where: { id: input.professionalId, tenantId, branchId, active: true } }),
       prisma.groomingService.findFirst({ where: { id: input.serviceId, tenantId, branchId, active: true } }),
-      prisma.pet.findFirst({ where: { id: input.petId, customerId: input.customerId, customer: { tenantId } } })
+      prisma.pet.findFirst({ where: { id: input.petId, customerId: input.customerId, customer: { tenantId, branchId } } })
     ]);
 
     if (!professional) throw new AppError("Profissional inválido para esta loja.", "INVALID_GROOMING_PROFESSIONAL", 422);

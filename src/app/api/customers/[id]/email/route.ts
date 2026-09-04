@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const session = await requirePermission(AUTH_PERMISSIONS.CUSTOMERS_WRITE);
     const { id } = await context.params;
     const input = sendCustomerEmailSchema.parse(await request.json());
-    return ok(await customerEmailService.sendToCustomer(session.user.currentTenantId, id, input));
+    return ok(await customerEmailService.sendToCustomer(session.user.currentTenantId, session.user.currentBranchId ?? null, id, input));
   } catch (error) {
     return errorResponse(error);
   }

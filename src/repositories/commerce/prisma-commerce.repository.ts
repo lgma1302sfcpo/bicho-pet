@@ -9,15 +9,16 @@ function toNumber(value: Prisma.Decimal | number | null | undefined) {
   return Number(value ?? 0);
 }
 
-type CustomerWithPets = Prisma.CustomerGetPayload<{ include: { pets: true } }>;
+type CustomerWithPets = Prisma.CustomerGetPayload<{ include: { pets: true; branch: { select: { name: true } } } }>;
 
 export class PrismaCommerceRepository implements CommerceRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
 
-  async customerDocumentExists(tenantId: string, document: string, excludeCustomerId?: string) {
+  async customerDocumentExists(tenantId: string, branchId: string, document: string, excludeCustomerId?: string) {
     const count = await this.db.customer.count({
       where: {
         tenantId,
+        branchId,
         document,
         ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {})
       }
@@ -26,10 +27,11 @@ export class PrismaCommerceRepository implements CommerceRepository {
     return count > 0;
   }
 
-  async customerBelongsToTenant(tenantId: string, customerId: string) {
+  async customerBelongsToBranch(tenantId: string, branchId: string, customerId: string) {
     const count = await this.db.customer.count({
       where: {
         tenantId,
+        branchId,
         id: customerId
       }
     });
@@ -37,15 +39,16 @@ export class PrismaCommerceRepository implements CommerceRepository {
     return count > 0;
   }
 
-  async findCustomerById(tenantId: string, customerId: string) {
-    const customer = await this.db.customer.findFirst({ where: { id: customerId, tenantId }, include: { pets: true } });
+  async findCustomerById(tenantId: string, branchId: string | null, customerId: string) {
+    const customer = await this.db.customer.findFirst({ where: { id: customerId, tenantId, ...(branchId ? { branchId } : {}) }, include: { pets: true, branch: { select: { name: true } } } });
     return customer ? this.mapCustomer(customer) : null;
   }
 
-  async createCustomer(tenantId: string, data: CreateCustomerDTO) {
+  async createCustomer(tenantId: string, branchId: string, data: CreateCustomerDTO) {
     const customer = await this.db.customer.create({
       data: {
         tenantId,
+        branchId,
         name: data.name,
         document: data.document,
         email: data.email || undefined,
@@ -76,16 +79,16 @@ export class PrismaCommerceRepository implements CommerceRepository {
           }))
         } : undefined
       },
-      include: { pets: true }
+      include: { pets: true, branch: { select: { name: true } } }
     });
 
     return this.mapCustomer(customer);
   }
 
-  async updateCustomer(tenantId: string, customerId: string, data: UpdateCustomerDTO) {
+  async updateCustomer(tenantId: string, branchId: string, customerId: string, data: UpdateCustomerDTO) {
     const customer = await this.db.$transaction(async (tx) => {
       const updated = await tx.customer.updateMany({
-        where: { id: customerId, tenantId },
+        where: { id: customerId, tenantId, branchId },
         data: {
           name: data.name,
           document: data.document ?? null,
@@ -127,21 +130,25 @@ export class PrismaCommerceRepository implements CommerceRepository {
         });
       }
 
-      return tx.customer.findFirst({ where: { id: customerId, tenantId }, include: { pets: true } });
+      return tx.customer.findFirst({ where: { id: customerId, tenantId, branchId }, include: { pets: true, branch: { select: { name: true } } } });
     });
     return customer ? this.mapCustomer(customer) : null;
   }
 
-  async deleteCustomer(tenantId: string, customerId: string) {
-    const deleted = await this.db.customer.deleteMany({ where: { id: customerId, tenantId } });
+  async deleteCustomer(tenantId: string, branchId: string, customerId: string) {
+    const deleted = await this.db.customer.deleteMany({ where: { id: customerId, tenantId, branchId } });
     return deleted.count > 0;
   }
 
-  async listCustomers(tenantId: string, filters: CustomerFiltersDTO) {
-    const and: Prisma.CustomerWhereInput[] = [{ tenantId }];
+  async listCustomers(tenantId: string, branchId: string | null, filters: CustomerFiltersDTO) {
+    const and: Prisma.CustomerWhereInput[] = [{ tenantId }, ...(branchId ? [{ branchId }] : [])];
 
     if (filters.status) {
       and.push({ status: filters.status });
+    }
+
+    if (filters.unassignedOnly) {
+      and.push({ branchId: null });
     }
 
     if (filters.search) {
@@ -197,7 +204,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
 
     const customers = await this.db.customer.findMany({
       where: { AND: and },
-      include: { pets: true },
+      include: { pets: true, branch: { select: { name: true } } },
       orderBy: [{ lastPurchaseAt: "asc" }, { name: "asc" }],
       take: 200
     });
@@ -213,18 +220,19 @@ export class PrismaCommerceRepository implements CommerceRepository {
       .map((customer) => this.mapCustomer(customer));
   }
 
-  async getCustomerSummary(tenantId: string) {
+  async getCustomerSummary(tenantId: string, branchId: string | null) {
     const now = Date.now();
     const cutoff30 = new Date(now - 30 * 86_400_000);
     const cutoff60 = new Date(now - 60 * 86_400_000);
     const cutoff90 = new Date(now - 90 * 86_400_000);
 
+    const scope = { tenantId, ...(branchId ? { branchId } : {}) };
     const [totalCustomers, neverPurchased, inactive30, inactive60, inactive90] = await Promise.all([
-      this.db.customer.count({ where: { tenantId } }),
-      this.db.customer.count({ where: { tenantId, purchaseCount: 0 } }),
-      this.db.customer.count({ where: { tenantId, purchaseCount: { gt: 0 }, lastPurchaseAt: { lte: cutoff30 } } }),
-      this.db.customer.count({ where: { tenantId, purchaseCount: { gt: 0 }, lastPurchaseAt: { lte: cutoff60 } } }),
-      this.db.customer.count({ where: { tenantId, purchaseCount: { gt: 0 }, lastPurchaseAt: { lte: cutoff90 } } })
+      this.db.customer.count({ where: scope }),
+      this.db.customer.count({ where: { ...scope, purchaseCount: 0 } }),
+      this.db.customer.count({ where: { ...scope, purchaseCount: { gt: 0 }, lastPurchaseAt: { lte: cutoff30 } } }),
+      this.db.customer.count({ where: { ...scope, purchaseCount: { gt: 0 }, lastPurchaseAt: { lte: cutoff60 } } }),
+      this.db.customer.count({ where: { ...scope, purchaseCount: { gt: 0 }, lastPurchaseAt: { lte: cutoff90 } } })
     ]);
 
     return {
@@ -440,6 +448,8 @@ export class PrismaCommerceRepository implements CommerceRepository {
   private mapCustomer(customer: CustomerWithPets) {
     return {
       id: customer.id,
+      branchId: customer.branchId,
+      branchName: customer.branch?.name ?? null,
       name: customer.name,
       document: customer.document,
       email: customer.email,

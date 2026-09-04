@@ -78,5 +78,6 @@ export const customerFiltersSchema = z.object({
   maxPurchaseCount: z.coerce.number().int().min(0).optional(),
   birthdayMonth: z.coerce.number().int().min(1).max(12).optional(),
   tag: z.string().trim().optional(),
-  status: z.enum(["ACTIVE", "INACTIVE", "BLOCKED"]).optional()
+  status: z.enum(["ACTIVE", "INACTIVE", "BLOCKED"]).optional(),
+  unassignedOnly: queryBoolean.optional()
 });
