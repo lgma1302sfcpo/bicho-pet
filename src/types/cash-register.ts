@@ -45,6 +45,7 @@ export type CashSaleTransaction = {
   code: string;
   soldAt: string;
   paymentMethod: PaymentMethod;
+  status: "COMPLETED" | "CANCELLED";
   subtotal: number;
   discount: number;
   surcharge: number;
@@ -52,6 +53,9 @@ export type CashSaleTransaction = {
   notes: string | null;
   customerName: string | null;
   userName: string | null;
+  cancelledAt: string | null;
+  cancelledByName: string | null;
+  cancellationReason: string | null;
   items: Array<{ id: string; description: string; quantity: number; unitPrice: number; discount: number; total: number; unit: string | null }>;
   corrections: Array<{ id: string; oldPaymentMethod: PaymentMethod; newPaymentMethod: PaymentMethod; reason: string; createdAt: string; correctedByName: string | null }>;
 };

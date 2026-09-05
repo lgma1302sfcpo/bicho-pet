@@ -27,11 +27,12 @@ export async function GET(request: Request, context: Context) {
     if (!cashRegister) throw new AppError("Caixa não encontrado nesta loja.", "CASH_REGISTER_NOT_FOUND", 404);
 
     const sales = await prisma.sale.findMany({
-      where: { tenantId: auth.user.currentTenantId, branchId, cashRegisterSessionId: id, status: "COMPLETED", ...(paymentMethod ? { paymentMethod } : {}) },
+      where: { tenantId: auth.user.currentTenantId, branchId, cashRegisterSessionId: id, status: { in: ["COMPLETED", "CANCELLED"] }, ...(paymentMethod ? { paymentMethod } : {}) },
       orderBy: [{ soldAt: "desc" }, { createdAt: "desc" }],
       include: {
         customer: { select: { name: true } },
         user: { select: { name: true } },
+        cancelledBy: { select: { name: true } },
         items: { include: { product: { select: { unit: true } } }, orderBy: { createdAt: "asc" } },
         paymentCorrections: { include: { correctedBy: { select: { name: true } } }, orderBy: { createdAt: "desc" } }
       }
@@ -40,12 +41,13 @@ export async function GET(request: Request, context: Context) {
     return ok({
       cashRegisterId: cashRegister.id,
       status: cashRegister.status,
-      total: sales.reduce((sum, sale) => sum + number(sale.total), 0),
+      total: sales.reduce((sum, sale) => sum + (sale.status === "COMPLETED" ? number(sale.total) : 0), 0),
       sales: sales.map((sale) => ({
         id: sale.id,
         code: sale.code,
         soldAt: sale.soldAt.toISOString(),
         paymentMethod: sale.paymentMethod,
+        status: sale.status,
         subtotal: number(sale.subtotal),
         discount: number(sale.discount),
         surcharge: number(sale.surcharge),
@@ -53,6 +55,9 @@ export async function GET(request: Request, context: Context) {
         notes: sale.notes,
         customerName: sale.customer?.name ?? null,
         userName: sale.user?.name ?? null,
+        cancelledAt: sale.cancelledAt?.toISOString() ?? null,
+        cancelledByName: sale.cancelledBy?.name ?? null,
+        cancellationReason: sale.cancellationReason,
         items: sale.items.map((item) => ({
           id: item.id,
           description: item.description,

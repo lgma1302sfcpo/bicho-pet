@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { calculateCashDifference, calculateExpectedCash } from "@/lib/cash-register";
-import { cashMovementSchema, closeCashRegisterSchema, correctSalePaymentSchema, openCashRegisterSchema, reopenCashRegisterSchema } from "@/schemas/cash-register.schemas";
+import { cancelSaleSchema, cashMovementSchema, closeCashRegisterSchema, correctSalePaymentSchema, openCashRegisterSchema, reopenCashRegisterSchema } from "@/schemas/cash-register.schemas";
 
 describe("caixa", () => {
   it("calcula fundo, vendas, suprimentos e sangrias", () => {
@@ -29,5 +29,10 @@ describe("caixa", () => {
     expect(correctSalePaymentSchema.parse({ paymentMethod: "DEBIT_CARD", reason: "Lançado como Pix por engano" }).paymentMethod).toBe("DEBIT_CARD");
     expect(() => correctSalePaymentSchema.parse({ paymentMethod: "DEBIT_CARD", reason: "" })).toThrow();
     expect(() => correctSalePaymentSchema.parse({ paymentMethod: "BOLETO", reason: "Forma errada" })).toThrow();
+  });
+
+  it("exige um motivo para cancelar a venda", () => {
+    expect(cancelSaleSchema.parse({ reason: "Venda lançada com itens errados" }).reason).toBe("Venda lançada com itens errados");
+    expect(() => cancelSaleSchema.parse({ reason: "" })).toThrow();
   });
 });

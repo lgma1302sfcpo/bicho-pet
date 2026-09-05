@@ -26,3 +26,7 @@ export const correctSalePaymentSchema = z.object({
   paymentMethod: z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "STORE_CREDIT", "VOUCHER", "MIXED"]),
   reason: z.string().trim().min(3, "Informe o motivo da correção.").max(300)
 });
+
+export const cancelSaleSchema = z.object({
+  reason: z.string().trim().min(3, "Informe o motivo do cancelamento.").max(300)
+});

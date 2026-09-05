@@ -1,14 +1,14 @@
 "use client";
 
-import { ChevronDown, CreditCard, Pencil, ReceiptText, RefreshCw } from "lucide-react";
+import { ChevronDown, Pencil, ReceiptText, RefreshCw, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
-import { Badge } from "@/components/ui/badge";
+import { PaymentMethodIcon } from "@/components/cash-register/payment-method-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { useCashTransactions, useCorrectSalePayment } from "@/hooks/use-cash-register";
+import { useCancelSale, useCashTransactions, useCorrectSalePayment } from "@/hooks/use-cash-register";
 import type { CashRegisterReport, CashSaleTransaction, PaymentMethod } from "@/types/cash-register";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -38,11 +38,15 @@ export function CashTransactions({ report, canManage }: { report: CashRegisterRe
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<PaymentMethod | "">("");
   const [selected, setSelected] = useState<CashSaleTransaction | null>(null);
+  const [selectedToCancel, setSelectedToCancel] = useState<CashSaleTransaction | null>(null);
   const [nextMethod, setNextMethod] = useState<PaymentMethod | "">("");
   const [reason, setReason] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationError, setCancellationError] = useState<string | null>(null);
   const query = useCashTransactions(report.id, filter, open);
   const correction = useCorrectSalePayment();
+  const cancellation = useCancelSale();
 
   function startCorrection(sale: CashSaleTransaction) { setSelected(sale); setNextMethod(""); setReason(""); setFormError(null); }
   async function submitCorrection(event: FormEvent) {
@@ -50,6 +54,18 @@ export function CashTransactions({ report, canManage }: { report: CashRegisterRe
     if (!selected || !nextMethod) return setFormError("Selecione a forma de pagamento correta.");
     try { setFormError(null); await correction.mutateAsync({ saleId: selected.id, paymentMethod: nextMethod, reason }); setSelected(null); }
     catch (error) { setFormError(message(error)); }
+  }
+  async function submitCancellation(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedToCancel) return;
+    try {
+      setCancellationError(null);
+      await cancellation.mutateAsync({ saleId: selectedToCancel.id, reason: cancellationReason });
+      setSelectedToCancel(null);
+      setCancellationReason("");
+    } catch (error) {
+      setCancellationError(message(error));
+    }
   }
 
   return <div className="border-t border-border">
@@ -65,10 +81,10 @@ export function CashTransactions({ report, canManage }: { report: CashRegisterRe
       {query.isError ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-danger">{message(query.error)} <Button variant="ghost" onClick={() => void query.refetch()}>Tentar novamente</Button></div> : null}
       {query.data && !query.isFetching ? <div className="overflow-x-auto rounded-xl border border-border bg-white"><table className="w-full min-w-[940px] text-left text-sm">
         <thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-3 py-3">Data e hora</th><th className="px-3 py-3">Venda</th><th className="px-3 py-3">Produtos</th><th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Pagamento</th><th className="px-3 py-3 text-right">Total</th><th className="px-3 py-3 text-right">Ação</th></tr></thead>
-        <tbody className="divide-y divide-border">{query.data.sales.map((sale) => <tr key={sale.id} className="align-top hover:bg-muted/30">
+        <tbody className="divide-y divide-border">{query.data.sales.map((sale) => <tr key={sale.id} className={`align-top hover:bg-muted/30 ${sale.status === "CANCELLED" ? "bg-red-50/60 text-subdued" : ""}`}>
           <td className="whitespace-nowrap px-3 py-3">{dateTime.format(new Date(sale.soldAt))}</td><td className="px-3 py-3"><strong>{sale.code}</strong><p className="mt-1 text-xs text-subdued">por {sale.userName ?? "não identificado"}</p></td><td className="px-3 py-3"><Items sale={sale}/></td><td className="px-3 py-3">{sale.customerName ?? "Consumidor não identificado"}</td>
-          <td className="px-3 py-3"><Badge className="whitespace-nowrap"><CreditCard size={13}/>{paymentLabels[sale.paymentMethod]}</Badge>{sale.corrections.length ? <details className="mt-2"><summary className="cursor-pointer text-xs font-medium text-amber-700">Corrigido {sale.corrections.length} vez(es)</summary><div className="mt-1 max-w-xs space-y-2 text-xs text-subdued">{sale.corrections.map((item) => <p key={item.id}>{paymentLabels[item.oldPaymentMethod]} → {paymentLabels[item.newPaymentMethod]}<br/>{item.reason} • {item.correctedByName ?? "usuário"} em {dateTime.format(new Date(item.createdAt))}</p>)}</div></details> : null}</td>
-          <td className="px-3 py-3 text-right font-bold">{money.format(sale.total)}</td><td className="px-3 py-3 text-right">{canManage && report.status === "OPEN" ? <Button variant="secondary" onClick={() => startCorrection(sale)}><Pencil size={15}/>Corrigir</Button> : <span className="text-xs text-subdued">{canManage ? "Reabra para corrigir" : "Somente leitura"}</span>}</td>
+          <td className="px-3 py-3"><div className="inline-flex items-center gap-2 whitespace-nowrap font-medium"><PaymentMethodIcon method={sale.paymentMethod} compact/>{paymentLabels[sale.paymentMethod]}</div>{sale.status === "CANCELLED" ? <div className="mt-2 max-w-xs rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800"><strong>Venda cancelada</strong><br/>{sale.cancellationReason}<br/>{sale.cancelledByName ?? "usuário"}{sale.cancelledAt ? ` em ${dateTime.format(new Date(sale.cancelledAt))}` : ""}</div> : null}{sale.corrections.length ? <details className="mt-2"><summary className="cursor-pointer text-xs font-medium text-amber-700">Corrigido {sale.corrections.length} vez(es)</summary><div className="mt-1 max-w-xs space-y-2 text-xs text-subdued">{sale.corrections.map((item) => <p key={item.id}>{paymentLabels[item.oldPaymentMethod]} → {paymentLabels[item.newPaymentMethod]}<br/>{item.reason} • {item.correctedByName ?? "usuário"} em {dateTime.format(new Date(item.createdAt))}</p>)}</div></details> : null}</td>
+          <td className={`px-3 py-3 text-right font-bold ${sale.status === "CANCELLED" ? "line-through" : ""}`}>{money.format(sale.total)}</td><td className="px-3 py-3 text-right">{sale.status === "CANCELLED" ? <span className="text-xs font-semibold text-red-700">Cancelada</span> : canManage && report.status === "OPEN" ? <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => startCorrection(sale)}><Pencil size={15}/>Corrigir</Button><Button variant="danger" onClick={() => { setSelectedToCancel(sale); setCancellationReason(""); setCancellationError(null); }}><Trash2 size={15}/>Cancelar</Button></div> : <span className="text-xs text-subdued">{canManage ? "Reabra para alterar" : "Somente leitura"}</span>}</td>
         </tr>)}</tbody>
       </table>{!query.data.sales.length ? <p className="p-8 text-center text-sm text-subdued">Nenhuma venda encontrada para este filtro.</p> : null}</div> : null}
     </div> : null}
@@ -77,6 +93,14 @@ export function CashTransactions({ report, canManage }: { report: CashRegisterRe
         <Select label="Forma de pagamento correta" required value={nextMethod} onChange={(event) => setNextMethod(event.target.value as PaymentMethod | "")}><option value="">Selecione</option>{Object.entries(paymentLabels).filter(([value]) => value !== selected?.paymentMethod).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
         <Input label="Motivo da correção" required minLength={3} maxLength={300} placeholder="Ex.: lançado como Pix, mas a maquininha confirma débito" value={reason} onChange={(event) => setReason(event.target.value)}/>{formError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{formError}</p> : null}
         <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setSelected(null)} disabled={correction.isPending}>Cancelar</Button><Button type="submit" disabled={correction.isPending}>{correction.isPending ? "Corrigindo..." : "Confirmar correção"}</Button></div>
+      </form>
+    </Modal>
+    <Modal open={selectedToCancel !== null} onClose={() => { if (!cancellation.isPending) setSelectedToCancel(null); }} className="max-w-lg" title="Cancelar venda" description={selectedToCancel ? `Venda ${selectedToCancel.code} • ${money.format(selectedToCancel.total)}` : undefined}>
+      <form className="space-y-4" onSubmit={submitCancellation}>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900"><strong>Atenção:</strong> os produtos voltarão ao estoque e o valor será estornado do caixa e do financeiro. A venda continuará registrada como cancelada.</div>
+        <Input label="Motivo do cancelamento" required minLength={3} maxLength={300} autoFocus placeholder="Ex.: venda lançada com produtos errados" value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)}/>
+        {cancellationError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{cancellationError}</p> : null}
+        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setSelectedToCancel(null)} disabled={cancellation.isPending}>Voltar</Button><Button type="submit" variant="danger" disabled={cancellation.isPending}>{cancellation.isPending ? "Cancelando..." : "Confirmar cancelamento"}</Button></div>
       </form>
     </Modal>
   </div>;

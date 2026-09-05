@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowDownToLine, ArrowUpFromLine, Banknote, CheckCircle2, Clock3, CreditCard, LockKeyhole, QrCode, RefreshCw, RotateCcw, Wallet } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Banknote, CheckCircle2, Clock3, LockKeyhole, RefreshCw, RotateCcw, Wallet } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { CashTransactions, paymentLabels } from "@/components/cash-register/cash-transactions";
+import { PaymentMethodIcon } from "@/components/cash-register/payment-method-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,8 +31,7 @@ function SummaryCard({ label, value, tone = "default" }: { label: string; value:
 }
 
 function PaymentBreakdown({ report }: { report: CashRegisterReport }) {
-  const icons = { CASH: Banknote, CREDIT_CARD: CreditCard, DEBIT_CARD: CreditCard, PIX: QrCode, STORE_CREDIT: Wallet, VOUCHER: Wallet, MIXED: Wallet };
-  return <div className="border-t border-border p-4"><h4 className="mb-3 font-semibold">Vendas por meio de pagamento</h4><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{Object.entries(paymentLabels).map(([method, label]) => { const Icon = icons[method as keyof typeof icons]; const value = report.paymentBreakdown[method as keyof typeof report.paymentBreakdown]; return <div key={method} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-3"><div className="flex min-w-0 items-center gap-2"><Icon size={18} className="shrink-0 text-brand-700"/><span className="truncate text-sm">{label}</span></div><strong className="whitespace-nowrap text-sm">{money.format(value)}</strong></div>; })}</div></div>;
+  return <div className="border-t border-border p-4"><h4 className="mb-3 font-semibold">Vendas por meio de pagamento</h4><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{Object.entries(paymentLabels).map(([method, label]) => { const paymentMethod = method as keyof typeof paymentLabels; const value = report.paymentBreakdown[paymentMethod]; return <div key={method} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-3 shadow-sm"><div className="flex min-w-0 items-center gap-3"><PaymentMethodIcon method={paymentMethod}/><span className="truncate text-sm font-medium">{label}</span></div><strong className="whitespace-nowrap text-sm">{money.format(value)}</strong></div>; })}</div></div>;
 }
 
 function CashReport({ report, open = false, canManage, onReopen }: { report: CashRegisterReport; open?: boolean; canManage: boolean; onReopen?: (report: CashRegisterReport) => void }) {

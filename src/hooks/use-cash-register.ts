@@ -65,3 +65,23 @@ export function useCorrectSalePayment() {
     }
   });
 }
+
+export function useCancelSale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ saleId, reason }: { saleId: string; reason: string }) =>
+      apiFetch(`/api/cash-register/sales/${saleId}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["cash-register"] }),
+        queryClient.invalidateQueries({ queryKey: ["cash-register-transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["commerce"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalog", "products"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+        queryClient.invalidateQueries({ queryKey: ["finance"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] })
+      ]);
+    }
+  });
+}

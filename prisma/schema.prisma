@@ -238,7 +238,8 @@ model User {
   memberships                 UserTenantRole[]
   passwordResetTokens         PasswordResetToken[]
   auditLogs                   AuditLog[]
-  sales                       Sale[]
+  sales                       Sale[]                 @relation("SaleCreatedBy")
+  cancelledSales              Sale[]                 @relation("SaleCancelledBy")
   inventoryMovements          InventoryMovement[]
   createdGroomingAppointments GroomingAppointment[]  @relation("GroomingAppointmentCreator")
   accounts                    Account[]
@@ -555,6 +556,9 @@ model Sale {
   surcharge             Decimal       @default(0) @db.Decimal(12, 2)
   total                 Decimal       @db.Decimal(12, 2)
   notes                 String?
+  cancelledById         String?
+  cancellationReason    String?
+  cancelledAt           DateTime?
   soldAt                DateTime      @default(now())
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -562,7 +566,8 @@ model Sale {
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch              Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
   customer            Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                User?                @relation("SaleCreatedBy", fields: [userId], references: [id], onDelete: SetNull)
+  cancelledBy         User?                @relation("SaleCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   cashRegisterSession CashRegisterSession? @relation(fields: [cashRegisterSessionId], references: [id], onDelete: SetNull)
   items               SaleItem[]
   financialEntries    FinancialEntry[]
@@ -574,6 +579,7 @@ model Sale {
   @@index([tenantId, soldAt])
   @@index([branchId, soldAt])
   @@index([customerId])
+  @@index([cancelledById])
   @@index([cashRegisterSessionId])
   @@map("sales")
 }
