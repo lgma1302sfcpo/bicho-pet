@@ -13,7 +13,7 @@ import { Select } from "@/components/ui/select";
 import type { CustomerListItemDTO } from "@/dtos/commerce/customer.dto";
 import type { GroomingAppointmentDTO, GroomingScheduleBlockDTO } from "@/dtos/grooming.dto";
 import { useCreateGroomingAppointment, useCreateGroomingBlock, useDeleteGroomingBlock, useGroomingAgenda, useGroomingCalendar, useSaveGroomingProfessional, useSaveGroomingService, useUpdateGroomingAppointment } from "@/hooks/use-grooming";
-import { nextAvailableStart } from "@/lib/grooming-schedule";
+import { GROOMING_SIMULTANEOUS_CAPACITY, nextAvailableStart } from "@/lib/grooming-schedule";
 import { buildGroomingWhatsAppReminder } from "@/lib/grooming-reminder";
 import { parseBrazilianNumber } from "@/lib/utils";
 
@@ -81,7 +81,9 @@ function monthCells(month: string) {
 function suggestion(date: string, professionalId: string, duration: number, appointments: GroomingAppointmentDTO[], blocks: GroomingScheduleBlockDTO[]) {
   const periods = [
     ...appointments.filter((item) => item.professional.id === professionalId && item.status !== "CANCELLED"),
-    ...blocks.filter((item) => !item.professionalId || item.professionalId === professionalId)
+    ...blocks
+      .filter((item) => !item.professionalId || item.professionalId === professionalId)
+      .map((item) => ({ ...item, capacityUsed: GROOMING_SIMULTANEOUS_CAPACITY }))
   ];
   return timeLabel(nextAvailableStart(new Date(`${date}T09:00:00-03:00`), duration, periods));
 }
@@ -247,16 +249,17 @@ export function GroomingSchedulePage({ canManage, canManageCustomers }: { canMan
         </Card>
 
         <Card className="overflow-hidden">
-          <div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Horários disponíveis e ocupados</h2><p className="text-xs text-subdued">Grade de 30 minutos. Clique em “Livre” para iniciar um agendamento naquele horário.</p></div>
+          <div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Horários disponíveis e ocupados</h2><p className="text-xs text-subdued">Cada profissional pode atender até 2 pets ao mesmo tempo. Clique em um horário com vaga para agendar.</p></div>
           <div className="max-h-[430px] overflow-auto"><table className="w-full min-w-[620px] text-xs"><thead className="sticky top-0 z-10 bg-muted"><tr><th className="w-20 px-3 py-2 text-left">Horário</th>{professionals.map((professional) => <th key={professional.id} className="px-3 py-2 text-left">{professional.name}</th>)}</tr></thead><tbody className="divide-y divide-border">{Array.from({ length: 24 }, (_, index) => 8 * 60 + index * 30).map((minutes) => {
             const hour = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
             const slotStart = new Date(isoAt(date, hour));
             const slotEnd = new Date(slotStart.getTime() + 30 * 60_000);
             return <tr key={hour}><th className="px-3 py-2 text-left font-semibold">{hour}</th>{professionals.map((professional) => {
-              const appointment = appointments.find((item) => item.professional.id === professional.id && item.status !== "CANCELLED" && new Date(item.startAt) < slotEnd && new Date(item.endAt) > slotStart);
+              const slotAppointments = appointments.filter((item) => item.professional.id === professional.id && item.status !== "CANCELLED" && new Date(item.startAt) < slotEnd && new Date(item.endAt) > slotStart);
               const block = blocks.find((item) => (!item.professionalId || item.professionalId === professional.id) && new Date(item.startAt) < slotEnd && new Date(item.endAt) > slotStart);
-              if (appointment) return <td key={professional.id} className="bg-sky-50 px-3 py-2 font-medium text-sky-800" title={`${appointment.pet.name} · ${appointment.service.name}`}>{appointment.pet.name} · ocupado</td>;
               if (block) return <td key={professional.id} className="bg-red-50 px-3 py-2 text-red-700" title={block.reason}>Bloqueado · {block.reason}</td>;
+              if (slotAppointments.length >= GROOMING_SIMULTANEOUS_CAPACITY) return <td key={professional.id} className="bg-sky-100 px-3 py-2 font-medium text-sky-900" title={slotAppointments.map((item) => `${item.pet.name} · ${item.service.name}`).join("\n")}>Lotado · 2 pets</td>;
+              if (slotAppointments.length) return <td key={professional.id} className="bg-sky-50 px-2 py-1" title={`${slotAppointments[0].pet.name} · ${slotAppointments[0].service.name}`}><button className="w-full rounded px-2 py-1 text-left font-medium text-sky-800 hover:bg-sky-100" onClick={() => canManage && openAppointment(professional.id, hour)}>{slotAppointments[0].pet.name} · 1 vaga livre</button></td>;
               return <td key={professional.id} className="px-2 py-1"><button className="w-full rounded px-2 py-1 text-left text-emerald-700 hover:bg-emerald-50" onClick={() => canManage && openAppointment(professional.id, hour)}>Livre</button></td>;
             })}</tr>;
           })}</tbody></table></div>
@@ -303,7 +306,7 @@ export function GroomingSchedulePage({ canManage, canManageCustomers }: { canMan
           <Input label="Horário inicial" type="time" value={form.time} onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))}/>
           <Input label="Valor" mask="currency" value={form.price} onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}/>
         </div>
-        <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50 p-4"><div className="flex items-center gap-2 text-brand-800"><CalendarDays size={18}/><strong>{form.time || "--:--"} até {previewEnd}</strong></div><p className="mt-1 text-xs text-brand-700">{selectedService ? `${selectedService.name}: ${durationLabel(selectedService.durationMinutes)}. O próximo atendimento poderá começar às ${previewEnd}.` : "Selecione o serviço para calcular o término."}</p></div>
+        <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50 p-4"><div className="flex items-center gap-2 text-brand-800"><CalendarDays size={18}/><strong>{form.time || "--:--"} até {previewEnd}</strong></div><p className="mt-1 text-xs text-brand-700">{selectedService ? `${selectedService.name}: ${durationLabel(selectedService.durationMinutes)}. São permitidos até 2 pets simultâneos para o mesmo profissional.` : "Selecione o serviço para calcular o término."}</p></div>
         <label className="mt-4 flex items-center gap-2 rounded-md border border-border p-3 text-sm"><input type="checkbox" checked={form.isPackage} onChange={(event) => setForm((current) => ({ ...current, isPackage: event.target.checked }))}/> Atendimento faz parte de um pacote</label>
         <div className="mt-4"><Input label="Observação" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}/></div>
         {formError ? <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{formError}</p> : null}

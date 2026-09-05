@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { created, errorResponse, ok } from "@/lib/api-response";
 import { requireSelectedBranch } from "@/lib/branch-context";
 import { AppError } from "@/lib/errors";
-import { calculateAppointmentEnd } from "@/lib/grooming-schedule";
+import { calculateAppointmentEnd, GROOMING_SIMULTANEOUS_CAPACITY, hasScheduleCapacity } from "@/lib/grooming-schedule";
 import { AUTH_PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/require-permission";
@@ -121,8 +121,8 @@ export async function POST(request: NextRequest) {
     if (!pet) throw new AppError("O pet não pertence ao tutor selecionado.", "INVALID_GROOMING_PET", 422);
 
     const endAt = calculateAppointmentEnd(input.startAt, service.durationMinutes);
-    const [conflict, blocked] = await Promise.all([
-      prisma.groomingAppointment.findFirst({
+    const [overlappingAppointments, blocked] = await Promise.all([
+      prisma.groomingAppointment.findMany({
         where: { tenantId, branchId, professionalId: professional.id, status: { not: "CANCELLED" }, startAt: { lt: endAt }, endAt: { gt: input.startAt } },
         select: { startAt: true, endAt: true }
       }),
@@ -132,13 +132,12 @@ export async function POST(request: NextRequest) {
       })
     ]);
 
-    if (conflict) {
-      const nextTime = conflict.endAt.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
-      throw new AppError(`Este profissional já possui atendimento nesse período. Próximo horário após o conflito: ${nextTime}.`, "GROOMING_TIME_CONFLICT", 409);
-    }
     if (blocked) {
       const endTime = blocked.endAt.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
       throw new AppError(`Horário bloqueado: ${blocked.reason}. Disponível após ${endTime}.`, "GROOMING_TIME_BLOCKED", 409);
+    }
+    if (!hasScheduleCapacity(input.startAt, endAt, overlappingAppointments, GROOMING_SIMULTANEOUS_CAPACITY)) {
+      throw new AppError("Este profissional já possui dois pets nesse período. Escolha outro horário.", "GROOMING_TIME_CAPACITY_FULL", 409);
     }
 
     const commissionAmount = Math.round(input.price * number(professional.commissionPercent) * 100) / 10_000;

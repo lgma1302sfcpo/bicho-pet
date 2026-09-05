@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateAppointmentEnd, nextAvailableStart, periodsOverlap } from "@/lib/grooming-schedule";
+import { calculateAppointmentEnd, GROOMING_SIMULTANEOUS_CAPACITY, hasScheduleCapacity, nextAvailableStart, periodsOverlap } from "@/lib/grooming-schedule";
 import { buildGroomingWhatsAppReminder } from "@/lib/grooming-reminder";
 import { createGroomingAppointmentSchema, groomingProfessionalSchema, groomingScheduleBlockSchema, groomingServiceSchema } from "@/schemas/grooming.schemas";
 
@@ -10,12 +10,26 @@ describe("agenda de banho e tosa", () => {
     expect(calculateAppointmentEnd(start, 90).toISOString()).toBe("2026-09-01T13:30:00.000Z");
   });
 
-  it("sugere o primeiro horário livre respeitando os atendimentos existentes", () => {
+  it("sugere o mesmo horário quando ainda existe a segunda vaga do profissional", () => {
     const result = nextAvailableStart(new Date("2026-09-01T09:00:00-03:00"), 60, [
       { startAt: "2026-09-01T09:00:00-03:00", endAt: "2026-09-01T10:30:00-03:00" },
       { startAt: "2026-09-01T11:30:00-03:00", endAt: "2026-09-01T12:30:00-03:00" }
     ]);
-    expect(result.toISOString()).toBe("2026-09-01T13:30:00.000Z");
+    expect(result.toISOString()).toBe("2026-09-01T12:00:00.000Z");
+  });
+
+  it("sugere o próximo horário quando as duas vagas estão ocupadas", () => {
+    const periods = [
+      { startAt: "2026-09-01T09:00:00-03:00", endAt: "2026-09-01T10:30:00-03:00" },
+      { startAt: "2026-09-01T09:00:00-03:00", endAt: "2026-09-01T10:00:00-03:00" }
+    ];
+    expect(nextAvailableStart(new Date("2026-09-01T09:00:00-03:00"), 60, periods).toISOString()).toBe("2026-09-01T13:00:00.000Z");
+    expect(hasScheduleCapacity(new Date("2026-09-01T09:00:00-03:00"), new Date("2026-09-01T10:00:00-03:00"), periods)).toBe(false);
+  });
+
+  it("trata um bloqueio como ocupação total da capacidade", () => {
+    const blocked = [{ startAt: "2026-09-01T09:00:00-03:00", endAt: "2026-09-01T10:00:00-03:00", capacityUsed: GROOMING_SIMULTANEOUS_CAPACITY }];
+    expect(hasScheduleCapacity(new Date("2026-09-01T09:30:00-03:00"), new Date("2026-09-01T10:00:00-03:00"), blocked)).toBe(false);
   });
 
   it("permite iniciar exatamente quando o atendimento anterior termina", () => {
