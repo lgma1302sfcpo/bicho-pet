@@ -10,7 +10,7 @@ export const cashRegisterInclude = {
     include: { user: { select: { name: true } } },
     orderBy: { createdAt: "desc" }
   },
-  sales: { select: { paymentMethod: true, total: true } }
+  sales: { where: { status: "COMPLETED" }, select: { paymentMethod: true, total: true } }
 } satisfies Prisma.CashRegisterSessionInclude;
 
 type CashRegisterWithDetails = Prisma.CashRegisterSessionGetPayload<{ include: typeof cashRegisterInclude }>;
@@ -33,7 +33,7 @@ export function serializeCashRegister(item: CashRegisterWithDetails) {
     return acc;
   }, { CASH: 0, PIX: 0, CREDIT_CARD: 0, DEBIT_CARD: 0, STORE_CREDIT: 0, VOUCHER: 0, MIXED: 0 });
   const totals = { cashSales: paymentBreakdown.CASH, supplies: movementTotals.supplies, withdrawals: movementTotals.withdrawals };
-  const expectedAmount = item.expectedClosingAmount == null
+  const expectedAmount = item.status === "OPEN" || item.expectedClosingAmount == null
     ? calculateExpectedCash(number(item.openingAmount), totals)
     : number(item.expectedClosingAmount);
 

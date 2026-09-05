@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { calculateCashDifference, calculateExpectedCash } from "@/lib/cash-register";
-import { cashMovementSchema, closeCashRegisterSchema, openCashRegisterSchema, reopenCashRegisterSchema } from "@/schemas/cash-register.schemas";
+import { cashMovementSchema, closeCashRegisterSchema, correctSalePaymentSchema, openCashRegisterSchema, reopenCashRegisterSchema } from "@/schemas/cash-register.schemas";
 
 describe("caixa", () => {
   it("calcula fundo, vendas, suprimentos e sangrias", () => {
@@ -23,5 +23,11 @@ describe("caixa", () => {
   it("valida a identificação de um caixa anterior para reabertura", () => {
     expect(reopenCashRegisterSchema.parse({ cashRegisterId: "cm12345678901234567890123" }).cashRegisterId).toBe("cm12345678901234567890123");
     expect(() => reopenCashRegisterSchema.parse({ cashRegisterId: "invalido" })).toThrow();
+  });
+
+  it("exige nova forma de pagamento e motivo para a correção", () => {
+    expect(correctSalePaymentSchema.parse({ paymentMethod: "DEBIT_CARD", reason: "Lançado como Pix por engano" }).paymentMethod).toBe("DEBIT_CARD");
+    expect(() => correctSalePaymentSchema.parse({ paymentMethod: "DEBIT_CARD", reason: "" })).toThrow();
+    expect(() => correctSalePaymentSchema.parse({ paymentMethod: "BOLETO", reason: "Forma errada" })).toThrow();
   });
 });

@@ -21,3 +21,8 @@ export const closeCashRegisterSchema = z.object({
 export const reopenCashRegisterSchema = z.object({
   cashRegisterId: z.string().cuid("Caixa inválido.")
 });
+
+export const correctSalePaymentSchema = z.object({
+  paymentMethod: z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "STORE_CREDIT", "VOUCHER", "MIXED"]),
+  reason: z.string().trim().min(3, "Informe o motivo da correção.").max(300)
+});

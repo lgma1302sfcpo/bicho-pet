@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { CashRegisterData } from "@/types/cash-register";
+import type { CashRegisterData, CashTransactionsData, PaymentMethod } from "@/types/cash-register";
 
 type ApiEnvelope<T> = { data?: T; error?: { message?: string } };
 
@@ -15,6 +15,15 @@ async function apiFetch<T>(url: string, init?: RequestInit) {
 
 export function useCashRegister() {
   return useQuery({ queryKey: ["cash-register"], queryFn: () => apiFetch<CashRegisterData>("/api/cash-register"), refetchOnMount: "always" });
+}
+
+export function useCashTransactions(cashRegisterId: string, paymentMethod: PaymentMethod | "", enabled: boolean) {
+  const params = paymentMethod ? `?paymentMethod=${paymentMethod}` : "";
+  return useQuery({
+    queryKey: ["cash-register-transactions", cashRegisterId, paymentMethod],
+    queryFn: () => apiFetch<CashTransactionsData>(`/api/cash-register/${cashRegisterId}/transactions${params}`),
+    enabled
+  });
 }
 
 function useCashMutation<T>(url: string) {
@@ -39,4 +48,20 @@ export function useCloseCashRegister() {
 
 export function useReopenCashRegister() {
   return useCashMutation<{ cashRegisterId: string }>("/api/cash-register/reopen");
+}
+
+export function useCorrectSalePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ saleId, paymentMethod, reason }: { saleId: string; paymentMethod: PaymentMethod; reason: string }) =>
+      apiFetch(`/api/cash-register/sales/${saleId}/payment`, { method: "PATCH", body: JSON.stringify({ paymentMethod, reason }) }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["cash-register"] }),
+        queryClient.invalidateQueries({ queryKey: ["cash-register-transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["sales"] }),
+        queryClient.invalidateQueries({ queryKey: ["finance"] })
+      ]);
+    }
+  });
 }

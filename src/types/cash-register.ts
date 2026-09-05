@@ -37,3 +37,28 @@ export type CashRegisterData = {
   current: CashRegisterReport | null;
   history: CashRegisterReport[];
 };
+
+export type PaymentMethod = "CASH" | "PIX" | "CREDIT_CARD" | "DEBIT_CARD" | "STORE_CREDIT" | "VOUCHER" | "MIXED";
+
+export type CashSaleTransaction = {
+  id: string;
+  code: string;
+  soldAt: string;
+  paymentMethod: PaymentMethod;
+  subtotal: number;
+  discount: number;
+  surcharge: number;
+  total: number;
+  notes: string | null;
+  customerName: string | null;
+  userName: string | null;
+  items: Array<{ id: string; description: string; quantity: number; unitPrice: number; discount: number; total: number; unit: string | null }>;
+  corrections: Array<{ id: string; oldPaymentMethod: PaymentMethod; newPaymentMethod: PaymentMethod; reason: string; createdAt: string; correctedByName: string | null }>;
+};
+
+export type CashTransactionsData = {
+  cashRegisterId: string;
+  status: "OPEN" | "CLOSED";
+  total: number;
+  sales: CashSaleTransaction[];
+};

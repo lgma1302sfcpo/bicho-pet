@@ -187,6 +187,7 @@ model Tenant {
   groomingScheduleBlocks GroomingScheduleBlock[]
   cashRegisterSessions   CashRegisterSession[]
   cashRegisterMovements  CashRegisterMovement[]
+  salePaymentCorrections SalePaymentCorrection[]
 
   @@map("tenants")
 }
@@ -215,6 +216,7 @@ model Branch {
   cashRegisterSessions   CashRegisterSession[]
   cashRegisterMovements  CashRegisterMovement[]
   customers              Customer[]
+  salePaymentCorrections SalePaymentCorrection[]
 
   @@unique([tenantId, document])
   @@index([tenantId])
@@ -245,6 +247,7 @@ model User {
   openedCashRegisters         CashRegisterSession[]  @relation("CashRegisterOpenedBy")
   closedCashRegisters         CashRegisterSession[]  @relation("CashRegisterClosedBy")
   reopenedCashRegisters       CashRegisterSession[]  @relation("CashRegisterReopenedBy")
+  salePaymentCorrections      SalePaymentCorrection[]
   cashRegisterMovements       CashRegisterMovement[]
 
   @@map("users")
@@ -564,6 +567,8 @@ model Sale {
   items               SaleItem[]
   financialEntries    FinancialEntry[]
   fiscalDocuments     FiscalDocument[]
+  cashMovements       CashRegisterMovement[]
+  paymentCorrections  SalePaymentCorrection[]
 
   @@unique([tenantId, code])
   @@index([tenantId, soldAt])
@@ -613,6 +618,7 @@ model CashRegisterMovement {
   tenantId    String
   branchId    String
   userId      String?
+  saleId      String?
   type        CashMovementType
   amount      Decimal          @db.Decimal(12, 2)
   description String
@@ -622,10 +628,33 @@ model CashRegisterMovement {
   tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch  Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
   user    User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sale    Sale?               @relation(fields: [saleId], references: [id], onDelete: SetNull)
 
   @@index([sessionId, createdAt])
   @@index([tenantId, branchId, createdAt])
+  @@index([saleId])
   @@map("cash_register_movements")
+}
+
+model SalePaymentCorrection {
+  id               String        @id @default(cuid())
+  tenantId         String
+  branchId         String
+  saleId           String
+  correctedById    String?
+  oldPaymentMethod PaymentMethod
+  newPaymentMethod PaymentMethod
+  reason           String
+  createdAt        DateTime      @default(now())
+
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  sale        Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  correctedBy User?  @relation(fields: [correctedById], references: [id], onDelete: SetNull)
+
+  @@index([saleId, createdAt])
+  @@index([tenantId, branchId, createdAt])
+  @@map("sale_payment_corrections")
 }
 
 model SaleItem {

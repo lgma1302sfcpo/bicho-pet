@@ -322,6 +322,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
             tenantId: data.tenantId,
             branchId: data.branchId,
             userId: data.userId,
+            saleId: sale.id,
             type: "CASH_SALE",
             amount: data.total,
             description: `Venda ${sale.code}`

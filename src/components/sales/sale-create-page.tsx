@@ -51,6 +51,7 @@ export function SaleCreatePage() {
   const createSale = useCreateSale();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isPopupWindow, setIsPopupWindow] = useState(false);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState<CustomerListItemDTO | null>(null);
   const [productSearches, setProductSearches] = useState<Record<string, string>>({});
@@ -87,6 +88,10 @@ export function SaleCreatePage() {
     if (!newCustomer || queriedCustomers.some((customer) => customer.id === newCustomer.id)) return queriedCustomers;
     return [newCustomer, ...queriedCustomers];
   }, [customersQuery.data?.customers, newCustomer]);
+
+  useEffect(() => {
+    setIsPopupWindow(Boolean(window.opener && !window.opener.closed));
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedProductSearches(productSearches), 350);
@@ -393,7 +398,7 @@ export function SaleCreatePage() {
                       value={productSearches[field.id] ?? ""}
                       onChange={(event) => setProductSearches((current) => ({ ...current, [field.id]: event.target.value }))}
                     />
-                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}{bulkWeightProduct ? `preço ${formatCurrency(selectedProduct.salePrice)}/kg · estoque ${selectedProduct.stockQuantity} kg` : `estoque ${selectedProduct.stockQuantity} ${unitLabels[selectedProduct.unit] ?? selectedProduct.unit}`}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); if (activeBulkItemId === field.id) setActiveBulkItemId(null); setBulkAmountOverrides((current) => { const next = { ...current }; delete next[field.id]; return next; }); setSelectedProducts((current) => { const next = { ...current }; delete next[field.id]; return next; }); }}>Limpar</Button></div> : null}
+                    {selectedProduct ? <div className="flex items-center justify-between gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs"><span><strong className="block text-brand-800">Selecionado: {selectedProduct.name}</strong><span className="text-brand-700">{selectedProduct.code ? `Código ${selectedProduct.code} · ` : ""}preço {formatCurrency(selectedProduct.salePrice)}{bulkWeightProduct ? "/kg" : `/${selectedProduct.unit.toLocaleLowerCase("pt-BR")}`} · estoque {selectedProduct.stockQuantity} {bulkWeightProduct ? "kg" : unitLabels[selectedProduct.unit] ?? selectedProduct.unit}</span></span><Button className="h-8 shrink-0 px-2" variant="ghost" onClick={() => { form.setValue(`items.${index}.productId`, ""); form.setValue(`items.${index}.quantity`, 1); if (activeBulkItemId === field.id) setActiveBulkItemId(null); setBulkAmountOverrides((current) => { const next = { ...current }; delete next[field.id]; return next; }); setSelectedProducts((current) => { const next = { ...current }; delete next[field.id]; return next; }); }}>Limpar</Button></div> : null}
                     {search.length >= 2 ? <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-white shadow-sm">
                       {productSearchQuery?.isFetching && !productSearchQuery.data ? <p className="px-3 py-4 text-center text-sm text-subdued">Buscando produtos...</p> : null}
                       {matchingProducts.map((product) => <button
@@ -413,7 +418,7 @@ export function SaleCreatePage() {
                           setProductSearches((current) => ({ ...current, [field.id]: "" }));
                           setDebouncedProductSearches((current) => ({ ...current, [field.id]: "" }));
                         }}
-                      ><strong className="block">{product.code ? `${product.code} · ` : ""}{product.name}</strong><span className="text-xs text-subdued">{isBulkWeightProduct(product) ? `Preço ${formatCurrency(product.salePrice)}/kg · Estoque ${product.stockQuantity} kg` : `Estoque ${product.stockQuantity} ${unitLabels[product.unit] ?? product.unit}`}{product.sku ? ` · SKU ${product.sku}` : ""}</span></button>)}
+                      ><span className="flex items-start justify-between gap-3"><strong>{product.code ? `${product.code} · ` : ""}{product.name}</strong><strong className="shrink-0 text-brand-700">{formatCurrency(product.salePrice)}{isBulkWeightProduct(product) ? "/kg" : ""}</strong></span><span className="mt-0.5 block text-xs text-subdued">Estoque {product.stockQuantity} {isBulkWeightProduct(product) ? "kg" : unitLabels[product.unit] ?? product.unit}{product.sku ? ` · SKU ${product.sku}` : ""}</span></button>)}
                       {!productSearchQuery?.isFetching && !matchingProducts.length ? <p className="px-3 py-4 text-center text-sm text-subdued">Nenhum produto encontrado. Preencha a descrição para usar um item avulso.</p> : null}
                       {productSearchQuery?.isError ? <p className="px-3 py-4 text-center text-sm text-danger">Não foi possível buscar os produtos. Tente novamente.</p> : null}
                     </div> : <p className="sale-product-hint text-xs text-subdued">{rawSearch.length === 1 ? "Digite mais um caractere para pesquisar." : "Os resultados aparecerão abaixo."}</p>}
@@ -478,13 +483,6 @@ export function SaleCreatePage() {
                 {error}
               </div>
             ) : null}
-            {success ? (
-              <div className="flex flex-col gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-success sm:flex-row sm:items-center sm:justify-between">
-                <span>{success}</span>
-                <Button variant="secondary" onClick={downloadReceipt}><FileDown size={16} /> Baixar recibo</Button>
-              </div>
-            ) : null}
-
             <Button type="submit" disabled={createSale.isPending}>
               <Save size={18} />
               Salvar venda
@@ -547,6 +545,30 @@ export function SaleCreatePage() {
           </Card>
         </div>
       </section>
+      <Modal
+        open={Boolean(success)}
+        className="max-w-md"
+        title="Venda lançada com sucesso"
+        description={success ?? undefined}
+        onClose={() => setSuccess(null)}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-900">
+            A venda foi registrada e o estoque e o caixa já foram atualizados.
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={downloadReceipt}><FileDown size={16}/>Baixar recibo</Button>
+            <Button onClick={() => {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({ type: "sale-created" }, window.location.origin);
+                window.close();
+                return;
+              }
+              setSuccess(null);
+            }}>{isPopupWindow ? "OK e fechar" : "OK, nova venda"}</Button>
+          </div>
+        </div>
+      </Modal>
       <Modal
         open={Boolean(priceCalculatorItemId)}
         className="max-w-lg"

@@ -3,6 +3,7 @@
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, CheckCircle2, Clock3, CreditCard, LockKeyhole, QrCode, RefreshCw, RotateCcw, Wallet } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
+import { CashTransactions, paymentLabels } from "@/components/cash-register/cash-transactions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,16 +21,6 @@ const movementLabels: Record<CashMovementType, string> = {
   WITHDRAWAL: "Sangria"
 };
 
-const paymentLabels = {
-  CASH: "Dinheiro",
-  CREDIT_CARD: "Cartão de crédito",
-  DEBIT_CARD: "Cartão de débito",
-  PIX: "Pix",
-  STORE_CREDIT: "Fiado / crediário",
-  VOUCHER: "Vale",
-  MIXED: "Pagamento misto"
-} as const;
-
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Não foi possível concluir a operação.";
 }
@@ -43,7 +34,7 @@ function PaymentBreakdown({ report }: { report: CashRegisterReport }) {
   return <div className="border-t border-border p-4"><h4 className="mb-3 font-semibold">Vendas por meio de pagamento</h4><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{Object.entries(paymentLabels).map(([method, label]) => { const Icon = icons[method as keyof typeof icons]; const value = report.paymentBreakdown[method as keyof typeof report.paymentBreakdown]; return <div key={method} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-3"><div className="flex min-w-0 items-center gap-2"><Icon size={18} className="shrink-0 text-brand-700"/><span className="truncate text-sm">{label}</span></div><strong className="whitespace-nowrap text-sm">{money.format(value)}</strong></div>; })}</div></div>;
 }
 
-function CashReport({ report, open = false, onReopen }: { report: CashRegisterReport; open?: boolean; onReopen?: (report: CashRegisterReport) => void }) {
+function CashReport({ report, open = false, canManage, onReopen }: { report: CashRegisterReport; open?: boolean; canManage: boolean; onReopen?: (report: CashRegisterReport) => void }) {
   const differenceTone = (report.difference ?? 0) < 0 ? "text-danger" : (report.difference ?? 0) > 0 ? "text-amber-700" : "text-success";
   return <Card className="overflow-hidden">
     <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -54,6 +45,7 @@ function CashReport({ report, open = false, onReopen }: { report: CashRegisterRe
       {[["Fundo inicial", report.openingAmount], ["Vendas em dinheiro", report.cashSales], ["Suprimentos", report.supplies], ["Sangrias", -report.withdrawals], ["Valor contado", report.actualAmount]].map(([label, value]) => <div key={String(label)} className="bg-white px-4 py-3"><p className="text-xs text-subdued">{label}</p><p className="mt-1 font-semibold">{value == null ? "—" : money.format(Number(value))}</p></div>)}
     </div>
     <PaymentBreakdown report={report}/>
+    <CashTransactions report={report} canManage={canManage}/>
     {!open ? <div className="flex flex-col gap-2 border-t border-border bg-muted/60 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"><span>Fechado por {report.closedByName ?? "usuário não identificado"} • {report.salesCount} venda(s){report.reopenCount ? ` • Reaberto ${report.reopenCount} vez(es)` : ""}</span><strong className={differenceTone}>Diferença em dinheiro: {money.format(report.difference ?? 0)}</strong></div> : null}
     {report.movements.length ? <details className="border-t border-border"><summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-brand-700">Ver {report.movements.length} movimentação(ões)</summary><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-2">Horário</th><th className="px-4 py-2">Tipo</th><th className="px-4 py-2">Descrição</th><th className="px-4 py-2">Responsável</th><th className="px-4 py-2 text-right">Valor</th></tr></thead><tbody className="divide-y divide-border">{report.movements.map((movement) => <tr key={movement.id}><td className="px-4 py-3">{dateTime.format(new Date(movement.createdAt))}</td><td className="px-4 py-3">{movementLabels[movement.type]}</td><td className="px-4 py-3">{movement.description}</td><td className="px-4 py-3 text-subdued">{movement.userName ?? "—"}</td><td className={`px-4 py-3 text-right font-semibold ${movement.type === "WITHDRAWAL" ? "text-danger" : "text-success"}`}>{movement.type === "WITHDRAWAL" ? "− " : "+ "}{money.format(movement.amount)}</td></tr>)}</tbody></table></div></details> : null}
   </Card>;
@@ -109,10 +101,10 @@ export function CashRegisterPage({ canManage }: { canManage: boolean }) {
       <div className={`rounded-xl border px-4 py-3 text-sm ${current.reopenedAt ? "border-amber-200 bg-amber-50 text-amber-950" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}><div className="flex items-center gap-2 font-semibold">{current.reopenedAt ? <RotateCcw size={18}/> : <CheckCircle2 size={18}/>} {current.reopenedAt ? `Caixa anterior reaberto em ${dateTime.format(new Date(current.reopenedAt))}. Selecione a data original ao lançar a venda atrasada.` : `Caixa aberto desde ${dateTime.format(new Date(current.openedAt))}`}</div></div>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6"><SummaryCard label="Fundo inicial" value={current.openingAmount}/><SummaryCard label="Total de vendas" value={Object.values(current.paymentBreakdown).reduce((total, value) => total + value, 0)} tone="positive"/><SummaryCard label="Vendas em dinheiro" value={current.cashSales} tone="positive"/><SummaryCard label="Suprimentos" value={current.supplies} tone="positive"/><SummaryCard label="Sangrias" value={current.withdrawals} tone="negative"/><SummaryCard label="Saldo esperado" value={current.expectedAmount}/></section>
       {canManage ? <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => showModal("SUPPLY")}><ArrowDownToLine size={18}/>Adicionar dinheiro</Button><Button variant="secondary" onClick={() => showModal("WITHDRAWAL")}><ArrowUpFromLine size={18}/>Fazer sangria</Button><Button variant="danger" onClick={() => showModal("close")}><LockKeyhole size={18}/>Fechar caixa</Button></div> : null}
-      <CashReport report={current} open/>
+      <CashReport report={current} open canManage={canManage}/>
     </>) : null}
 
-    {view === "history" ? <section><div className="mb-3"><h2 className="flex items-center gap-2 text-lg font-semibold"><Clock3 size={20}/>Caixas anteriores</h2><p className="text-sm text-subdued">Abra um relatório para conferir os meios de pagamento ou reabra-o para lançar vendas atrasadas. Só pode existir um caixa aberto por loja.</p></div><div className="space-y-3">{query.data?.history.map((report) => <CashReport key={report.id} report={report} onReopen={canManage && !current ? showReopen : undefined}/>)}{query.data?.history.length === 0 ? <Card className="p-6 text-center text-sm text-subdued">Nenhum caixa foi fechado nesta loja ainda.</Card> : null}</div></section> : null}
+    {view === "history" ? <section><div className="mb-3"><h2 className="flex items-center gap-2 text-lg font-semibold"><Clock3 size={20}/>Caixas anteriores</h2><p className="text-sm text-subdued">Abra um relatório para conferir os meios de pagamento ou reabra-o para lançar vendas atrasadas. Só pode existir um caixa aberto por loja.</p></div><div className="space-y-3">{query.data?.history.map((report) => <CashReport key={report.id} report={report} canManage={canManage} onReopen={canManage && !current ? showReopen : undefined}/>)}{query.data?.history.length === 0 ? <Card className="p-6 text-center text-sm text-subdued">Nenhum caixa foi fechado nesta loja ainda.</Card> : null}</div></section> : null}
 
     <Modal open={modal !== null} onClose={closeModal} className="max-w-lg" title={modal === "open" ? "Abrir caixa" : modal === "SUPPLY" ? "Adicionar dinheiro" : modal === "WITHDRAWAL" ? "Registrar sangria" : modal === "reopen" ? "Reabrir caixa anterior" : "Fechar caixa"} description={modal === "close" ? `O sistema espera ${money.format(current?.expectedAmount ?? 0)}. Informe quanto foi contado fisicamente.` : modal === "open" ? "Informe quanto há disponível para iniciar o atendimento." : modal === "reopen" ? "As próximas vendas serão incluídas neste caixa. Se houver um caixa atual, ele precisa ser fechado primeiro." : "Esta movimentação ficará registrada no relatório deste caixa."}>
       <form className="space-y-4" onSubmit={submit}>{modal === "reopen" ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-semibold">Caixa aberto em {selectedReport ? dateTime.format(new Date(selectedReport.openedAt)) : "—"}</p><p className="mt-1">Ao terminar os lançamentos atrasados, feche novamente o caixa para atualizar o relatório.</p></div> : <><Input label={modal === "close" ? "Valor contado no caixa" : modal === "open" ? "Fundo inicial" : "Valor"} type="number" min="0" step="0.01" autoFocus value={amount} onChange={(event) => setAmount(event.target.value)}/><Input label={modal === "SUPPLY" || modal === "WITHDRAWAL" ? "Motivo" : "Observação (opcional)"} placeholder={modal === "SUPPLY" ? "Ex.: reforço de troco" : modal === "WITHDRAWAL" ? "Ex.: depósito bancário" : "Opcional"} required={modal === "SUPPLY" || modal === "WITHDRAWAL"} value={description} onChange={(event) => setDescription(event.target.value)}/></>}{modal === "close" && amount ? <div className="rounded-md bg-muted p-3 text-sm"><span>Diferença prevista: </span><strong className={Number(amount.replace(",", ".")) - (current?.expectedAmount ?? 0) < 0 ? "text-danger" : "text-success"}>{money.format(Number(amount.replace(",", ".")) - (current?.expectedAmount ?? 0))}</strong></div> : null}{formError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{formError}</p> : null}<div className="flex justify-end gap-2"><Button variant="secondary" onClick={closeModal}>Cancelar</Button><Button type="submit" variant={modal === "close" ? "danger" : "primary"} disabled={openMutation.isPending || movementMutation.isPending || closeMutation.isPending || reopenMutation.isPending}>{modal === "close" ? "Confirmar fechamento" : modal === "open" ? "Abrir caixa" : modal === "reopen" ? "Confirmar reabertura" : "Registrar"}</Button></div></form>

@@ -95,6 +95,7 @@ describe("busca de produtos na venda", () => {
 
     await waitFor(() => expect(screen.getByText(/Golden cães adultos pequeno porte/)).toBeInTheDocument(), { timeout: 1500 });
     expect(screen.getByRole("button", { name: /Golden cães adultos pequeno porte/ })).toBeInTheDocument();
+    expect(screen.getByText("R$ 22,50")).toBeInTheDocument();
     expect(screen.queryByText("Carregando produtos e saldos de estoque...")).not.toBeInTheDocument();
   });
 

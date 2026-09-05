@@ -20,8 +20,8 @@ import {
 import { signOut, useSession } from "next-auth/react";
 import type { Route } from "next";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useState, type MouseEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
@@ -70,11 +70,25 @@ const navItems: EnabledNavItem[] = [
 
 export function ErpShell({ user, branches, children }: ErpShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { update } = useSession();
   const [switchingBranch, setSwitchingBranch] = useState(false);
   const [branchSwitchError, setBranchSwitchError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const availableNavItems = navItems.filter((item) => Array.isArray(item.permission) ? item.permission.some((permission) => hasPermission(user.permissions, permission)) : hasPermission(user.permissions, item.permission));
+  const isSaleWindow = pathname === "/vendas/nova" && searchParams.get("janela") === "1";
+
+  function openSaleWindow(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.currentTarget.href.includes("/vendas/nova") && window.matchMedia("(min-width: 768px)").matches) {
+      event.preventDefault();
+      const width = Math.max(720, Math.min(1440, window.screen.availWidth - 40));
+      const height = Math.max(640, Math.min(940, window.screen.availHeight - 40));
+      const saleWindow = window.open("/vendas/nova?janela=1", "nova-venda", `popup=yes,width=${width},height=${height},left=20,top=20,resizable=yes,scrollbars=yes`);
+      if (saleWindow) saleWindow.focus();
+      else window.location.assign("/vendas/nova");
+    }
+    setMobileMenuOpen(false);
+  }
 
   async function switchBranch(branchId: string) {
     setSwitchingBranch(true);
@@ -87,6 +101,10 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
       setSwitchingBranch(false);
       setBranchSwitchError("Não foi possível alterar a loja. Atualize a página e tente novamente.");
     }
+  }
+
+  if (isSaleWindow) {
+    return <main className="min-h-screen bg-muted px-3 py-4 text-ink sm:px-6 lg:px-8 lg:py-6"><div className="mx-auto max-w-[1600px]">{children}</div></main>;
   }
 
   return (
@@ -148,7 +166,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={item.href === "/vendas/nova" ? openSaleWindow : () => setMobileMenuOpen(false)}
                 className={cn(
                   "erp-nav__item inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition lg:flex",
                   active ? "bg-brand-50 text-brand-700" : "text-subdued hover:bg-muted hover:text-ink"
