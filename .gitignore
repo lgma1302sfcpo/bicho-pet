@@ -18,6 +18,10 @@ backups/
 *.cer
 *.crt
 
+# Cadeias publicas oficiais usadas para validar os servidores fiscais.
+!resources/fiscal/ca/
+!resources/fiscal/ca/*.pem
+
 # Bancos, copias e artefatos locais.
 .postgres-data/
 public/uploads/

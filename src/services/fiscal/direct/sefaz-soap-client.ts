@@ -2,6 +2,8 @@ import { request as httpsRequest } from "https";
 
 import { AppError } from "@/lib/errors";
 
+import { sefazTrustStore } from "./sefaz-trust-store";
+
 const retryableStatus = new Set([429, 502, 503, 504]);
 const retryableCodes = new Set(["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
 
@@ -26,6 +28,7 @@ async function sendOnce(input: { url: string; action: string; payload: string; p
       method: "POST",
       pfx: input.pfx,
       passphrase: input.passphrase,
+      ca: sefazTrustStore(),
       minVersion: "TLSv1.2",
       rejectUnauthorized: true,
       headers: {
