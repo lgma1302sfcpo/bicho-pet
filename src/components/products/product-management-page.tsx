@@ -44,6 +44,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const [importingProducts, setImportingProducts] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [stockImportFile, setStockImportFile] = useState<File | null>(null);
+  const [importMode, setImportMode] = useState<"FULL" | "SUPPLIERS_ONLY">("FULL");
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importPending, setImportPending] = useState(false);
@@ -77,11 +78,14 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
     try {
       const formData = new FormData();
       formData.set("file", importFile ?? stockImportFile!);
-      if (importFile && stockImportFile) formData.set("stockFile", stockImportFile);
+      formData.set("mode", importMode);
+      if (importMode === "FULL" && importFile && stockImportFile) formData.set("stockFile", stockImportFile);
       const response = await fetch("/api/products/import", { method: "POST", body: formData });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error?.message ?? "Não foi possível importar a planilha.");
-      setImportResult(`${payload.data.imported} produto(s) novo(s) e ${payload.data.updated} produto(s) atualizado(s).`);
+      setImportResult(importMode === "SUPPLIERS_ONLY"
+        ? `${payload.data.productsUpdated} produto(s) corrigido(s), ${payload.data.historicalSaleItemsUpdated} item(ns) de vendas históricas atualizado(s), ${payload.data.notFound} código(s) não encontrado(s) e ${payload.data.ambiguous} código(s) ambíguo(s).`
+        : `${payload.data.imported} produto(s) novo(s) e ${payload.data.updated} produto(s) atualizado(s).`);
       setImportFile(null);
       setStockImportFile(null);
       await productsQuery.refetch();
@@ -373,8 +377,12 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
         onClose={() => setImportingProducts(false)}
       >
         <div className="space-y-4">
+          <Select label="Tipo de importação" value={importMode} onChange={(event) => { setImportMode(event.target.value as "FULL" | "SUPPLIERS_ONLY"); setStockImportFile(null); setImportError(null); setImportResult(null); }}>
+            <option value="FULL">Produtos e estoque</option>
+            <option value="SUPPLIERS_ONLY">Somente fornecedores</option>
+          </Select>
           <Input label="Planilha de produtos" type="file" accept=".xls,.xlsx" onChange={(event) => { setImportFile(event.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }} />
-          <Input label="Planilha de estoque (contém o custo)" type="file" accept=".xls,.xlsx" onChange={(event) => { setStockImportFile(event.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }} />
+          {importMode === "FULL" ? <Input label="Planilha de estoque (contém o custo)" type="file" accept=".xls,.xlsx" onChange={(event) => { setStockImportFile(event.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }} /> : <p className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">Atualiza somente o fornecedor pelo código do produto. Preços, estoque, nomes e dados fiscais permanecem inalterados. Os relatórios de vendas anteriores também são corrigidos.</p>}
           {importError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{importError}</p> : null}
           {importResult ? <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-success">{importResult}</p> : null}
           <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setImportingProducts(false)}>Fechar</Button><Button disabled={(!importFile && !stockImportFile) || importPending} onClick={() => void submitImport()}><FileUp size={17}/>{importPending ? "Importando..." : "Importar e atualizar"}</Button></div>

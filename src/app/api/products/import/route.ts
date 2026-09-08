@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const form = await request.formData();
     const file = form.get("file");
     const stockFile = form.get("stockFile");
+    const mode = text(form.get("mode"));
     if (!(file instanceof File)) throw new Error("Selecione a planilha de produtos ou de estoque.");
     const inputFiles = [file, ...(stockFile instanceof File ? [stockFile] : [])];
     const sourceRows: Array<Record<string, unknown>> = [];
@@ -77,6 +78,66 @@ export async function POST(request: NextRequest) {
       }
       return fallback;
     };
+    if (mode === "SUPPLIERS_ONLY") {
+      const supplierRows = rows.flatMap((row) => {
+        const code = text(find(row, "codigo", "código"));
+        if (!code) return [];
+        return [{ code, name: text(find(row, "nome", "produto")), supplier: text(find(row, "fornecedor principal", "fornecedor", "nome fornecedor", "fornec.", "fornec")) || null }];
+      });
+      if (!supplierRows.length) throw new Error("Nenhum produto com código foi encontrado na planilha.");
+
+      const rowsByCode = new Map<string, typeof supplierRows>();
+      for (const row of supplierRows) rowsByCode.set(row.code, [...(rowsByCode.get(row.code) ?? []), row]);
+      const existing = await prisma.product.findMany({
+        where: { tenantId: session.user.currentTenantId, code: { in: [...rowsByCode.keys()] } },
+        select: { id: true, code: true, name: true }
+      });
+      const ambiguousCodes: string[] = [];
+      const matched = existing.flatMap((product) => {
+        if (!product.code) return [];
+        const candidates = rowsByCode.get(product.code) ?? [];
+        const suppliers = [...new Set(candidates.map((row) => row.supplier))];
+        if (suppliers.length === 1) return [{ id: product.id, supplier: suppliers[0] }];
+        const nameMatches = candidates.filter((row) => normalized(row.name) === normalized(product.name));
+        if (nameMatches.length === 1) return [{ id: product.id, supplier: nameMatches[0].supplier }];
+        ambiguousCodes.push(product.code);
+        return [];
+      });
+      let productsUpdated = 0;
+      let historicalSaleItemsUpdated = 0;
+
+      await prisma.$transaction(async (transaction) => {
+        for (const batch of chunks(matched)) {
+          const values = batch.map((item) => Prisma.sql`(${item.id}::text, ${item.supplier}::text)`);
+          productsUpdated += await transaction.$executeRaw(Prisma.sql`
+            UPDATE "products" AS p SET
+              "supplier" = v.supplier,
+              "updatedAt" = NOW()
+            FROM (VALUES ${Prisma.join(values)}) AS v(id, supplier)
+            WHERE p."id" = v.id
+              AND p."supplier" IS DISTINCT FROM v.supplier
+          `);
+          historicalSaleItemsUpdated += await transaction.$executeRaw(Prisma.sql`
+            UPDATE "sale_items" AS i SET
+              "supplier" = v.supplier
+            FROM (VALUES ${Prisma.join(values)}) AS v(product_id, supplier)
+            WHERE i."productId" = v.product_id
+              AND i."supplier" IS DISTINCT FROM v.supplier
+          `);
+        }
+      });
+
+      return created({
+        mode,
+        total: rowsByCode.size,
+        matched: matched.length,
+        notFound: rowsByCode.size - existing.length,
+        ambiguous: ambiguousCodes.length,
+        ambiguousCodes,
+        productsUpdated,
+        historicalSaleItemsUpdated
+      });
+    }
     const seen = new Set<string>();
     const data: Array<{ item: ReturnType<typeof createProductSchema.parse>; provided: Set<string> }> = [];
     let invalid = 0;
