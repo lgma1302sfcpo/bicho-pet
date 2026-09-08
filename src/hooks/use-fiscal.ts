@@ -16,12 +16,56 @@ export type FiscalOverview = {
   }>;
 };
 
-type Envelope<T> = { data?: T; error?: { message?: string } };
+type ValidationDetails = {
+  formErrors?: string[];
+  fieldErrors?: Record<string, string[] | undefined>;
+};
+
+type Envelope<T> = { data?: T; error?: { message?: string; details?: ValidationDetails } };
+
+const fiscalFieldLabels: Record<string, string> = {
+  legalName: "Razão social",
+  tradeName: "Nome fantasia",
+  cnpj: "CNPJ",
+  stateRegistration: "Inscrição Estadual",
+  municipalRegistration: "Inscrição Municipal",
+  taxRegime: "Regime tributário",
+  cnae: "CNAE",
+  street: "Endereço",
+  number: "Número",
+  complement: "Complemento",
+  district: "Bairro",
+  city: "Município",
+  cityCode: "Código do município",
+  state: "Estado",
+  zipCode: "CEP",
+  phone: "Telefone",
+  email: "E-mail",
+  environment: "Ambiente",
+  provider: "Forma de transmissão",
+  providerBaseUrl: "Endereço do provedor",
+  certificateType: "Tipo de certificado",
+  certificateExpiresAt: "Vencimento do certificado",
+  certificateName: "Arquivo do certificado",
+  certificateBase64: "Arquivo do certificado",
+  certificatePassword: "Senha do certificado",
+  directTransmissionEnabled: "Liberação da transmissão em produção"
+};
+
+function fiscalErrorMessage(error?: Envelope<unknown>["error"]) {
+  if (!error) return "Não foi possível concluir a operação fiscal.";
+  const details = error.details;
+  const fieldMessages = Object.entries(details?.fieldErrors ?? {}).flatMap(([field, messages]) =>
+    (messages ?? []).map((message) => `${fiscalFieldLabels[field] ?? field}: ${message}`)
+  );
+  const messages = [...(details?.formErrors ?? []), ...fieldMessages];
+  return messages.length ? messages.join(" ") : error.message ?? "Não foi possível concluir a operação fiscal.";
+}
 
 async function fiscalFetch<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, headers: { "content-type": "application/json", ...init?.headers } });
   const body = await response.json().catch(() => ({})) as Envelope<T>;
-  if (!response.ok) throw new Error(body.error?.message ?? "Não foi possível concluir a operação fiscal.");
+  if (!response.ok) throw new Error(fiscalErrorMessage(body.error));
   return body.data as T;
 }
 
