@@ -39,10 +39,9 @@ const categorySuggestions = [
 ];
 const subcategorySuggestions = ["Ração seca", "Ração úmida", "Ração a granel", "Petisco natural", "Higiene bucal", "Banho e tosa", "Antipulgas", "Suplemento", "Brinquedo interativo", "Coleira e guia", "Outro"];
 const brandSuggestions = ["Adimax", "GranPlus", "Premier Pet", "Purina", "Royal Canin", "Golden", "Special Dog", "Whiskas", "Pedigree", "Chalesco", "Outras marcas"];
-const supplierSuggestions = ["Adimax", "Cobasi Distribuidora", "Distribuidora Petmar", "Mars Petcare", "Nestle Purina", "Premier Pet", "Royal Canin", "Distribuidor regional", "Outro fornecedor"];
-
 type ProductFormProps = {
   product?: ProductListItemDTO | null;
+  suppliers?: string[];
   onCancel?: () => void;
   onSuccess?: () => void;
 };
@@ -56,7 +55,7 @@ const emptyProduct: UpdateProductDTO = {
   issRate: undefined, fiscalApproved: false
 };
 
-export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormProps) {
+export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess }: ProductFormProps) {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +120,7 @@ export function ProductCreateForm({ product, onCancel, onSuccess }: ProductFormP
           <Select label="Marca" error={form.formState.errors.brand?.message} {...form.register("brand")}><option value="">Sem marca</option>{brandSuggestions.map((item) => <option key={item}>{item}</option>)}</Select>
           <div>
             <Input label="Fornecedor" list="supplier-suggestions" placeholder="Digite ou selecione o fornecedor" help="Empresa de quem a loja compra este produto." error={form.formState.errors.supplier?.message} {...form.register("supplier")} />
-            <datalist id="supplier-suggestions">{supplierSuggestions.map((item) => <option key={item} value={item} />)}</datalist>
+            <datalist id="supplier-suggestions">{suppliers.map((supplier) => <option key={supplier} value={supplier} />)}</datalist>
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">

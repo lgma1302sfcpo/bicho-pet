@@ -365,6 +365,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
       >
         <ProductCreateForm
           product={editingProduct}
+          suppliers={summary?.suppliers}
           onCancel={() => { setCreatingProduct(false); setEditingProduct(null); }}
           onSuccess={() => { setCreatingProduct(false); setEditingProduct(null); }}
         />
