@@ -595,6 +595,7 @@ export function SaleCreatePage() {
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-900">
             A venda foi registrada e o estoque e o caixa já foram atualizados.
           </div>
+          {lastReceipt?.sale.fiscal?.status === "PENDING_CORRECTION" ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><strong>NFC-e pendente de correção.</strong><p className="mt-1">{lastReceipt.sale.fiscal.message}</p><a className="mt-3 inline-flex font-semibold text-brand-700 underline" href="/fiscal">Abrir gestão fiscal para corrigir e tentar novamente</a></div> : <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">NFC-e emitida automaticamente.</div>}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={downloadReceipt}><FileDown size={16}/>Baixar recibo</Button>
             <Button onClick={() => {

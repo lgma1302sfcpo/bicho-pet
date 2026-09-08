@@ -79,4 +79,22 @@ describe("product schemas", () => {
     expect(parsed.ncm).toBeUndefined();
     expect(parsed.serviceCode).toBeUndefined();
   });
+
+  it("exige somente os dados fiscais essenciais ao aprovar uma mercadoria", () => {
+    const result = createProductSchema.safeParse({
+      name: "Produto fiscal",
+      category: "Racao",
+      salePrice: 50,
+      fiscalItemType: "GOOD",
+      fiscalApproved: true
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const fields = result.error.issues.map((issue) => issue.path[0]);
+      expect(fields).toEqual(expect.arrayContaining(["originCode", "ncm", "defaultCfop", "icmsCode", "pisCode", "cofinsCode"]));
+      expect(fields).not.toContain("cest");
+      expect(fields).not.toContain("ibsCbsCode");
+    }
+  });
 });

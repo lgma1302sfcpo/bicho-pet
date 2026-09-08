@@ -59,11 +59,30 @@ export const createProductSchema = z.object({
     z.number({ invalid_type_error: "Informe uma alíquota válida." }).min(0, "A alíquota não pode ser negativa.").max(100, "A alíquota não pode ultrapassar 100%." ).optional()
   ),
   fiscalApproved: z.boolean().default(false)
+}).superRefine((product, context) => {
+  if (!product.fiscalApproved) return;
+
+  const requireField = (field: keyof typeof product, message: string) => {
+    if (!product[field]) context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message });
+  };
+
+  if (product.fiscalItemType === "SERVICE") {
+    requireField("serviceCode", "Informe o código do serviço validado pelo contador.");
+    if (product.issRate === undefined) context.addIssue({ code: z.ZodIssueCode.custom, path: ["issRate"], message: "Informe a alíquota de ISS validada pelo contador." });
+    return;
+  }
+
+  requireField("originCode", "Selecione a origem da mercadoria.");
+  requireField("ncm", "Informe o NCM validado pelo contador.");
+  requireField("defaultCfop", "Informe o CFOP padrão validado pelo contador.");
+  requireField("icmsCode", "Informe o código de ICMS (CST ou CSOSN).");
+  requireField("pisCode", "Informe o CST do PIS.");
+  requireField("cofinsCode", "Informe o CST da COFINS.");
 });
 
-export const updateProductSchema = createProductSchema.extend({
+export const updateProductSchema = createProductSchema.and(z.object({
   status: z.enum(["ACTIVE", "INACTIVE", "DISCONTINUED"])
-});
+}));
 
 export const productFiltersSchema = z.object({
   search: z.string().trim().optional(),

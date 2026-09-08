@@ -60,7 +60,7 @@ export class FiscalService {
       prisma.fiscalNumberVoid.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: 100 }),
       prisma.sale.findMany({
         where: { tenantId, ...(branchId ? { branchId } : {}), status: "COMPLETED" },
-        select: { id: true, code: true, total: true, soldAt: true, branch: { select: { name: true } }, customer: { select: { name: true } }, fiscalDocuments: { select: { type: true, status: true } } },
+        select: { id: true, code: true, total: true, soldAt: true, fiscalPendingAt: true, fiscalPendingReason: true, branch: { select: { name: true } }, customer: { select: { name: true } }, fiscalDocuments: { select: { type: true, status: true } } },
         orderBy: { soldAt: "desc" },
         take: 100
       })
@@ -196,6 +196,9 @@ export class FiscalService {
           authorizedAt: result.status === "AUTHORIZED" ? new Date() : null
         }
       });
+      if (result.status === "AUTHORIZED" || result.status === "CONTINGENCY_PENDING") {
+        await prisma.sale.update({ where: { id: sale.id }, data: { fiscalPendingAt: null, fiscalPendingReason: null } });
+      }
       const successful = result.status === "AUTHORIZED" || result.status === "CONTINGENCY_PENDING";
       const message = result.status === "AUTHORIZED"
         ? configuration.environment === "HOMOLOGATION" ? "Documento autorizado pela Secretaria da Fazenda em homologação, sem validade fiscal." : "Documento autorizado pela Secretaria da Fazenda em produção."
@@ -365,12 +368,13 @@ export class FiscalService {
       if (customerMissing.length) throw new AppError(`Cadastro fiscal do cliente incompleto para Nota Fiscal Eletrônica: ${customerMissing.join(", ")}.`, "FISCAL_CUSTOMER_INCOMPLETE", 422);
     }
     for (const item of sale.items) {
-      if (!item.product) throw new AppError("Todo item fiscal precisa estar vinculado a um produto ou serviço cadastrado.", "FISCAL_ITEM_WITHOUT_PRODUCT", 422);
-      if (!item.product.fiscalApproved) throw new AppError("Existe um item sem validação fiscal do contador.", "FISCAL_PRODUCT_NOT_APPROVED", 422);
+      if (!item.product) throw new AppError(`O item ${item.description} não está vinculado a um produto cadastrado.`, "FISCAL_ITEM_WITHOUT_PRODUCT", 422);
       if (type === "NFSE") {
-        if (item.product.fiscalItemType !== "SERVICE" || !item.product.serviceCode || item.product.issRate === null) throw new AppError("Todos os itens da Nota Fiscal de Serviço Eletrônica precisam ser serviços com código e alíquota cadastrados.", "FISCAL_SERVICE_DATA_MISSING", 422);
-      } else if (item.product.fiscalItemType !== "GOOD" || !item.product.ncm || !item.product.defaultCfop || !item.product.icmsCode || !item.product.pisCode || !item.product.cofinsCode) {
-        throw new AppError("Todos os itens da nota de mercadorias precisam de NCM, CFOP, ICMS, PIS e COFINS validados.", "FISCAL_PRODUCT_DATA_MISSING", 422);
+        const missing = [item.product.fiscalItemType !== "SERVICE" && "tipo serviço", !item.product.serviceCode && "código do serviço", item.product.issRate === null && "alíquota de ISS", !item.product.fiscalApproved && "aprovação do contador"].filter(Boolean);
+        if (missing.length) throw new AppError(`${item.product.name}: preencher ${missing.join(", ")}.`, "FISCAL_SERVICE_DATA_MISSING", 422);
+      } else {
+        const missing = [item.product.fiscalItemType !== "GOOD" && "tipo mercadoria", !item.product.unit && "unidade de medida", !item.product.originCode && "origem", !item.product.ncm && "NCM", !item.product.defaultCfop && "CFOP", !item.product.icmsCode && "ICMS", !item.product.pisCode && "PIS", !item.product.cofinsCode && "COFINS", !item.product.fiscalApproved && "aprovação do contador"].filter(Boolean);
+        if (missing.length) throw new AppError(`${item.product.name}: preencher ${missing.join(", ")}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
       }
     }
   }

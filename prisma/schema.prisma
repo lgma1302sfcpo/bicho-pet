@@ -556,6 +556,8 @@ model Sale {
   surcharge             Decimal       @default(0) @db.Decimal(12, 2)
   total                 Decimal       @db.Decimal(12, 2)
   notes                 String?
+  fiscalPendingAt       DateTime?
+  fiscalPendingReason   String?
   cancelledById         String?
   cancellationReason    String?
   cancelledAt           DateTime?

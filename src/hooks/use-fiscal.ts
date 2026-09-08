@@ -6,7 +6,7 @@ export type FiscalOverview = {
   configuration: Record<string, unknown> | null;
   sequences: Array<{ id: string; type: string; environment: string; series: number; nextNumber: number }>;
   numberVoids: Array<{ id: string; type: string; environment: string; series: number; numberFrom: number; numberTo: number; status: string; protocol?: string | null; rejectionReason?: string | null; createdAt: string }>;
-  sales: Array<{ id: string; code: string; total: number; soldAt: string; customerName: string; fiscalDocuments: Array<{ type: string; status: string }> }>;
+  sales: Array<{ id: string; code: string; total: number; soldAt: string; customerName: string; fiscalPendingAt?: string | null; fiscalPendingReason?: string | null; fiscalDocuments: Array<{ type: string; status: string }> }>;
   documents: Array<{
     id: string; type: string; environment: string; provider: string; series: number; number: number; status: string;
     accessKey?: string | null; protocol?: string | null; rejectionReason?: string | null; hasXml: boolean; hasPdf: boolean;
