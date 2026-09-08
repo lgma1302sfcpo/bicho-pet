@@ -5,16 +5,14 @@ import { parseBrazilianNumber } from "@/lib/utils";
 const money = z.preprocess(parseBrazilianNumber, z.number());
 const numeric = z.preprocess(parseBrazilianNumber, z.number());
 
+const emptyOptional = (value: unknown) => value === "" || value === null ? undefined : value;
+
 const optionalText = z
-  .string()
-  .trim()
-  .optional()
+  .preprocess(emptyOptional, z.string().trim().optional())
   .transform((value) => (value ? value : undefined));
 
 const optionalCode = (length: number, label: string) => z
-  .string()
-  .trim()
-  .optional()
+  .preprocess(emptyOptional, z.string().trim().optional())
   .transform((value) => (value ? value.replace(/\D/g, "") : undefined))
   .refine((value) => !value || value.length === length, `${label} deve possuir ${length} números.`);
 
@@ -47,7 +45,7 @@ export const createProductSchema = z.object({
   imageUrl: optionalText,
   fiscalItemType: z.enum(["GOOD", "SERVICE"]).default("GOOD"),
   ncm: optionalCode(8, "Nomenclatura Comum do Mercosul"),
-  cest: z.string().trim().optional().transform((value) => value ? value.replace(/\D/g, "") : undefined).refine((value) => !value || value.length === 7, "Código Especificador da Substituição Tributária deve possuir 7 números."),
+  cest: z.preprocess(emptyOptional, z.string().trim().optional()).transform((value) => value ? value.replace(/\D/g, "") : undefined).refine((value) => !value || value.length === 7, "Código Especificador da Substituição Tributária deve possuir 7 números."),
   originCode: optionalText,
   defaultCfop: optionalCode(4, "Código Fiscal de Operações e Prestações"),
   icmsCode: optionalText,

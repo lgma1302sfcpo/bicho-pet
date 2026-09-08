@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createProductSchema, productFiltersSchema } from "@/schemas/catalog/product.schemas";
+import { createProductSchema, productFiltersSchema, updateProductSchema } from "@/schemas/catalog/product.schemas";
 
 describe("product schemas", () => {
   it("valida cadastro basico de produto de petshop", () => {
@@ -51,5 +51,32 @@ describe("product schemas", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.flatten().fieldErrors.issRate?.[0]).toContain("100%");
+  });
+
+  it("aceita campos opcionais nulos ao editar um produto", () => {
+    const parsed = updateProductSchema.parse({
+      name: "Produto existente",
+      category: "Racao",
+      salePrice: 50,
+      status: "ACTIVE",
+      code: null,
+      sku: null,
+      barcode: null,
+      subcategory: null,
+      brand: null,
+      ncm: null,
+      cest: null,
+      defaultCfop: null,
+      icmsCode: null,
+      pisCode: null,
+      cofinsCode: null,
+      ibsCbsCode: null,
+      taxClassificationCode: null,
+      serviceCode: null
+    });
+
+    expect(parsed.sku).toBeUndefined();
+    expect(parsed.ncm).toBeUndefined();
+    expect(parsed.serviceCode).toBeUndefined();
   });
 });
