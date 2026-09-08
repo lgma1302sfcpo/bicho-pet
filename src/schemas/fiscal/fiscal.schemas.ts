@@ -2,8 +2,11 @@ import { z } from "zod";
 
 import { isValidCnpj, isValidSaoPauloStateRegistration } from "@/lib/brazilian-documents";
 
-const optionalText = z.string().trim().optional().transform((value) => value || undefined);
-const optionalDigits = z.string().trim().optional().transform((value) => value ? value.replace(/\D/g, "") : undefined);
+const emptyOptional = (value: unknown) => value === null || value === "" ? undefined : value;
+const optionalText = z.preprocess(emptyOptional, z.string().trim().optional()).transform((value) => value || undefined);
+const optionalDigits = z.preprocess(emptyOptional, z.string().trim().optional()).transform((value) => value ? value.replace(/\D/g, "") : undefined);
+const optionalUrl = z.preprocess(emptyOptional, z.string().trim().url("Informe uma URL valida.").optional());
+const optionalEmail = z.preprocess(emptyOptional, z.string().trim().email("Informe um endereço de e-mail válido.").optional());
 
 export const fiscalConfigurationSchema = z.object({
   legalName: optionalText,
@@ -22,13 +25,13 @@ export const fiscalConfigurationSchema = z.object({
   state: z.string().trim().length(2).optional().or(z.literal("")),
   zipCode: optionalDigits.refine((value) => !value || value.length === 8, "O Código de Endereçamento Postal deve possuir 8 números."),
   phone: optionalDigits,
-  email: z.string().trim().email("Informe um endereço de e-mail válido.").optional().or(z.literal("")),
+  email: optionalEmail,
   environment: z.enum(["HOMOLOGATION", "PRODUCTION"]),
   provider: z.enum(["SANDBOX", "DIRECT_SEFAZ_SP", "EXTERNAL_API", "NOT_CONFIGURED"]),
-  providerBaseUrl: z.string().trim().url("Informe uma URL valida.").optional().or(z.literal("")),
+  providerBaseUrl: optionalUrl,
   providerToken: optionalText,
   certificateType: z.enum(["NONE", "A1", "A3"]),
-  certificateExpiresAt: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
+  certificateExpiresAt: z.preprocess(emptyOptional, z.coerce.date().optional()),
   certificateName: optionalText,
   certificateBase64: optionalText,
   certificatePassword: optionalText,
