@@ -15,7 +15,7 @@ import { downloadXlsx } from "@/lib/xlsx-export";
 
 const paymentLabels: Record<string, string> = {
   CASH: "Dinheiro", PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito",
-  STORE_CREDIT: "Crédito da loja", VOUCHER: "Vale", MIXED: "Pagamento múltiplo"
+  STORE_CREDIT: "Fiado", VOUCHER: "Vale", MIXED: "Pagamento múltiplo"
 };
 
 const speciesLabels: Record<string, string> = {

@@ -36,18 +36,20 @@ export async function PATCH(request: Request, context: Context) {
       if (input.paymentMethod === "STORE_CREDIT" && !sale.customerId) {
         throw new AppError("Selecione um cliente na venda antes de alterar para fiado / crediário.", "CUSTOMER_REQUIRED", 422);
       }
-      if (sale.fiscalDocuments.length) {
+      if (sale.fiscalDocuments.length && sale.paymentMethod !== "STORE_CREDIT") {
         throw new AppError("Esta venda possui documento fiscal em processamento ou autorizado. Regularize o documento fiscal antes de alterar o pagamento.", "ACTIVE_FISCAL_DOCUMENT", 409);
       }
 
       const oldPaymentMethod = sale.paymentMethod;
       await tx.sale.update({ where: { id: sale.id }, data: { paymentMethod: input.paymentMethod } });
+      await tx.salePayment.deleteMany({ where: { saleId: sale.id } });
+      await tx.salePayment.create({ data: { saleId: sale.id, method: input.paymentMethod, amount: sale.total } });
       await tx.financialEntry.updateMany({
         where: { saleId: sale.id, status: { not: "CANCELLED" } },
         data: {
           paymentMethod: input.paymentMethod,
           status: input.paymentMethod === "STORE_CREDIT" ? "PENDING" : "PAID",
-          paidAt: input.paymentMethod === "STORE_CREDIT" ? null : sale.soldAt
+          paidAt: input.paymentMethod === "STORE_CREDIT" ? null : new Date()
         }
       });
 

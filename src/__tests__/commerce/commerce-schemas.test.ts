@@ -97,4 +97,19 @@ describe("commerce schemas", () => {
 
     expect(parsed.success).toBe(false);
   });
+
+  it("exige cliente identificado para venda fiada", () => {
+    const withoutCustomer = createSaleSchema.safeParse({
+      paymentMethod: "STORE_CREDIT",
+      items: [{ description: "Produto", quantity: 1, unitPrice: 20 }]
+    });
+    const withCustomer = createSaleSchema.safeParse({
+      customerId: "cliente-1",
+      paymentMethod: "STORE_CREDIT",
+      items: [{ description: "Produto", quantity: 1, unitPrice: 20 }]
+    });
+
+    expect(withoutCustomer.success).toBe(false);
+    expect(withCustomer.success).toBe(true);
+  });
 });

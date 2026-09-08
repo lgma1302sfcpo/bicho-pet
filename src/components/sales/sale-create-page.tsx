@@ -30,7 +30,7 @@ function formatCurrency(value: number) {
 const unitLabels: Record<string, string> = { UN: "unidades", KG: "quilogramas", G: "gramas", L: "litros", ML: "mililitros", CX: "caixas", PC: "pacotes" };
 const paymentOptions = [
   ["CASH", "Dinheiro"], ["PIX", "PIX"], ["CREDIT_CARD", "Cartão de crédito"],
-  ["DEBIT_CARD", "Cartão de débito"], ["STORE_CREDIT", "Crédito da loja"], ["VOUCHER", "Vale"]
+  ["DEBIT_CARD", "Cartão de débito"], ["STORE_CREDIT", "Fiado"], ["VOUCHER", "Vale"]
 ] as const;
 
 type SaleFormValues = Omit<CreateSaleDTO, "soldAt"> & { soldAt?: Date | string };
@@ -367,7 +367,7 @@ export function SaleCreatePage() {
                 <option value="PIX">PIX</option>
                 <option value="CREDIT_CARD">Cartão de crédito</option>
                 <option value="DEBIT_CARD">Cartão de débito</option>
-                <option value="STORE_CREDIT">Crédito da loja</option>
+                <option value="STORE_CREDIT">Fiado</option>
                 <option value="VOUCHER">Vale</option>
                 <option value="MIXED">Múltiplo</option>
               </Select>

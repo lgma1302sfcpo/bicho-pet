@@ -13,7 +13,7 @@ import { useCreateFinancialEntry, useDeleteFinancialEntry, useFinance, useUpdate
 
 const typeLabels = { REVENUE: "Receita", EXPENSE: "Despesa" } as const;
 const statusLabels = { PENDING: "Pendente", PAID: "Pago", CANCELLED: "Cancelado" } as const;
-const paymentLabels: Record<string, string> = { CASH: "Dinheiro", PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito", STORE_CREDIT: "Crédito da loja", VOUCHER: "Vale", MIXED: "Pagamento combinado" };
+const paymentLabels: Record<string, string> = { CASH: "Dinheiro", PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito", STORE_CREDIT: "Fiado", VOUCHER: "Vale", MIXED: "Pagamento combinado" };
 const categories = ["Vendas", "Fornecedores", "Aluguel", "Energia elétrica", "Água", "Internet", "Impostos", "Salários", "Manutenção", "Marketing", "Outras receitas", "Outras despesas"];
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 

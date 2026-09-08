@@ -65,6 +65,20 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
     if (productsQuery.data) setLastProductData(productsQuery.data);
   }, [productsQuery.data]);
 
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search).get("search");
+    if (search) setSearchText(search);
+  }, []);
+
+  useEffect(() => {
+    const productId = new URLSearchParams(window.location.search).get("edit");
+    if (!productId) return;
+    const product = visibleProductData?.products.find((item) => item.id === productId);
+    if (!product) return;
+    setEditingProduct(product);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [visibleProductData?.products]);
+
   function updateFilter<Key extends keyof ProductFiltersDTO>(key: Key, value: ProductFiltersDTO[Key]) {
     setFilters((current) => ({
       ...current,

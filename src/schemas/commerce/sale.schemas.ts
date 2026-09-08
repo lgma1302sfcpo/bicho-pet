@@ -30,6 +30,9 @@ export const createSaleSchema = z.object({
   notes: z.string().trim().optional(),
   items: z.array(saleItemSchema).min(1, "Informe pelo menos um item.")
 }).superRefine((sale, context) => {
+  if (sale.paymentMethod === "STORE_CREDIT" && !sale.customerId) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["customerId"], message: "Selecione o cliente para registrar uma venda fiada." });
+  }
   if (sale.paymentMethod !== "MIXED") return;
   if (!sale.payments || sale.payments.length < 2) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["payments"], message: "Informe pelo menos duas formas de pagamento." });
