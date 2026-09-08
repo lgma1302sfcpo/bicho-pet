@@ -45,6 +45,7 @@ export type CashSaleTransaction = {
   code: string;
   soldAt: string;
   paymentMethod: PaymentMethod;
+  payments: Array<{ method: PaymentMethod; amount: number }>;
   status: "COMPLETED" | "CANCELLED";
   subtotal: number;
   discount: number;

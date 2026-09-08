@@ -311,11 +311,19 @@ export class PrismaCommerceRepository implements CommerceRepository {
               supplier: product?.supplier,
               total: Math.round((item.quantity * item.unitPrice - item.discount) * 100) / 100
             };})
+          },
+          payments: {
+            create: data.sale.paymentMethod === "MIXED"
+              ? (data.sale.payments ?? []).map((payment) => ({ method: payment.method, amount: payment.amount }))
+              : [{ method: data.sale.paymentMethod, amount: data.total }]
           }
         }
       });
 
-      if (data.sale.paymentMethod === "CASH") {
+      const cashAmount = data.sale.paymentMethod === "MIXED"
+        ? (data.sale.payments ?? []).find((payment) => payment.method === "CASH")?.amount ?? 0
+        : data.sale.paymentMethod === "CASH" ? data.total : 0;
+      if (cashAmount > 0) {
         await tx.cashRegisterMovement.create({
           data: {
             sessionId: cashRegister.id,
@@ -324,7 +332,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
             userId: data.userId,
             saleId: sale.id,
             type: "CASH_SALE",
-            amount: data.total,
+            amount: cashAmount,
             description: `Venda ${sale.code}`
           }
         });
@@ -354,20 +362,23 @@ export class PrismaCommerceRepository implements CommerceRepository {
         });
       }
 
-      await tx.financialEntry.create({
-        data: {
+      const salePayments = data.sale.paymentMethod === "MIXED"
+        ? data.sale.payments ?? []
+        : [{ method: data.sale.paymentMethod, amount: data.total }];
+      await tx.financialEntry.createMany({
+        data: salePayments.map((payment) => ({
           tenantId: data.tenantId,
           branchId: data.branchId,
           saleId: sale.id,
           type: "REVENUE",
-          status: data.sale.paymentMethod === "STORE_CREDIT" ? "PENDING" : "PAID",
+          status: payment.method === "STORE_CREDIT" ? "PENDING" : "PAID",
           description: `Venda ${sale.code}`,
           category: "Vendas",
-          amount: data.total,
+          amount: payment.amount,
           dueDate: soldAt,
-          paidAt: data.sale.paymentMethod === "STORE_CREDIT" ? null : soldAt,
-          paymentMethod: data.sale.paymentMethod
-        }
+          paidAt: payment.method === "STORE_CREDIT" ? null : soldAt,
+          paymentMethod: payment.method
+        }))
       });
 
       if (data.sale.customerId) {

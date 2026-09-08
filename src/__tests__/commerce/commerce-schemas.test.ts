@@ -77,4 +77,24 @@ describe("commerce schemas", () => {
     expect(parsed.success).toBe(false);
     if (!parsed.success) expect(parsed.error.issues[0]?.message).toBe("Selecione a forma de pagamento.");
   });
+
+  it("aceita pagamento múltiplo com valores separados", () => {
+    const parsed = createSaleSchema.parse({
+      paymentMethod: "MIXED",
+      payments: [{ method: "CASH", amount: "50,00" }, { method: "DEBIT_CARD", amount: 50 }],
+      items: [{ description: "Produto", quantity: 1, unitPrice: 100 }]
+    });
+
+    expect(parsed.payments).toEqual([{ method: "CASH", amount: 50 }, { method: "DEBIT_CARD", amount: 50 }]);
+  });
+
+  it("rejeita pagamento múltiplo sem duas formas diferentes", () => {
+    const parsed = createSaleSchema.safeParse({
+      paymentMethod: "MIXED",
+      payments: [{ method: "CASH", amount: 50 }, { method: "CASH", amount: 50 }],
+      items: [{ description: "Produto", quantity: 1, unitPrice: 100 }]
+    });
+
+    expect(parsed.success).toBe(false);
+  });
 });

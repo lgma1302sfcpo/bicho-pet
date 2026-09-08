@@ -101,6 +101,13 @@ export class CommerceService {
       throw new AppError("O total da venda não pode ser negativo.", "INVALID_SALE_TOTAL", 422);
     }
 
+    if (input.paymentMethod === "MIXED") {
+      const paidTotal = this.roundMoney((input.payments ?? []).reduce((sum, payment) => sum + payment.amount, 0));
+      if (paidTotal !== total) {
+        throw new AppError("A soma das formas de pagamento deve ser igual ao total da venda.", "INVALID_PAYMENT_TOTAL", 422);
+      }
+    }
+
     return this.repository.createSale({
       tenantId,
       branchId,

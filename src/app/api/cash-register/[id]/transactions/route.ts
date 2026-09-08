@@ -27,13 +27,14 @@ export async function GET(request: Request, context: Context) {
     if (!cashRegister) throw new AppError("Caixa não encontrado nesta loja.", "CASH_REGISTER_NOT_FOUND", 404);
 
     const sales = await prisma.sale.findMany({
-      where: { tenantId: auth.user.currentTenantId, branchId, cashRegisterSessionId: id, status: { in: ["COMPLETED", "CANCELLED"] }, ...(paymentMethod ? { paymentMethod } : {}) },
+      where: { tenantId: auth.user.currentTenantId, branchId, cashRegisterSessionId: id, status: { in: ["COMPLETED", "CANCELLED"] }, ...(paymentMethod ? { OR: [{ paymentMethod }, { payments: { some: { method: paymentMethod } } }] } : {}) },
       orderBy: [{ soldAt: "desc" }, { createdAt: "desc" }],
       include: {
         customer: { select: { name: true } },
         user: { select: { name: true } },
         cancelledBy: { select: { name: true } },
         items: { include: { product: { select: { unit: true } } }, orderBy: { createdAt: "asc" } },
+        payments: { select: { method: true, amount: true }, orderBy: { createdAt: "asc" } },
         paymentCorrections: { include: { correctedBy: { select: { name: true } } }, orderBy: { createdAt: "desc" } }
       }
     });
@@ -52,6 +53,7 @@ export async function GET(request: Request, context: Context) {
         discount: number(sale.discount),
         surcharge: number(sale.surcharge),
         total: number(sale.total),
+        payments: sale.payments.map((payment) => ({ method: payment.method, amount: number(payment.amount) })),
         notes: sale.notes,
         customerName: sale.customer?.name ?? null,
         userName: sale.user?.name ?? null,

@@ -28,6 +28,10 @@ function formatCurrency(value: number) {
 }
 
 const unitLabels: Record<string, string> = { UN: "unidades", KG: "quilogramas", G: "gramas", L: "litros", ML: "mililitros", CX: "caixas", PC: "pacotes" };
+const paymentOptions = [
+  ["CASH", "Dinheiro"], ["PIX", "PIX"], ["CREDIT_CARD", "Cartão de crédito"],
+  ["DEBIT_CARD", "Cartão de débito"], ["STORE_CREDIT", "Crédito da loja"], ["VOUCHER", "Vale"]
+] as const;
 
 type SaleFormValues = Omit<CreateSaleDTO, "soldAt"> & { soldAt?: Date | string };
 
@@ -76,6 +80,7 @@ export function SaleCreatePage() {
       discount: 0,
       surcharge: 0,
       notes: "",
+      payments: [],
       items: [{ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0 }]
     }
   });
@@ -83,6 +88,9 @@ export function SaleCreatePage() {
     control: form.control,
     name: "items"
   });
+  const { fields: paymentFields, append: appendPayment, remove: removePayment, replace: replacePayments } = useFieldArray({ control: form.control, name: "payments" });
+  const selectedPaymentMethod = form.watch("paymentMethod");
+  const watchedPayments = form.watch("payments") ?? [];
   const customers = useMemo(() => {
     const queriedCustomers = customersQuery.data?.customers ?? [];
     if (!newCustomer || queriedCustomers.some((customer) => customer.id === newCustomer.id)) return queriedCustomers;
@@ -178,6 +186,13 @@ export function SaleCreatePage() {
   const appliedDiscount = Math.round((itemDiscountTotal + bulkAdjustments.discount) * 100) / 100;
   const appliedSurcharge = Math.round((surcharge + bulkAdjustments.surcharge) * 100) / 100;
   const total = Math.round((subtotal - appliedDiscount + appliedSurcharge) * 100) / 100;
+  const allocatedPaymentTotal = Math.round(watchedPayments.reduce((sum, payment) => sum + Number(parseBrazilianNumber(payment.amount) ?? 0), 0) * 100) / 100;
+
+  useEffect(() => {
+    if (selectedPaymentMethod === "MIXED" && paymentFields.length < 2) {
+      replacePayments([{ method: "CASH", amount: 0 }, { method: "DEBIT_CARD", amount: 0 }]);
+    }
+  }, [selectedPaymentMethod, paymentFields.length, replacePayments]);
 
   function openPriceCalculator(itemId: string) {
     setActiveBulkItemId(itemId);
@@ -262,6 +277,7 @@ export function SaleCreatePage() {
         discount: 0,
         surcharge: 0,
         notes: "",
+        payments: [],
         items: [{ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0 }]
       });
       setProductSearches({});
@@ -285,7 +301,10 @@ export function SaleCreatePage() {
     document.text(`Venda: ${lastReceipt.sale.code}`, 20, 30);
     document.text(`Cliente: ${lastReceipt.customerName}`, 20, 36);
     document.text(`Data: ${new Date().toLocaleString("pt-BR")}`, 20, 42);
-    document.text(`Pagamento: ${lastReceipt.values.paymentMethod}`, 20, 48);
+    const receiptPayment = lastReceipt.values.paymentMethod === "MIXED"
+      ? (lastReceipt.values.payments ?? []).map((payment) => `${payment.method}: ${formatCurrency(payment.amount)}`).join(" + ")
+      : lastReceipt.values.paymentMethod;
+    document.text(`Pagamento: ${receiptPayment}`, 20, 48);
     let y = 60;
     for (const item of lastReceipt.values.items) {
       const lineTotal = Number(item.quantity) * Number(item.unitPrice) - Number(item.discount);
@@ -354,6 +373,26 @@ export function SaleCreatePage() {
               </Select>
               <Input label="Data" type="datetime-local" {...form.register("soldAt")} />
             </div>
+
+            {selectedPaymentMethod === "MIXED" ? (
+              <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div><h2 className="font-semibold">Divisão do pagamento</h2><p className="text-sm text-subdued">Informe quanto foi pago em cada forma.</p></div>
+                  <Button type="button" variant="secondary" onClick={() => appendPayment({ method: "PIX", amount: 0 })}><Plus size={16}/>Forma</Button>
+                </div>
+                {paymentFields.map((payment, index) => (
+                  <div key={payment.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                    <Select label={`Forma ${index + 1}`} error={form.formState.errors.payments?.[index]?.method?.message} {...form.register(`payments.${index}.method`)}>
+                      {paymentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </Select>
+                    <Input label="Valor" mask="currency" error={form.formState.errors.payments?.[index]?.amount?.message} {...form.register(`payments.${index}.amount`)} />
+                    <Button type="button" variant="danger" aria-label={`Remover forma ${index + 1}`} disabled={paymentFields.length <= 2} onClick={() => removePayment(index)}><Minus size={17}/></Button>
+                  </div>
+                ))}
+                {form.formState.errors.payments?.message ? <p className="text-sm font-medium text-danger">{form.formState.errors.payments.message}</p> : null}
+                <div className="flex justify-between rounded-md bg-white p-3 text-sm"><span>Total distribuído</span><strong className={allocatedPaymentTotal === total ? "text-success" : "text-danger"}>{formatCurrency(allocatedPaymentTotal)} de {formatCurrency(total)}</strong></div>
+              </div>
+            ) : null}
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const cashRegister = await tx.cashRegisterSession.findFirst({
         where: { tenantId: session.user.currentTenantId, branchId, status: "OPEN" },
-        include: { movements: { select: { type: true, amount: true } }, sales: { select: { paymentMethod: true, total: true } } }
+        include: { movements: { select: { type: true, amount: true } }, sales: { select: { paymentMethod: true, total: true, payments: { select: { method: true, amount: true } } } } }
       });
       if (!cashRegister) throw new AppError("Não existe um caixa aberto nesta loja.", "CASH_REGISTER_NOT_OPEN", 409);
 
@@ -26,7 +26,10 @@ export async function POST(request: Request) {
         if (movement.type === "WITHDRAWAL") acc.withdrawals += amount;
         return acc;
       }, { cashSales: 0, supplies: 0, withdrawals: 0 });
-      totals.cashSales = cashRegister.sales.reduce((total, sale) => sale.paymentMethod === "CASH" ? total + Number(sale.total) : total, 0);
+      totals.cashSales = cashRegister.sales.reduce((total, sale) => {
+        if (sale.payments.length) return total + sale.payments.reduce((sum, payment) => payment.method === "CASH" ? sum + Number(payment.amount) : sum, 0);
+        return sale.paymentMethod === "CASH" ? total + Number(sale.total) : total;
+      }, 0);
       const expectedAmount = calculateExpectedCash(Number(cashRegister.openingAmount), totals);
       const difference = calculateCashDifference(input.actualAmount, expectedAmount);
 
