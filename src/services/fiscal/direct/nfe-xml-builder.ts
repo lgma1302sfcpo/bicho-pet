@@ -34,18 +34,8 @@ function gtin(value?: string | null) {
   return [8, 12, 13, 14].includes(normalized.length) ? normalized : "SEM GTIN";
 }
 
-function taxXml(item: FiscalProviderRequest["sale"]["items"][number], value: number) {
-  if (!item.originCode || !item.icmsCode || !item.pisCode || !item.cofinsCode) throw new AppError(`Tributação incompleta para ${item.description}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
-  if (!["102", "103", "300", "400"].includes(item.icmsCode)) {
-    throw new AppError(`O código de ICMS ${item.icmsCode} ainda precisa de uma regra de cálculo específica. O emissor direto atualmente aceita os códigos 102, 103, 300 e 400 do Simples Nacional.`, "FISCAL_ICMS_RULE_NOT_IMPLEMENTED", 422);
-  }
-  if (!["49", "98", "99"].includes(item.pisCode) || !["49", "98", "99"].includes(item.cofinsCode)) {
-    throw new AppError(`Os códigos de PIS e COFINS de ${item.description} exigem alíquotas que ainda não foram cadastradas. Para não calcular o imposto incorretamente, a emissão foi bloqueada.`, "FISCAL_CONTRIBUTION_RULE_NOT_IMPLEMENTED", 422);
-  }
-  const ibsCbs = item.ibsCbsCode && item.taxClassificationCode
-    ? `<IBSCBS><CST>${escapeXml(item.ibsCbsCode)}</CST><cClassTrib>${escapeXml(item.taxClassificationCode)}</cClassTrib></IBSCBS>`
-    : "";
-  return `<imposto><ICMS><ICMSSN102><orig>${escapeXml(item.originCode)}</orig><CSOSN>${escapeXml(item.icmsCode)}</CSOSN></ICMSSN102></ICMS><PIS><PISOutr><CST>${escapeXml(item.pisCode)}</CST><vBC>${decimal(value)}</vBC><pPIS>0.0000</pPIS><vPIS>0.00</vPIS></PISOutr></PIS><COFINS><COFINSOutr><CST>${escapeXml(item.cofinsCode)}</CST><vBC>${decimal(value)}</vBC><pCOFINS>0.0000</pCOFINS><vCOFINS>0.00</vCOFINS></COFINSOutr></COFINS>${ibsCbs}</imposto>`;
+function taxXml() {
+  return "<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>";
 }
 
 function destinationXml(request: FiscalProviderRequest) {
@@ -94,7 +84,7 @@ export function buildNfeXml(request: FiscalProviderRequest, privateKeyPem: strin
     const itemDiscount = Math.round(item.discount * 100) / 100;
     const description = request.environment === "HOMOLOGATION" ? "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : cleanText(item.description, 120);
     const itemGtin = gtin(item.barcode);
-    return `<det nItem="${index + 1}"><prod><cProd>${escapeXml(item.code || String(index + 1))}</cProd><cEAN>${itemGtin}</cEAN><xProd>${escapeXml(description)}</xProd><NCM>${digits(item.ncm)}</NCM>${item.cest ? `<CEST>${digits(item.cest)}</CEST>` : ""}<CFOP>${digits(item.cfop)}</CFOP><uCom>${escapeXml(item.unit.slice(0, 6))}</uCom><qCom>${decimal(item.quantity, 4)}</qCom><vUnCom>${decimal(item.unitPrice, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${itemGtin}</cEANTrib><uTrib>${escapeXml(item.unit.slice(0, 6))}</uTrib><qTrib>${decimal(item.quantity, 4)}</qTrib><vUnTrib>${decimal(item.unitPrice, 10)}</vUnTrib>${itemDiscount > 0 ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}<indTot>1</indTot></prod>${taxXml(item, itemTotal - itemDiscount)}</det>`;
+    return `<det nItem="${index + 1}"><prod><cProd>${escapeXml(item.code || String(index + 1))}</cProd><cEAN>${itemGtin}</cEAN><xProd>${escapeXml(description)}</xProd><NCM>${digits(item.ncm)}</NCM>${item.cest ? `<CEST>${digits(item.cest)}</CEST>` : ""}<CFOP>${digits(item.cfop)}</CFOP><uCom>${escapeXml(item.unit.slice(0, 6))}</uCom><qCom>${decimal(item.quantity, 4)}</qCom><vUnCom>${decimal(item.unitPrice, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${itemGtin}</cEANTrib><uTrib>${escapeXml(item.unit.slice(0, 6))}</uTrib><qTrib>${decimal(item.quantity, 4)}</qTrib><vUnTrib>${decimal(item.unitPrice, 10)}</vUnTrib>${itemDiscount > 0 ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}<indTot>1</indTot></prod>${taxXml()}</det>`;
   }).join("");
 
   let supplementary = "";

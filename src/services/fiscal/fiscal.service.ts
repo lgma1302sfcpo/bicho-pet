@@ -410,7 +410,7 @@ export class FiscalService {
         const missing = [item.product.fiscalItemType !== "SERVICE" && "tipo serviço", !item.product.serviceCode && "código do serviço", item.product.issRate === null && "alíquota de ISS", !item.product.fiscalApproved && "aprovação do contador"].filter(Boolean);
         if (missing.length) throw new AppError(`${item.product.name}: preencher ${missing.join(", ")}.`, "FISCAL_SERVICE_DATA_MISSING", 422);
       } else {
-        const missing = [item.product.fiscalItemType !== "GOOD" && "tipo mercadoria", !item.product.unit && "unidade de medida", !item.product.originCode && "origem", !item.product.ncm && "NCM", !item.product.defaultCfop && "CFOP", !item.product.icmsCode && "ICMS", !item.product.pisCode && "PIS", !item.product.cofinsCode && "COFINS", !item.product.fiscalApproved && "aprovação do contador"].filter(Boolean);
+        const missing = [item.product.fiscalItemType !== "GOOD" && "tipo mercadoria", !item.product.unit && "unidade de medida", !item.product.ncm && "NCM", !item.product.defaultCfop && "CFOP"].filter(Boolean);
         if (missing.length) throw new AppError(`${item.product.name}: preencher ${missing.join(", ")}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
       }
     }
@@ -448,7 +448,7 @@ export class FiscalService {
         paymentMethod: sale.paymentMethod, discount: number(sale.discount), surcharge: number(sale.surcharge),
         items: sale.items.map((item) => ({
           code: item.product?.code || item.product?.sku || item.id, barcode: item.product?.barcode, description: item.description, quantity: number(item.quantity), unitPrice: number(item.unitPrice), discount: number(item.discount), unit: item.product?.unit || "UN",
-          ncm: item.product?.ncm, cest: item.product?.cest, originCode: item.product?.originCode, cfop: item.product?.defaultCfop, icmsCode: item.product?.icmsCode, pisCode: item.product?.pisCode, cofinsCode: item.product?.cofinsCode, ibsCbsCode: item.product?.ibsCbsCode, taxClassificationCode: item.product?.taxClassificationCode, serviceCode: item.product?.serviceCode
+          ncm: item.product?.ncm, cest: item.product?.cest, originCode: "0", cfop: item.product?.defaultCfop, icmsCode: "102", serviceCode: item.product?.serviceCode
         }))
       }
     };

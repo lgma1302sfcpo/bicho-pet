@@ -72,12 +72,8 @@ export const createProductSchema = z.object({
     return;
   }
 
-  requireField("originCode", "Selecione a origem da mercadoria.");
   requireField("ncm", "Informe o NCM validado pelo contador.");
   requireField("defaultCfop", "Informe o CFOP padrão validado pelo contador.");
-  requireField("icmsCode", "Informe o código de ICMS (CST ou CSOSN).");
-  requireField("pisCode", "Informe o CST do PIS.");
-  requireField("cofinsCode", "Informe o CST da COFINS.");
 });
 
 export const updateProductSchema = createProductSchema.and(z.object({

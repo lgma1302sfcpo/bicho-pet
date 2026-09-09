@@ -65,6 +65,7 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
   });
   const watchedCost = Number(parseBrazilianNumber(form.watch("costPrice")) ?? 0);
   const watchedSale = Number(parseBrazilianNumber(form.watch("salePrice")) ?? 0);
+  const fiscalItemType = form.watch("fiscalItemType");
   const markup = watchedCost > 0 ? ((watchedSale - watchedCost) / watchedCost) * 100 : 0;
   const grossProfit = watchedSale - watchedCost;
   const categories = product?.category && !categorySuggestions.includes(product.category)
@@ -178,30 +179,32 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
         <div className="erp-form-section rounded-md border border-border bg-slate-50 p-3 sm:p-4">
           <div className="mb-3">
             <h3 className="font-semibold">Dados fiscais</h3>
-            <p className="text-xs text-subdued">Preencha somente com a matriz validada pelo contador. A aprovação fiscal é obrigatória antes da emissão.</p>
+            <p className="text-xs text-subdued">Para mercadorias, preencha somente NCM, CEST quando houver e CFOP.</p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <Select label="Tipo do item" help="Mercadorias usam NCM; serviços usam o código municipal ou nacional do serviço." error={form.formState.errors.fiscalItemType?.message} {...form.register("fiscalItemType")}>
               <option value="GOOD">Mercadoria</option>
               <option value="SERVICE">Serviço</option>
             </Select>
-            <Select label="Origem da mercadoria (necessária para aprovação)" help="Pode ficar vazia enquanto o cadastro fiscal estiver pendente." error={form.formState.errors.originCode?.message} {...form.register("originCode")}>
-              <option value="">Selecione</option><option value="0">0 - Nacional</option><option value="1">1 - Estrangeira, importação direta</option><option value="2">2 - Estrangeira, adquirida no mercado interno</option><option value="3">3 - Nacional com conteúdo importado superior a 40%</option><option value="4">4 - Nacional conforme processos produtivos básicos</option><option value="5">5 - Nacional com conteúdo importado até 40%</option><option value="6">6 - Estrangeira sem similar nacional, importação direta</option><option value="7">7 - Estrangeira sem similar nacional, mercado interno</option><option value="8">8 - Nacional com conteúdo importado superior a 70%</option>
-            </Select>
-            <Input label="NCM (necessário para aprovação)" help="Código de oito números validado pelo contador. Não utilize 00000000 como código genérico." mask="integer" maxLength={8} error={form.formState.errors.ncm?.message} {...form.register("ncm")} />
-            <Input label="CEST (somente quando aplicável)" help="Preencha apenas para produtos enquadrados em substituição tributária ou antecipação." mask="integer" maxLength={7} error={form.formState.errors.cest?.message} {...form.register("cest")} />
-            <Input label="CFOP padrão (necessário para aprovação)" help="Código definido pelo contador para a operação padrão; pode mudar conforme a operação." mask="integer" maxLength={4} error={form.formState.errors.defaultCfop?.message} {...form.register("defaultCfop")} />
-            <Input label="Código do Imposto sobre Circulação de Mercadorias e Serviços" help="Informe o Código de Situação Tributária ou o Código de Situação da Operação no Simples Nacional." error={form.formState.errors.icmsCode?.message} {...form.register("icmsCode")} />
-            <Input label="Código do Programa de Integração Social" error={form.formState.errors.pisCode?.message} {...form.register("pisCode")} />
-            <Input label="Código da Contribuição para o Financiamento da Seguridade Social" error={form.formState.errors.cofinsCode?.message} {...form.register("cofinsCode")} />
-            <Input label="CST IBS/CBS (conforme enquadramento)" help="Preencha somente quando o contador indicar, conforme o regime da empresa e as regras vigentes." error={form.formState.errors.ibsCbsCode?.message} {...form.register("ibsCbsCode")} />
-            <Input label="Classificação tributária IBS/CBS (conforme enquadramento)" help="Preencha somente com o cClassTrib informado pelo contador." error={form.formState.errors.taxClassificationCode?.message} {...form.register("taxClassificationCode")} />
-            <Input label="Código do serviço" help="Obrigatório para itens de serviço emitidos em Nota Fiscal de Serviço Eletrônica." error={form.formState.errors.serviceCode?.message} {...form.register("serviceCode")} />
-            <Input label="Alíquota do Imposto sobre Serviços" mask="decimal" help="Percentual validado pelo contador e pelo município. Para mercadorias, deixe este campo vazio." error={form.formState.errors.issRate?.message} {...form.register("issRate")} />
-            <Select label="Validação do contador" help="Marque como aprovado somente depois de o contador conferir este cadastro." error={form.formState.errors.fiscalApproved?.message} {...form.register("fiscalApproved", { setValueAs: (value) => value === "true" })}>
-              <option value="false">Pendente de validação</option>
-              <option value="true">Aprovado pelo contador</option>
-            </Select>
+            {fiscalItemType === "GOOD" ? (
+              <>
+                <Input label="NCM" help="Código de oito números informado na nota do fornecedor." mask="integer" maxLength={8} error={form.formState.errors.ncm?.message} {...form.register("ncm")} />
+                <Input label="CEST (somente quando houver)" help="Código de sete números. Se não constar na nota do fornecedor, deixe vazio." mask="integer" maxLength={7} error={form.formState.errors.cest?.message} {...form.register("cest")} />
+                <Input label="CFOP" help="Nas notas antigas analisadas, o código utilizado nas vendas foi 5102." mask="integer" maxLength={4} error={form.formState.errors.defaultCfop?.message} {...form.register("defaultCfop")} />
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 md:col-span-2">
+                  O sistema usará automaticamente Origem 0 - Nacional e CSOSN 102. PIS e COFINS não serão enviados, seguindo o padrão das NFC-e antigas.
+                </div>
+              </>
+            ) : (
+              <>
+                <Input label="Código do serviço" help="Obrigatório para itens de serviço emitidos em Nota Fiscal de Serviço Eletrônica." error={form.formState.errors.serviceCode?.message} {...form.register("serviceCode")} />
+                <Input label="Alíquota do Imposto sobre Serviços" mask="decimal" help="Percentual validado pelo contador e pelo município." error={form.formState.errors.issRate?.message} {...form.register("issRate")} />
+                <Select label="Validação do contador" help="Marque como aprovado somente depois de o contador conferir este cadastro." error={form.formState.errors.fiscalApproved?.message} {...form.register("fiscalApproved", { setValueAs: (value) => value === "true" })}>
+                  <option value="false">Pendente de validação</option>
+                  <option value="true">Aprovado pelo contador</option>
+                </Select>
+              </>
+            )}
           </div>
         </div>
         {product ? (

@@ -92,7 +92,11 @@ describe("product schemas", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       const fields = result.error.issues.map((issue) => issue.path[0]);
-      expect(fields).toEqual(expect.arrayContaining(["originCode", "ncm", "defaultCfop", "icmsCode", "pisCode", "cofinsCode"]));
+      expect(fields).toEqual(expect.arrayContaining(["ncm", "defaultCfop"]));
+      expect(fields).not.toContain("originCode");
+      expect(fields).not.toContain("icmsCode");
+      expect(fields).not.toContain("pisCode");
+      expect(fields).not.toContain("cofinsCode");
       expect(fields).not.toContain("cest");
       expect(fields).not.toContain("ibsCbsCode");
     }

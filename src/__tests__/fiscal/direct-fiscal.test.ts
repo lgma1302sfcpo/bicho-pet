@@ -59,11 +59,8 @@ function request(contingency = false): FiscalProviderRequest {
         discount: 0,
         unit: "UN",
         ncm: "23091000",
-        originCode: "0",
         cfop: "5102",
-        icmsCode: "102",
-        pisCode: "49",
-        cofinsCode: "49"
+        cest: "2200400"
       }]
     }
   };
@@ -90,6 +87,9 @@ describe("emissor fiscal direto", () => {
     expect(verifyNfeSignature(signed, keys.certificatePem)).toBe(true);
     expect(built.qrCodeUrl).toContain("|3|2");
     expect(built.qrCodeUrl).not.toContain("CSC");
+    expect(signed).toContain("<ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102>");
+    expect(signed).not.toContain("<PIS>");
+    expect(signed).not.toContain("<COFINS>");
     await expect(validateNfeXml(signed)).resolves.toBeUndefined();
   }, 30_000);
 
