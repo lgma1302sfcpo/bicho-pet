@@ -17,6 +17,19 @@ function digits(value?: string | null) { return value?.replace(/\D/g, "") ?? "";
 function decimal(value: number, scale = 2) { return value.toFixed(scale); }
 function cleanText(value: string, max: number) { return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 .,/\-]/g, " ").replace(/\s+/g, " ").trim().slice(0, max); }
 
+function allocateMoney(total: number, weights: number[]) {
+  const totalCents = Math.round(total * 100);
+  if (totalCents === 0) return weights.map(() => 0);
+  const weightTotal = weights.reduce((sum, weight) => sum + Math.max(0, weight), 0);
+  if (weightTotal === 0) return weights.map((_, index) => index === 0 ? totalCents / 100 : 0);
+  const rawShares = weights.map((weight) => totalCents * Math.max(0, weight) / weightTotal);
+  const cents = rawShares.map(Math.floor);
+  const remaining = totalCents - cents.reduce((sum, value) => sum + value, 0);
+  const remainderOrder = rawShares.map((share, index) => ({ index, remainder: share - Math.floor(share) })).sort((first, second) => second.remainder - first.remainder);
+  for (let index = 0; index < remaining; index += 1) cents[remainderOrder[index % remainderOrder.length].index] += 1;
+  return cents.map((value) => value / 100);
+}
+
 function paymentCode(method: string) {
   return ({ CASH: "01", CREDIT_CARD: "03", DEBIT_CARD: "04", STORE_CREDIT: "05", PIX: "17", VOUCHER: "99", MIXED: "99" } as Record<string, string>)[method] ?? "99";
 }
@@ -88,14 +101,18 @@ export function buildNfeXml(request: FiscalProviderRequest, privateKeyPem: strin
   const endpoint = sefazSpEndpoints(request.type, request.environment);
   const destinationState = request.sale.customerState || request.issuer.state;
   const destinationIndicator = destinationState === request.issuer.state ? "1" : "2";
+  const itemGrossValues = request.sale.items.map((item) => Math.round(item.quantity * item.unitPrice * 100) / 100);
+  const allocatedDiscounts = allocateMoney(request.sale.discount, itemGrossValues);
+  const allocatedSurcharges = allocateMoney(request.sale.surcharge, itemGrossValues);
 
   const itemXml = request.sale.items.map((item, index) => {
     if (!item.ncm || !item.cfop) throw new AppError(`NCM e CFOP sao obrigatorios para ${item.description}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
     const itemTotal = Math.round(item.quantity * item.unitPrice * 100) / 100;
-    const itemDiscount = Math.round(item.discount * 100) / 100;
+    const itemDiscount = allocatedDiscounts[index];
+    const itemSurcharge = allocatedSurcharges[index];
     const description = request.environment === "HOMOLOGATION" ? "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : cleanText(item.description, 120);
     const itemGtin = gtin(item.barcode);
-    return `<det nItem="${index + 1}"><prod><cProd>${escapeXml(item.code || String(index + 1))}</cProd><cEAN>${itemGtin}</cEAN><xProd>${escapeXml(description)}</xProd><NCM>${digits(item.ncm)}</NCM>${item.cest ? `<CEST>${digits(item.cest)}</CEST>` : ""}<CFOP>${digits(item.cfop)}</CFOP><uCom>${escapeXml(item.unit.slice(0, 6))}</uCom><qCom>${decimal(item.quantity, 4)}</qCom><vUnCom>${decimal(item.unitPrice, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${itemGtin}</cEANTrib><uTrib>${escapeXml(item.unit.slice(0, 6))}</uTrib><qTrib>${decimal(item.quantity, 4)}</qTrib><vUnTrib>${decimal(item.unitPrice, 10)}</vUnTrib>${itemDiscount > 0 ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}<indTot>1</indTot></prod>${taxXml()}</det>`;
+    return `<det nItem="${index + 1}"><prod><cProd>${escapeXml(item.code || String(index + 1))}</cProd><cEAN>${itemGtin}</cEAN><xProd>${escapeXml(description)}</xProd><NCM>${digits(item.ncm)}</NCM>${item.cest ? `<CEST>${digits(item.cest)}</CEST>` : ""}<CFOP>${digits(item.cfop)}</CFOP><uCom>${escapeXml(item.unit.slice(0, 6))}</uCom><qCom>${decimal(item.quantity, 4)}</qCom><vUnCom>${decimal(item.unitPrice, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${itemGtin}</cEANTrib><uTrib>${escapeXml(item.unit.slice(0, 6))}</uTrib><qTrib>${decimal(item.quantity, 4)}</qTrib><vUnTrib>${decimal(item.unitPrice, 10)}</vUnTrib>${itemDiscount > 0 ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}${itemSurcharge > 0 ? `<vOutro>${decimal(itemSurcharge)}</vOutro>` : ""}<indTot>1</indTot></prod>${taxXml()}</det>`;
   }).join("");
 
   let supplementary = "";

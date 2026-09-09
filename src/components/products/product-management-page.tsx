@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, FileUp, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Boxes, ChevronLeft, ChevronRight, FileUp, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ProductCreateForm } from "@/components/products/product-create-form";
@@ -24,6 +24,7 @@ const speciesLabels: Record<string, string> = {
   OTHER: "Outro"
 };
 const unitLabels: Record<string, string> = { UN: "unidades", KG: "quilogramas", G: "gramas", L: "litros", ML: "mililitros", CX: "caixas", PC: "pacotes" };
+const productsPerPage = 20;
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -49,9 +50,12 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importPending, setImportPending] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItemDTO | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const visibleProductData = productsQuery.data ?? lastProductData;
   const products = visibleProductData?.products ?? [];
   const summary = visibleProductData?.summary;
+  const totalPages = Math.max(1, Math.ceil(products.length / productsPerPage));
+  const paginatedProducts = products.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage);
   const activeFilters = [filters.search ? `Busca: ${filters.search}` : null, filters.category ? `Categoria: ${filters.category}` : null, filters.supplier ? `Fornecedor: ${filters.supplier}` : null, filters.species ? `Espécie: ${speciesLabels[filters.species]}` : null, filters.lowStockOnly ? "Somente estoque baixo" : null, filters.status ? `Situação: ${filters.status === "ACTIVE" ? "Ativo" : filters.status === "INACTIVE" ? "Inativo" : "Descontinuado"}` : null].filter(Boolean) as string[];
 
   useEffect(() => {
@@ -64,6 +68,14 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   useEffect(() => {
     if (productsQuery.data) setLastProductData(productsQuery.data);
   }, [productsQuery.data]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search).get("search");
@@ -236,7 +248,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               <Badge className={activeFilters.length ? "border-brand-200 bg-brand-50 text-brand-700" : ""}>{activeFilters.length ? `Resultado filtrado: ${products.length}` : `${products.length} produtos`}</Badge>
             </div>
             <div className="divide-y divide-border md:hidden">
-              {products.map((product) => (
+              {paginatedProducts.map((product) => (
                 <article key={product.id} className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -270,12 +282,12 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                     <th className="px-4 py-3">Preço de venda</th>
                     <th className="px-4 py-3">Estoque</th>
                     <th className="px-4 py-3">Markup sobre o custo</th>
-                    <th className="px-4 py-3">Ações</th>
+                    <th className="sticky right-0 z-10 border-l border-border bg-muted px-4 py-3">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {products.map((product) => (
-                    <tr key={product.id} className="transition hover:bg-slate-50">
+                  {paginatedProducts.map((product) => (
+                    <tr key={product.id} className="group transition hover:bg-slate-50">
                       <td className="px-4 py-3">
                         <div className="font-medium">{product.name}</div>
                         <div className="text-xs text-subdued">
@@ -303,7 +315,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                         <div className="text-xs text-subdued">Estoque mínimo: {product.minStock}</div>
                       </td>
                       <td className="px-4 py-3"><strong>{product.marginPercent.toFixed(2)}%</strong><div className="text-xs text-subdued">Lucro unitário {formatCurrency(product.salePrice - product.costPrice)}</div></td>
-                      <td className="px-4 py-3">
+                      <td className="sticky right-0 z-[1] border-l border-border bg-white px-4 py-3 group-hover:bg-slate-50">
                         {canManage ? (
                         <div className="flex gap-2">
                           <Button variant="secondary" onClick={() => setEditingProduct(product)} aria-label={`Editar ${product.name}`}>
@@ -337,6 +349,16 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                 </tbody>
               </table>
             </div>
+            {products.length > 0 ? (
+              <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-subdued">Exibindo {(currentPage - 1) * productsPerPage + 1} a {Math.min(currentPage * productsPerPage, products.length)} de {products.length} produtos</p>
+                <div className="flex items-center justify-between gap-2 sm:justify-end">
+                  <Button variant="secondary" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}><ChevronLeft size={16}/>Anterior</Button>
+                  <span className="min-w-24 text-center text-sm font-medium">Página {currentPage} de {totalPages}</span>
+                  <Button variant="secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>Próxima<ChevronRight size={16}/></Button>
+                </div>
+              </div>
+            ) : null}
           </Card>
         </div>
 

@@ -109,6 +109,19 @@ describe("emissor fiscal direto", () => {
     await expect(validateNfeXml(signed)).resolves.toBeUndefined();
   }, 30_000);
 
+  it("distribui desconto e acrescimo nos itens sem divergir dos totais", async () => {
+    const keys = certificate();
+    const input = request();
+    input.sale.discount = 1.25;
+    input.sale.surcharge = 2.5;
+    const built = buildNfeXml(input, keys.privateKeyPem);
+    expect(built.xml).toContain("<vDesc>1.25</vDesc>");
+    expect(built.xml).toContain("<vOutro>2.50</vOutro>");
+    expect(built.xml).toContain("<vNF>51.15</vNF>");
+    const signed = signNfeXml(built.xml, keys.privateKeyPem, keys.certificatePem);
+    await expect(validateNfeXml(signed)).resolves.toBeUndefined();
+  }, 30_000);
+
   it("gera contingencia offline com tipo de emissao nove e QR Code assinado", async () => {
     const keys = certificate();
     const built = buildNfeXml(request(true), keys.privateKeyPem);
