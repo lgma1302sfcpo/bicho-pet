@@ -75,7 +75,7 @@ export function useFiscalOverview() {
 
 function useFiscalMutation<T>(mutationFn: (input: T) => Promise<unknown>) {
   const client = useQueryClient();
-  return useMutation({ mutationFn, onSuccess: () => client.invalidateQueries({ queryKey: ["fiscal"] }) });
+  return useMutation({ mutationFn, onSettled: () => client.invalidateQueries({ queryKey: ["fiscal"] }) });
 }
 
 export function useSaveFiscalConfiguration() {
