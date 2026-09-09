@@ -25,6 +25,7 @@ export type FiscalProviderRequest = {
     customerState?: string | null;
     customerZipCode?: string | null;
     paymentMethod: string;
+    payments?: Array<{ method: string; amount: number }>;
     discount: number;
     surcharge: number;
     items: Array<{

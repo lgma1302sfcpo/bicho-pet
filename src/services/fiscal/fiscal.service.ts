@@ -18,7 +18,7 @@ type CancelInput = z.infer<typeof cancelFiscalDocumentSchema>;
 type VoidInput = z.infer<typeof voidFiscalNumberSchema>;
 type ReplaceInput = z.infer<typeof replaceFiscalDocumentSchema>;
 type FiscalConfigurationRecord = NonNullable<Awaited<ReturnType<typeof prisma.fiscalConfiguration.findUnique>>>;
-type IssuableSale = Prisma.SaleGetPayload<{ include: { customer: true; items: { include: { product: true } } } }>;
+type IssuableSale = Prisma.SaleGetPayload<{ include: { customer: true; payments: true; items: { include: { product: true } } } }>;
 type FiscalDocumentRecord = Prisma.FiscalDocumentGetPayload<Record<string, never>>;
 
 function number(value: Prisma.Decimal | number) {
@@ -177,7 +177,7 @@ export class FiscalService {
 
     const sale = await prisma.sale.findFirst({
       where: { id: input.saleId, tenantId, branchId, status: "COMPLETED" },
-      include: { customer: true, items: { include: { product: true } } }
+      include: { customer: true, payments: true, items: { include: { product: true } } }
     });
     if (!sale) throw new AppError("Venda concluída não encontrada.", "SALE_NOT_FOUND", 404);
     this.validateForIssue(configuration, sale, input.type);
@@ -352,7 +352,7 @@ export class FiscalService {
   }
 
   async transmitContingency(tenantId: string, userId: string, id: string) {
-    const document = await prisma.fiscalDocument.findFirst({ where: { id, tenantId }, include: { sale: { include: { customer: true, items: { include: { product: true } } } } } });
+    const document = await prisma.fiscalDocument.findFirst({ where: { id, tenantId }, include: { sale: { include: { customer: true, payments: true, items: { include: { product: true } } } } } });
     if (!document || document.status !== "CONTINGENCY_PENDING" || !document.xmlContent || !document.providerId) throw new AppError("Documento de contingência pendente não encontrado.", "FISCAL_CONTINGENCY_NOT_PENDING", 422);
     const configuration = await this.configuration(tenantId);
     if (document.provider !== "DIRECT_SEFAZ_SP" || configuration.provider !== "DIRECT_SEFAZ_SP") throw new AppError("A retransmissão da contingência exige a conexão direta configurada.", "FISCAL_DIRECT_PROVIDER_REQUIRED", 422);
@@ -479,7 +479,7 @@ export class FiscalService {
       sale: {
         code: sale.code, total: number(sale.total), customerName: sale.customer?.name ?? "Consumidor final", customerDocument: sale.customer?.document,
         customerStateRegistration: sale.customer?.stateRegistration, customerStreet: sale.customer?.street, customerNumber: sale.customer?.addressNumber, customerComplement: sale.customer?.complement, customerDistrict: sale.customer?.district, customerCity: sale.customer?.city, customerCityCode: sale.customer?.cityCode, customerState: sale.customer?.state, customerZipCode: sale.customer?.zipCode,
-        paymentMethod: sale.paymentMethod, discount: number(sale.discount), surcharge: number(sale.surcharge),
+        paymentMethod: sale.paymentMethod, payments: sale.payments.map((payment) => ({ method: payment.method, amount: number(payment.amount) })), discount: number(sale.discount), surcharge: number(sale.surcharge),
         items: sale.items.map((item) => ({
           code: item.product?.code || item.product?.sku || item.id, barcode: item.product?.barcode, description: item.description, quantity: number(item.quantity), unitPrice: number(item.unitPrice), discount: number(item.discount), unit: item.product?.unit || "UN",
           ncm: item.product?.ncm, cest: item.product?.cest, originCode: "0", cfop: item.product?.defaultCfop, icmsCode: "102", serviceCode: item.product?.serviceCode

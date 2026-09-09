@@ -90,6 +90,20 @@ describe("emissor fiscal direto", () => {
     expect(signed).toContain("<ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102>");
     expect(signed).not.toContain("<PIS>");
     expect(signed).not.toContain("<COFINS>");
+    expect(signed).toContain("<dPag>");
+    await expect(validateNfeXml(signed)).resolves.toBeUndefined();
+  }, 30_000);
+
+  it("informa separadamente os valores de um pagamento misto", async () => {
+    const keys = certificate();
+    const input = request();
+    input.sale.paymentMethod = "MIXED";
+    input.sale.payments = [{ method: "CASH", amount: 24.9 }, { method: "DEBIT_CARD", amount: 25 }];
+    const built = buildNfeXml(input, keys.privateKeyPem);
+    expect(built.xml).toContain("<tPag>01</tPag><vPag>24.90</vPag>");
+    expect(built.xml).toContain("<tPag>04</tPag><vPag>25.00</vPag>");
+    expect(built.xml).toContain("<card><tpIntegra>2</tpIntegra></card>");
+    const signed = signNfeXml(built.xml, keys.privateKeyPem, keys.certificatePem);
     await expect(validateNfeXml(signed)).resolves.toBeUndefined();
   }, 30_000);
 
