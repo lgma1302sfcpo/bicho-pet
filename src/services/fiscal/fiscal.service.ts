@@ -187,9 +187,38 @@ export class FiscalService {
       throw new AppError("Esta venda já possui uma emissão deste tipo. Consulte o documento existente para evitar duplicidade.", "DUPLICATE_FISCAL_DOCUMENT", 409);
     }
 
-    const document = existing ? await prisma.fiscalDocument.update({
+    const environmentChanged = existing && (existing.environment !== configuration.environment || existing.series !== input.series || existing.provider !== configuration.provider);
+    const document = environmentChanged ? await prisma.$transaction(async (transaction) => {
+      const sequence = await transaction.fiscalSequence.upsert({
+        where: { tenantId_type_environment_series: { tenantId, type: input.type, environment: configuration.environment, series: input.series } },
+        create: { tenantId, type: input.type, environment: configuration.environment, series: input.series, nextNumber: 2 },
+        update: { nextNumber: { increment: 1 } }
+      });
+      return transaction.fiscalDocument.update({
+        where: { id: existing.id },
+        data: {
+          environment: configuration.environment,
+          provider: configuration.provider,
+          series: input.series,
+          number: sequence.nextNumber - 1,
+          status: "PROCESSING",
+          providerId: null,
+          accessKey: null,
+          protocol: null,
+          rejectionCode: null,
+          rejectionReason: null,
+          xmlContent: null,
+          pdfContent: null,
+          authorizedAt: null,
+          cancelledAt: null,
+          cancellationProtocol: null,
+          cancellationXmlContent: null,
+          archivedAt: null
+        }
+      });
+    }) : existing ? await prisma.fiscalDocument.update({
       where: { id: existing.id },
-      data: { status: "PROCESSING", rejectionCode: null, rejectionReason: null, provider: configuration.provider, archivedAt: null }
+      data: { status: "PROCESSING", rejectionCode: null, rejectionReason: null, archivedAt: null }
     }) : await prisma.$transaction(async (transaction) => {
       const sequence = await transaction.fiscalSequence.upsert({
         where: { tenantId_type_environment_series: { tenantId, type: input.type, environment: configuration.environment, series: input.series } },
