@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataErrorState, DataLoadingState } from "@/components/ui/data-state";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { useFiscalAction, useFiscalOverview, useIssueFiscalDocument, useSaveFiscalConfiguration, useSefazStatus, useVoidFiscalNumber } from "@/hooks/use-fiscal";
 
@@ -44,6 +45,8 @@ export function FiscalManagementPage() {
   const [contingencyReason, setContingencyReason] = useState("");
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [configHydrated, setConfigHydrated] = useState(false);
+  const [documentToCancel, setDocumentToCancel] = useState<{ id: string; type: string; series: number; number: number; environment: string } | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
 
   useEffect(() => {
     if (!overview.data) return;
@@ -69,6 +72,18 @@ export function FiscalManagementPage() {
     setMessage(null);
     try { await operation(); setMessage({ kind: "success", text: success }); }
     catch (error) { setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível concluir." }); }
+  }
+  async function cancelDocument() {
+    if (!documentToCancel || cancellationReason.trim().length < 15) return;
+    setMessage(null);
+    try {
+      await action.mutateAsync({ id: documentToCancel.id, action: "cancel", reason: cancellationReason.trim() });
+      setMessage({ kind: "success", text: `NFC-e cancelada ${documentToCancel.environment === "HOMOLOGATION" ? "em homologação" : "em produção"} pela SEFAZ.` });
+      setDocumentToCancel(null);
+      setCancellationReason("");
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível cancelar a NFC-e." });
+    }
   }
   async function readCertificate(file?: File) {
     if (!file) return;
@@ -206,12 +221,25 @@ export function FiscalManagementPage() {
             {document.hasXml ? <a className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-2" href={`/api/fiscal/documents/${document.id}/artifacts/xml`}><FileKey2 size={15}/>XML</a> : null}
             {document.status !== "CONTINGENCY_PENDING" ? <Button variant="ghost" title="Consultar" onClick={() => run(() => action.mutateAsync({ id: document.id, action: "query" }), "Situação consultada.")}><RefreshCw size={15}/></Button> : null}
             {document.status === "CONTINGENCY_PENDING" ? <Button variant="secondary" title="Transmitir documento pendente" onClick={() => run(() => action.mutateAsync({ id: document.id, action: "transmit" }), "Documento pendente processado.")}><Send size={15}/>Transmitir</Button> : null}
-            {document.status === "AUTHORIZED" ? <><Button variant="ghost" title="Enviar por e-mail" onClick={() => run(() => action.mutateAsync({ id: document.id, action: "email" }), "Documento enviado por e-mail.")}><Mail size={15}/></Button><Button variant="ghost" title="Cancelar" onClick={() => { const reason = window.prompt("Informe o motivo do cancelamento com pelo menos 15 caracteres:"); if (reason) run(() => action.mutateAsync({ id: document.id, action: "cancel", reason }), document.environment === "HOMOLOGATION" ? "Documento cancelado em homologação." : "Documento cancelado em produção."); }}><XCircle size={15}/></Button></> : null}
+            {document.status === "AUTHORIZED" ? <><Button variant="ghost" title="Enviar por e-mail" onClick={() => run(() => action.mutateAsync({ id: document.id, action: "email" }), "Documento enviado por e-mail.")}><Mail size={15}/></Button><Button variant="danger" disabled={action.isPending} onClick={() => { setCancellationReason(""); setDocumentToCancel({ id: document.id, type: document.type, series: document.series, number: document.number, environment: document.environment }); }}><XCircle size={15}/>Cancelar NFC-e</Button></> : null}
             {document.status === "ERROR" || document.status === "REJECTED" ? <Button variant="danger" title="Remover nota com falha da lista" disabled={action.isPending} onClick={() => { const reason = window.prompt("Informe o motivo da exclusão da nota com falha (pelo menos 5 caracteres):"); if (reason === null) return; if (reason.trim().length < 5) { setMessage({ kind: "error", text: "Informe um motivo com pelo menos 5 caracteres." }); return; } void run(() => action.mutateAsync({ id: document.id, action: "archive", reason: reason.trim() }), "Nota com falha removida da lista."); }}><Trash2 size={15}/>Excluir</Button> : null}
           </div></td>
         </tr>)}{overview.data?.documents.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-subdued">Nenhum documento fiscal processado.</td></tr> : null}</tbody>
       </table></div>
     </Card>
+    <Modal open={documentToCancel !== null} onClose={() => { if (!action.isPending) setDocumentToCancel(null); }} className="max-w-lg" title="Cancelar NFC-e na SEFAZ" description={documentToCancel ? `${typeLabels[documentToCancel.type]} · Série ${documentToCancel.series}, número ${documentToCancel.number}` : undefined}>
+      <div className="space-y-4">
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          {documentToCancel?.environment === "PRODUCTION" ? "Esta nota tem validade fiscal. O pedido será enviado à SEFAZ em produção e não poderá ser desfeito pelo sistema." : "Este cancelamento será enviado ao ambiente de homologação da SEFAZ."}
+        </div>
+        <Input label="Motivo do cancelamento" help="Informe um motivo claro com pelo menos 15 caracteres." autoFocus value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} />
+        <p className="text-xs text-subdued">{cancellationReason.trim().length}/15 caracteres mínimos</p>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" disabled={action.isPending} onClick={() => setDocumentToCancel(null)}>Voltar</Button>
+          <Button variant="danger" disabled={action.isPending || cancellationReason.trim().length < 15} onClick={() => void cancelDocument()}>{action.isPending ? "Enviando à SEFAZ..." : "Confirmar cancelamento"}</Button>
+        </div>
+      </div>
+    </Modal>
     {(overview.data?.numberVoids ?? []).length ? <Card className="overflow-hidden"><div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Histórico de inutilizações</h2></div><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Documento</th><th className="px-4 py-3">Série</th><th className="px-4 py-3">Intervalo</th><th className="px-4 py-3">Situação</th><th className="px-4 py-3">Data</th></tr></thead><tbody className="divide-y divide-border">{overview.data?.numberVoids.map((item) => <tr key={item.id}><td className="px-4 py-3">{typeLabels[item.type]}</td><td className="px-4 py-3">{item.series}</td><td className="px-4 py-3">{item.numberFrom} a {item.numberTo}</td><td className="px-4 py-3">{item.status === "VOIDED" ? "Inutilizado" : `Rejeitado: ${item.rejectionReason ?? "sem motivo"}`}</td><td className="px-4 py-3">{date(item.createdAt)}</td></tr>)}</tbody></table></div></Card> : null}
   </div>;
 }

@@ -244,7 +244,7 @@ export class FiscalService {
     const document = await this.document(tenantId, id);
     if (!document.providerId) throw new AppError("O documento ainda não possui identificador no provedor.", "FISCAL_PROVIDER_ID_MISSING", 422);
     const configuration = await this.configuration(tenantId);
-    const result = await this.provider(configuration, document.provider).query(document.providerId);
+    const result = await this.provider(configuration, document.provider, document.environment).query(document.providerId);
     await this.event(tenantId, id, userId, "QUERY", result.status !== "REJECTED", `Consulta concluída: ${result.status}. ${result.rejectionReason ?? ""}`.trim());
     return prisma.fiscalDocument.update({ where: { id }, data: { status: result.status, protocol: result.protocol || undefined, rejectionCode: result.rejectionCode || null, rejectionReason: result.rejectionReason || null } });
   }
@@ -267,11 +267,16 @@ export class FiscalService {
     const document = await this.document(tenantId, id);
     if (document.status !== "AUTHORIZED" || !document.providerId) throw new AppError("Somente um documento autorizado pode ser cancelado.", "FISCAL_DOCUMENT_NOT_AUTHORIZED", 422);
     const configuration = await this.configuration(tenantId);
-    const result = await this.provider(configuration, document.provider).cancel(document.providerId, input.reason, document.protocol ?? undefined);
-    const updated = await prisma.fiscalDocument.update({ where: { id }, data: { status: "CANCELLED", cancelledAt: new Date(), cancellationProtocol: result.protocol, cancellationXmlContent: result.xml } });
-    await this.event(tenantId, id, userId, "CANCEL", true, `Cancelamento autorizado ${document.environment === "HOMOLOGATION" ? "em homologação" : "em produção"}. Motivo: ${input.reason}`);
-    await prisma.auditLog.create({ data: { tenantId, userId, action: "fiscal.document.cancelled", entity: "FiscalDocument", entityId: id, metadata: { reason: input.reason } } });
-    return updated;
+    try {
+      const result = await this.provider(configuration, document.provider, document.environment).cancel(document.providerId, input.reason, document.protocol ?? undefined);
+      const updated = await prisma.fiscalDocument.update({ where: { id }, data: { status: "CANCELLED", cancelledAt: new Date(), cancellationProtocol: result.protocol, cancellationXmlContent: result.xml } });
+      await this.event(tenantId, id, userId, "CANCEL", true, `Cancelamento autorizado ${document.environment === "HOMOLOGATION" ? "em homologação" : "em produção"}. Protocolo: ${result.protocol}. Motivo: ${input.reason}`);
+      await prisma.auditLog.create({ data: { tenantId, userId, action: "fiscal.document.cancelled", entity: "FiscalDocument", entityId: id, metadata: { reason: input.reason, protocol: result.protocol, environment: document.environment } } });
+      return updated;
+    } catch (error) {
+      await this.event(tenantId, id, userId, "CANCEL", false, error instanceof Error ? error.message : "Não foi possível cancelar o documento na Secretaria da Fazenda.", { reason: input.reason, environment: document.environment });
+      throw error;
+    }
   }
 
   async voidNumber(tenantId: string, userId: string, input: VoidInput) {
@@ -416,7 +421,7 @@ export class FiscalService {
     }
   }
 
-  private provider(configuration: FiscalConfigurationRecord, providerOverride?: string): FiscalProvider {
+  private provider(configuration: FiscalConfigurationRecord, providerOverride?: string, environmentOverride?: "HOMOLOGATION" | "PRODUCTION"): FiscalProvider {
     const provider = providerOverride ?? configuration.provider;
     if (provider === "SANDBOX") return new SandboxFiscalProvider();
     if (provider === "DIRECT_SEFAZ_SP") {
@@ -425,7 +430,7 @@ export class FiscalService {
       const password = decryptFiscalSecret(configuration.certificatePasswordEncrypted);
       const pfx = Buffer.from(certificateBase64, "base64");
       if (!pfx.length) throw new AppError("O arquivo do certificado A1 está vazio.", "FISCAL_CERTIFICATE_INVALID", 422);
-      return new DirectSefazSpProvider({ pfx, password, cnpj: configuration.cnpj, environment: configuration.environment });
+      return new DirectSefazSpProvider({ pfx, password, cnpj: configuration.cnpj, environment: environmentOverride ?? configuration.environment });
     }
     throw new AppError("Forma de transmissão fiscal não configurada.", "FISCAL_PROVIDER_NOT_READY", 503);
   }
