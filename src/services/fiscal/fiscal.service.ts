@@ -226,14 +226,17 @@ export class FiscalService {
     return prisma.fiscalDocument.update({ where: { id }, data: { status: result.status, protocol: result.protocol || undefined, rejectionCode: result.rejectionCode || null, rejectionReason: result.rejectionReason || null } });
   }
 
-  async archiveFailedDocument(tenantId: string, userId: string, id: string) {
+  async archiveFailedDocument(tenantId: string, userId: string, id: string, reason: string) {
     const document = await prisma.fiscalDocument.findFirst({ where: { id, tenantId } });
     if (!document) throw new AppError("Documento fiscal não encontrado.", "FISCAL_DOCUMENT_NOT_FOUND", 404);
     if (document.status !== "ERROR" && document.status !== "REJECTED") {
       throw new AppError("Somente notas com erro ou rejeitadas podem ser removidas da lista.", "FISCAL_DOCUMENT_NOT_ARCHIVABLE", 422);
     }
-    const updated = await prisma.fiscalDocument.update({ where: { id }, data: { archivedAt: new Date() } });
-    await prisma.auditLog.create({ data: { tenantId, userId, action: "fiscal.document.archived", entity: "FiscalDocument", entityId: id, metadata: { status: document.status, type: document.type, series: document.series, number: document.number } } });
+    const updated = await prisma.$transaction(async (transaction) => {
+      const archived = await transaction.fiscalDocument.update({ where: { id }, data: { archivedAt: new Date() } });
+      await transaction.auditLog.create({ data: { tenantId, userId, action: "fiscal.document.archived", entity: "FiscalDocument", entityId: id, metadata: { status: document.status, type: document.type, series: document.series, number: document.number, reason } } });
+      return archived;
+    });
     return { id: updated.id, archived: true };
   }
 

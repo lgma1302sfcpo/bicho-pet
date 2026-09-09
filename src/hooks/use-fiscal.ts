@@ -87,7 +87,16 @@ export function useIssueFiscalDocument() {
 }
 
 export function useFiscalAction() {
-  return useFiscalMutation<{ id: string; action: "query" | "cancel" | "email" | "transmit" | "archive"; reason?: string }>((input) => fiscalFetch(`/api/fiscal/documents/${input.id}/${input.action}`, { method: "POST", body: input.reason ? JSON.stringify({ reason: input.reason }) : undefined }));
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; action: "query" | "cancel" | "email" | "transmit" | "archive"; reason?: string }) => fiscalFetch(`/api/fiscal/documents/${input.id}/${input.action}`, { method: "POST", body: input.reason ? JSON.stringify({ reason: input.reason }) : undefined }).then((data) => ({ data, input })),
+    onSuccess: ({ input }) => {
+      if (input.action === "archive") {
+        client.setQueryData<FiscalOverview>(["fiscal"], (current) => current ? { ...current, documents: current.documents.filter((document) => document.id !== input.id) } : current);
+      }
+      void client.invalidateQueries({ queryKey: ["fiscal"] });
+    }
+  });
 }
 
 export function useVoidFiscalNumber() {
