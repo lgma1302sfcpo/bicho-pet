@@ -34,11 +34,23 @@ function safeConfiguration(configuration: Awaited<ReturnType<typeof prisma.fisca
     nfceSecurityCodeEncrypted: _securityCode,
     ...safe
   } = configuration;
+  let certificateUsable = false;
+  if (_certificateData && _certificatePassword) {
+    try {
+      const certificateBase64 = decryptFiscalSecret(_certificateData);
+      const certificatePassword = decryptFiscalSecret(_certificatePassword);
+      extractA1Certificate(Buffer.from(certificateBase64, "base64"), certificatePassword);
+      certificateUsable = true;
+    } catch {
+      certificateUsable = false;
+    }
+  }
   return {
     ...safe,
     hasProviderToken: Boolean(_providerToken),
     hasCertificate: Boolean(_certificateData),
     hasCertificatePassword: Boolean(_certificatePassword),
+    certificateUsable,
     hasNfceSecurityCode: Boolean(_securityCode),
     accountantApproved: Boolean(configuration.accountantApprovedAt)
   };
@@ -92,11 +104,17 @@ export class FiscalService {
     if (input.certificatePassword) secretData.certificatePasswordEncrypted = encryptFiscalSecret(input.certificatePassword);
     if (input.nfceSecurityCode) secretData.nfceSecurityCodeEncrypted = encryptFiscalSecret(input.nfceSecurityCode);
     let certificateExpiresAt = input.certificateExpiresAt;
-    if (input.certificateBase64 || input.certificatePassword) {
+    const shouldValidateCertificate = input.certificateType === "A1" && (input.provider === "DIRECT_SEFAZ_SP" || Boolean(input.certificateBase64) || Boolean(input.certificatePassword));
+    if (shouldValidateCertificate) {
       const certificateBase64 = input.certificateBase64 ?? (current?.certificateDataEncrypted ? decryptFiscalSecret(current.certificateDataEncrypted) : undefined);
       const certificatePassword = input.certificatePassword ?? (current?.certificatePasswordEncrypted ? decryptFiscalSecret(current.certificatePasswordEncrypted) : undefined);
       if (!certificateBase64 || !certificatePassword) throw new AppError("Envie o arquivo A1 e informe a senha para validar o certificado.", "FISCAL_CERTIFICATE_PAIR_REQUIRED", 422);
-      const parsed = extractA1Certificate(Buffer.from(certificateBase64, "base64"), certificatePassword);
+      let parsed;
+      try {
+        parsed = extractA1Certificate(Buffer.from(certificateBase64, "base64"), certificatePassword);
+      } catch {
+        throw new AppError("O certificado A1 armazenado não pode ser aberto com a senha armazenada. Selecione novamente o arquivo e digite novamente a senha.", "FISCAL_STORED_CERTIFICATE_INVALID", 422);
+      }
       certificateExpiresAt = parsed.validTo;
     }
 
