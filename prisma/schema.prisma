@@ -198,6 +198,7 @@ model Branch {
   name      String
   document  String?
   isMain    Boolean      @default(false)
+  fiscalEmissionEnabled Boolean @default(false)
   status    BranchStatus @default(ACTIVE)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt

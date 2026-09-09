@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type FiscalOverview = {
   configuration: Record<string, unknown> | null;
+  selectedBranch: { id: string; name: string; fiscalEmissionEnabled: boolean } | null;
   sequences: Array<{ id: string; type: string; environment: string; series: number; nextNumber: number }>;
   numberVoids: Array<{ id: string; type: string; environment: string; series: number; numberFrom: number; numberTo: number; status: string; protocol?: string | null; rejectionReason?: string | null; createdAt: string }>;
   sales: Array<{ id: string; code: string; total: number; soldAt: string; customerName: string; fiscalPendingAt?: string | null; fiscalPendingReason?: string | null; products: Array<{ id: string | null; code: string | null; name: string }>; fiscalDocuments: Array<{ type: string; status: string }> }>;

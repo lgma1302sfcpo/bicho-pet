@@ -27,6 +27,10 @@ export async function POST(request: NextRequest) {
     const input = createSaleSchema.parse(payload);
     const branchId = requireSelectedBranch(session.user.currentBranchId);
     const sale = await commerceService.createSale(session.user.currentTenantId, branchId, session.user.id, input);
+    const branch = await prisma.branch.findFirst({ where: { id: branchId, tenantId: session.user.currentTenantId }, select: { fiscalEmissionEnabled: true } });
+    if (!branch?.fiscalEmissionEnabled) {
+      return created({ ...sale, fiscal: { status: "DISABLED", message: "Venda registrada. A emissão de NFC-e está desabilitada nesta loja." } });
+    }
     try {
       const document = await fiscalService.issue(session.user.currentTenantId, branchId, session.user.id, { saleId: sale.id, type: "NFCE", series: 1, contingency: false });
       if (document.status === "AUTHORIZED" || document.status === "CONTINGENCY_PENDING") {

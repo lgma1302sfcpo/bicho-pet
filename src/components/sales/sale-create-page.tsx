@@ -49,7 +49,7 @@ function isBulkWeightProduct(product?: ProductListItemDTO) {
   return Boolean(product && (product.unit === "KG" || normalizeSearch(product.category).includes("granel")));
 }
 
-export function SaleCreatePage() {
+export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName?: string }) {
   const customersQuery = useCustomers({ includeNeverPurchased: true, contactableOnly: false });
   const salesQuery = useSales();
   const createSale = useCreateSale();
@@ -337,6 +337,7 @@ export function SaleCreatePage() {
           <h1 className="text-2xl font-semibold text-ink">Cadastrar venda</h1>
           <p className="text-sm text-subdued">Venda simples para alimentar o histórico e os filtros de clientes.</p>
         </div>
+        <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-900"><span className="block text-xs font-medium uppercase tracking-wide text-brand-700">Venda sendo lançada na loja</span><strong>{branchName}</strong></div>
       </div>
 
       <section className="sale-layout grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">

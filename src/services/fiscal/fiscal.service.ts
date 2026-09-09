@@ -48,8 +48,9 @@ export class FiscalService {
   constructor(private readonly emailSender?: EmailSender) {}
 
   async getOverview(tenantId: string, branchId: string | null = null) {
-    const [configuration, sequences, documents, numberVoids, sales] = await Promise.all([
+    const [configuration, selectedBranch, sequences, documents, numberVoids, sales] = await Promise.all([
       prisma.fiscalConfiguration.findUnique({ where: { tenantId } }),
+      branchId ? prisma.branch.findFirst({ where: { id: branchId, tenantId }, select: { id: true, name: true, fiscalEmissionEnabled: true } }) : null,
       prisma.fiscalSequence.findMany({ where: { tenantId }, orderBy: [{ type: "asc" }, { series: "asc" }] }),
       prisma.fiscalDocument.findMany({
         where: { tenantId, archivedAt: null, ...(branchId ? { sale: { branchId } } : {}) },
@@ -68,6 +69,7 @@ export class FiscalService {
 
     return {
       configuration: safeConfiguration(configuration),
+      selectedBranch,
       sequences,
       numberVoids: numberVoids.map((item) => ({ ...item, xmlContent: undefined, hasXml: Boolean(item.xmlContent) })),
       documents: documents.map((document) => ({
@@ -82,7 +84,7 @@ export class FiscalService {
     };
   }
 
-  async saveConfiguration(tenantId: string, userId: string, input: ConfigurationInput) {
+  async saveConfiguration(tenantId: string, branchId: string, userId: string, input: ConfigurationInput) {
     const current = await prisma.fiscalConfiguration.findUnique({ where: { tenantId } });
     const secretData: Record<string, string> = {};
     if (input.providerToken) secretData.providerTokenEncrypted = encryptFiscalSecret(input.providerToken);
@@ -132,10 +134,13 @@ export class FiscalService {
       ...secretData
     };
 
-    const saved = await prisma.fiscalConfiguration.upsert({
-      where: { tenantId },
-      create: { tenantId, ...common },
-      update: common
+    const saved = await prisma.$transaction(async (transaction) => {
+      const configuration = await transaction.fiscalConfiguration.upsert({ where: { tenantId }, create: { tenantId, ...common }, update: common });
+      await transaction.branch.updateMany({ where: { id: branchId, tenantId }, data: { fiscalEmissionEnabled: input.fiscalEmissionEnabled } });
+      if (!input.fiscalEmissionEnabled) {
+        await transaction.sale.updateMany({ where: { tenantId, branchId, fiscalPendingAt: { not: null } }, data: { fiscalPendingAt: null, fiscalPendingReason: null } });
+      }
+      return configuration;
     });
     await prisma.auditLog.create({ data: { tenantId, userId, action: "fiscal.configuration.updated", entity: "FiscalConfiguration", entityId: saved.id, metadata: { environment: saved.environment, provider: saved.provider } } });
     return safeConfiguration(saved);

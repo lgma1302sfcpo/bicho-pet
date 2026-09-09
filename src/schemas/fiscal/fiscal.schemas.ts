@@ -41,6 +41,7 @@ export const fiscalConfigurationSchema = z.object({
   enableNfce: z.boolean(),
   enableNfse: z.boolean(),
   autoEmail: z.boolean(),
+  fiscalEmissionEnabled: z.boolean().default(false),
   directTransmissionEnabled: z.boolean().default(false),
   accountantApproved: z.boolean()
 }).superRefine((value, context) => {
