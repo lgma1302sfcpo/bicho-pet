@@ -104,6 +104,10 @@ export function useVoidFiscalNumber() {
   return useFiscalMutation<Record<string, unknown>>((payload) => fiscalFetch("/api/fiscal/void-number", { method: "POST", body: JSON.stringify(payload) }));
 }
 
+export function useAdjustFiscalSequence() {
+  return useFiscalMutation<{ type: "NFE" | "NFCE"; series: number; nextNumber: number }>((payload) => fiscalFetch("/api/fiscal/sequences", { method: "PUT", body: JSON.stringify(payload) }));
+}
+
 export function useSefazStatus() {
   return useMutation({ mutationFn: (type: "NFE" | "NFCE") => fiscalFetch<{ available: boolean; code: string; message: string; checkedAt: string }>(`/api/fiscal/status?type=${type}`) });
 }

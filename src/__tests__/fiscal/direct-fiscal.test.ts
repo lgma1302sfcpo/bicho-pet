@@ -91,6 +91,8 @@ describe("emissor fiscal direto", () => {
     expect(signed).not.toContain("<PIS>");
     expect(signed).not.toContain("<COFINS>");
     expect(signed).toContain("<dPag>");
+    expect(signed).toContain("<tPag>17</tPag>");
+    expect(signed).toContain("<card><tpIntegra>2</tpIntegra></card>");
     await expect(validateNfeXml(signed)).resolves.toBeUndefined();
   }, 30_000);
 

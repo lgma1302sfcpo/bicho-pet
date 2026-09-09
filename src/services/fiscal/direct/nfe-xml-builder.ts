@@ -27,7 +27,7 @@ function paymentsXml(request: FiscalProviderRequest, invoiceTotal: number, issue
     : [{ method: request.sale.paymentMethod, amount: invoiceTotal }];
   const paymentDate = saoPauloTimestamp(issuedAt).slice(0, 10);
   return payments.map((payment) => {
-    const card = ["CREDIT_CARD", "DEBIT_CARD"].includes(payment.method) ? "<card><tpIntegra>2</tpIntegra></card>" : "";
+    const card = ["CREDIT_CARD", "DEBIT_CARD", "PIX"].includes(payment.method) ? "<card><tpIntegra>2</tpIntegra></card>" : "";
     return `<detPag><tPag>${paymentCode(payment.method)}</tPag><vPag>${decimal(payment.amount)}</vPag><dPag>${paymentDate}</dPag>${card}</detPag>`;
   }).join("");
 }

@@ -74,6 +74,12 @@ export const cancelFiscalDocumentSchema = z.object({
   reason: z.string().trim().min(15, "Informe um motivo com pelo menos 15 caracteres.").max(255)
 });
 
+export const adjustFiscalSequenceSchema = z.object({
+  type: z.enum(["NFE", "NFCE"]),
+  series: z.coerce.number().int().min(1).max(999),
+  nextNumber: z.coerce.number().int().positive()
+});
+
 export const voidFiscalNumberSchema = z.object({
   type: z.enum(["NFE", "NFCE", "NFSE"]),
   series: z.coerce.number().int().min(1).max(999),

@@ -5,7 +5,7 @@ import type { EmailSender } from "@/interfaces/messaging/email-sender.interface"
 import { AppError } from "@/lib/errors";
 import { decryptFiscalSecret, encryptFiscalSecret } from "@/lib/fiscal-secrets";
 import { prisma } from "@/lib/prisma";
-import type { cancelFiscalDocumentSchema, fiscalConfigurationSchema, issueFiscalDocumentSchema, replaceFiscalDocumentSchema, voidFiscalNumberSchema } from "@/schemas/fiscal/fiscal.schemas";
+import type { adjustFiscalSequenceSchema, cancelFiscalDocumentSchema, fiscalConfigurationSchema, issueFiscalDocumentSchema, replaceFiscalDocumentSchema, voidFiscalNumberSchema } from "@/schemas/fiscal/fiscal.schemas";
 import type { z } from "zod";
 
 import { SandboxFiscalProvider } from "./sandbox-fiscal-provider";
@@ -17,6 +17,7 @@ type IssueInput = z.infer<typeof issueFiscalDocumentSchema>;
 type CancelInput = z.infer<typeof cancelFiscalDocumentSchema>;
 type VoidInput = z.infer<typeof voidFiscalNumberSchema>;
 type ReplaceInput = z.infer<typeof replaceFiscalDocumentSchema>;
+type AdjustSequenceInput = z.infer<typeof adjustFiscalSequenceSchema>;
 type FiscalConfigurationRecord = NonNullable<Awaited<ReturnType<typeof prisma.fiscalConfiguration.findUnique>>>;
 type IssuableSale = Prisma.SaleGetPayload<{ include: { customer: true; payments: true; items: { include: { product: true } } } }>;
 type FiscalDocumentRecord = Prisma.FiscalDocumentGetPayload<Record<string, never>>;
@@ -187,8 +188,12 @@ export class FiscalService {
       throw new AppError("Esta venda já possui uma emissão deste tipo. Consulte o documento existente para evitar duplicidade.", "DUPLICATE_FISCAL_DOCUMENT", 409);
     }
 
-    const environmentChanged = existing && (existing.environment !== configuration.environment || existing.series !== input.series || existing.provider !== configuration.provider);
-    const document = environmentChanged ? await prisma.$transaction(async (transaction) => {
+    const activeSequence = await prisma.fiscalSequence.findUnique({
+      where: { tenantId_type_environment_series: { tenantId, type: input.type, environment: configuration.environment, series: input.series } }
+    });
+    const sequenceMovedPastDocument = existing && activeSequence && activeSequence.nextNumber > existing.number + 1;
+    const requiresNewNumber = existing && (existing.environment !== configuration.environment || existing.series !== input.series || existing.provider !== configuration.provider || sequenceMovedPastDocument);
+    const document = requiresNewNumber ? await prisma.$transaction(async (transaction) => {
       const sequence = await transaction.fiscalSequence.upsert({
         where: { tenantId_type_environment_series: { tenantId, type: input.type, environment: configuration.environment, series: input.series } },
         create: { tenantId, type: input.type, environment: configuration.environment, series: input.series, nextNumber: 2 },
@@ -306,6 +311,24 @@ export class FiscalService {
       await this.event(tenantId, id, userId, "CANCEL", false, error instanceof Error ? error.message : "Não foi possível cancelar o documento na Secretaria da Fazenda.", { reason: input.reason, environment: document.environment });
       throw error;
     }
+  }
+
+  async adjustSequence(tenantId: string, userId: string, input: AdjustSequenceInput) {
+    const configuration = await this.configuration(tenantId);
+    const latestLocalDocument = await prisma.fiscalDocument.aggregate({
+      where: { tenantId, type: input.type, environment: configuration.environment, series: input.series },
+      _max: { number: true }
+    });
+    if (latestLocalDocument._max.number && input.nextNumber <= latestLocalDocument._max.number) {
+      throw new AppError(`A próxima numeração deve ser maior que ${latestLocalDocument._max.number}, que já foi utilizada neste sistema.`, "FISCAL_SEQUENCE_TOO_LOW", 422);
+    }
+    const sequence = await prisma.fiscalSequence.upsert({
+      where: { tenantId_type_environment_series: { tenantId, type: input.type, environment: configuration.environment, series: input.series } },
+      create: { tenantId, type: input.type, environment: configuration.environment, series: input.series, nextNumber: input.nextNumber },
+      update: { nextNumber: input.nextNumber }
+    });
+    await prisma.auditLog.create({ data: { tenantId, userId, action: "fiscal.sequence.adjusted", entity: "FiscalSequence", entityId: sequence.id, metadata: { type: input.type, environment: configuration.environment, series: input.series, nextNumber: input.nextNumber } } });
+    return sequence;
   }
 
   async voidNumber(tenantId: string, userId: string, input: VoidInput) {
