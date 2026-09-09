@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { created, errorResponse } from "@/lib/api-response";
 import { AUTH_PERMISSIONS } from "@/lib/permissions";
 import { requireSelectedBranch } from "@/lib/branch-context";
+import { AppError } from "@/lib/errors";
 import { requirePermission } from "@/lib/require-permission";
 import { issueFiscalDocumentSchema } from "@/schemas/fiscal/fiscal.schemas";
 import { fiscalService } from "@/services/fiscal";
@@ -19,7 +20,15 @@ export async function POST(request: NextRequest) {
     const payload = await request.json();
     saleId = typeof payload?.saleId === "string" ? payload.saleId : undefined;
     const input = issueFiscalDocumentSchema.parse(payload);
-    return created(await fiscalService.issue(tenantId, selectedBranchId, session.user.id, input));
+    const document = await fiscalService.issue(tenantId, selectedBranchId, session.user.id, input);
+    if (document.status === "REJECTED" || document.status === "ERROR") {
+      throw new AppError(
+        document.rejectionReason ? `A SEFAZ rejeitou a nota: ${document.rejectionReason}` : "A SEFAZ rejeitou a nota fiscal.",
+        "FISCAL_DOCUMENT_REJECTED",
+        422
+      );
+    }
+    return created(document);
   } catch (error) {
     if (saleId && tenantId && selectedBranchId) {
       await prisma.sale.updateMany({ where: { id: saleId, tenantId, branchId: selectedBranchId, status: "COMPLETED" }, data: { fiscalPendingAt: new Date(), fiscalPendingReason: error instanceof Error ? error.message : "A nota precisa de correção." } }).catch(() => undefined);
