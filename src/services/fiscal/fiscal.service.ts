@@ -331,6 +331,17 @@ export class FiscalService {
     return sequence;
   }
 
+  async dismissPendingSale(tenantId: string, branchId: string, userId: string, saleId: string, reason: string) {
+    const sale = await prisma.sale.findFirst({ where: { id: saleId, tenantId, branchId }, select: { id: true, code: true, fiscalPendingAt: true, fiscalPendingReason: true } });
+    if (!sale) throw new AppError("Venda não encontrada nesta loja.", "SALE_NOT_FOUND", 404);
+    if (!sale.fiscalPendingAt) throw new AppError("Esta venda não possui uma pendência fiscal ativa.", "FISCAL_PENDING_NOT_FOUND", 422);
+    await prisma.$transaction([
+      prisma.sale.update({ where: { id: sale.id }, data: { fiscalPendingAt: null, fiscalPendingReason: null } }),
+      prisma.auditLog.create({ data: { tenantId, userId, action: "fiscal.pending.dismissed", entity: "Sale", entityId: sale.id, metadata: { saleCode: sale.code, reason, previousReason: sale.fiscalPendingReason } } })
+    ]);
+    return { saleId: sale.id, dismissed: true };
+  }
+
   async voidNumber(tenantId: string, userId: string, input: VoidInput) {
     const configuration = await this.configuration(tenantId);
     if (input.type === "NFSE") throw new AppError("A inutilização estadual aceita apenas Nota Fiscal Eletrônica e Nota Fiscal de Consumidor Eletrônica.", "FISCAL_VOID_MODEL_UNSUPPORTED", 422);
