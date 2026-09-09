@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataErrorState, DataLoadingState } from "@/components/ui/data-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useFiscalAction, useFiscalOverview, useIssueFiscalDocument, useSaveFiscalConfiguration, useSefazStatus, useVoidFiscalNumber } from "@/hooks/use-fiscal";
@@ -42,13 +43,14 @@ export function FiscalManagementPage() {
   const [contingency, setContingency] = useState(false);
   const [contingencyReason, setContingencyReason] = useState("");
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [configHydrated, setConfigHydrated] = useState(false);
 
   useEffect(() => {
-    if (overview.data?.configuration) {
-      const source = overview.data.configuration;
-      setConfig({ ...initialConfig, ...source, certificateExpiresAt: source.certificateExpiresAt ? String(source.certificateExpiresAt).slice(0, 10) : "", providerToken: "", certificateBase64: "", certificatePassword: "", nfceSecurityCode: "" });
-    }
-  }, [overview.data?.configuration]);
+    if (!overview.data) return;
+    const source = overview.data.configuration;
+    setConfig(source ? { ...initialConfig, ...source, certificateExpiresAt: source.certificateExpiresAt ? String(source.certificateExpiresAt).slice(0, 10) : "", providerToken: "", certificateBase64: "", certificatePassword: "", nfceSecurityCode: "" } : initialConfig);
+    setConfigHydrated(true);
+  }, [overview.data]);
 
   const readiness = useMemo(() => ({
     company: [config.legalName, config.cnpj, config.stateRegistration, config.taxRegime, config.street, config.number, config.district, config.city, config.cityCode, config.state, config.zipCode].every(Boolean),
@@ -83,6 +85,14 @@ export function FiscalManagementPage() {
     } catch (error) {
       setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível consultar a Secretaria da Fazenda." });
     }
+  }
+
+  if (overview.isError) {
+    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Gestão fiscal</h1><p className="text-sm text-subdued">Configurações e documentos fiscais da loja.</p></div><DataErrorState message="Não foi possível carregar os dados fiscais da loja." onRetry={() => void overview.refetch()} /></div>;
+  }
+
+  if (overview.isPending || !configHydrated) {
+    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Gestão fiscal</h1><p className="text-sm text-subdued">Configurações e documentos fiscais da loja.</p></div><DataLoadingState label="Carregando dados fiscais da loja..." /></div>;
   }
 
   return <div className="erp-page">
@@ -147,8 +157,8 @@ export function FiscalManagementPage() {
       <div className="divide-y divide-border">{(overview.data?.sales ?? []).filter((sale) => sale.fiscalPendingAt).map((sale) => <div key={sale.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0 flex-1"><p className="font-semibold">{sale.code} · {money(sale.total)}</p><div className="mt-2 space-y-2">{sale.products.map((product, index) => <div key={`${product.id ?? product.name}-${index}`} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-white p-2 text-sm"><span><strong>Produto:</strong> {product.name} · <strong>Código:</strong> {product.code ?? "Sem código cadastrado"}</span>{product.id ? <a className="font-semibold text-brand-700 underline" href={`/produtos?edit=${encodeURIComponent(product.id)}&search=${encodeURIComponent(product.name)}`}>Editar produto</a> : null}</div>)}</div><p className="mt-2 text-sm text-danger">{sale.fiscalPendingReason}</p><p className="mt-1 text-xs text-subdued">Pendente desde {date(sale.fiscalPendingAt)}</p></div><div className="flex flex-wrap gap-2"><Button disabled={issue.isPending} onClick={() => run(() => issue.mutateAsync({ saleId: sale.id, type: "NFCE", series }), "NFC-e emitida após a correção.")}><RefreshCw size={16}/>Tentar emitir novamente</Button></div></div>)}</div>
     </Card> : null}
 
-    <section className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
-      <Card className="min-w-0 overflow-hidden p-4">
+    <section className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
+      <Card className="h-fit min-w-0 overflow-hidden p-4 [&_.ui-field]:!h-auto [&_.ui-field__control]:!mt-0">
         <h2 className="font-semibold">Emitir a partir de uma venda</h2>
         <p className="mb-4 text-sm text-subdued">No simulador, nada é transmitido. Na forma direta, o documento vai para a Secretaria da Fazenda no ambiente selecionado.</p>
         <Input label="Buscar venda ou produto" placeholder="Digite o nome ou código do produto, código da venda ou cliente" value={saleSearch} onChange={(event) => { setSaleSearch(event.target.value); setSaleId(""); }}/>
