@@ -59,6 +59,8 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const [error, setError] = useState<string | null>(null);
+  const [editingMarkup, setEditingMarkup] = useState(false);
+  const [markupInput, setMarkupInput] = useState("");
   const form = useForm<UpdateProductDTO>({
     resolver: zodResolver(updateProductSchema),
     defaultValues: emptyProduct
@@ -75,7 +77,17 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
   useEffect(() => {
     form.reset(product ? ({ ...product, status: product.status as UpdateProductDTO["status"] } as unknown as UpdateProductDTO) : emptyProduct);
     setError(null);
+    setEditingMarkup(false);
+    setMarkupInput("");
   }, [form, product]);
+
+  useEffect(() => {
+    if (!editingMarkup) return;
+    const desiredMarkup = Number(parseBrazilianNumber(markupInput));
+    if (!Number.isFinite(desiredMarkup) || desiredMarkup < 0 || watchedCost <= 0) return;
+    const calculatedSalePrice = Math.round(watchedCost * (1 + desiredMarkup / 100) * 100) / 100;
+    form.setValue("salePrice", calculatedSalePrice, { shouldDirty: true, shouldValidate: true });
+  }, [editingMarkup, form, markupInput, watchedCost]);
 
   async function onSubmit(values: UpdateProductDTO) {
     setError(null);
@@ -152,7 +164,13 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
             {...form.register("salePrice")}
           />
         </div>
-        <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 md:grid-cols-2"><div><p className="text-xs font-medium text-emerald-800">Lucro bruto por unidade</p><p className="text-lg font-semibold text-emerald-900">{grossProfit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p></div><div><p className="text-xs font-medium text-emerald-800">Markup sobre o custo</p><p className="text-lg font-semibold text-emerald-900">{markup.toFixed(2)}%</p><p className="text-xs text-emerald-800">Percentual acrescentado ao custo para chegar ao preço de venda.</p></div></div>
+        <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 md:grid-cols-2">
+          <div><p className="text-xs font-medium text-emerald-800">Lucro bruto por unidade</p><p className="text-lg font-semibold text-emerald-900">{grossProfit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p></div>
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-medium text-emerald-800">Markup sobre o custo</p><Button className="h-8 px-2 text-xs" variant="secondary" onClick={() => { if (editingMarkup) { setEditingMarkup(false); return; } setMarkupInput(markup.toFixed(2).replace(".", ",")); setEditingMarkup(true); }}>{editingMarkup ? "Usar preço manual" : "Editar por markup"}</Button></div>
+            {editingMarkup ? <div className="mt-2"><Input label="Markup desejado (%)" mask="decimal" autoFocus value={markupInput} onChange={(event) => setMarkupInput(event.target.value)} /><p className="mt-1 text-xs text-emerald-800">O preço de venda é atualizado automaticamente. O preço de custo não será alterado.</p></div> : <><p className="text-lg font-semibold text-emerald-900">{markup.toFixed(2)}%</p><p className="text-xs text-emerald-800">Percentual acrescentado ao custo para chegar ao preço de venda.</p></>}
+          </div>
+        </div>
         <div className="grid gap-3 md:grid-cols-3">
           <Input
             label="Estoque atual"
