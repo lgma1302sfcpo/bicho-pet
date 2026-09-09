@@ -37,5 +37,5 @@ export type SaleCreatedDTO = {
   code: string;
   total: number;
   customerId?: string | null;
-  fiscal?: { status: "AUTHORIZED" | "PENDING_CORRECTION"; message: string };
+  fiscal?: { status: "AUTHORIZED" | "PENDING_CORRECTION" | "DISABLED"; message: string; branchName?: string };
 };

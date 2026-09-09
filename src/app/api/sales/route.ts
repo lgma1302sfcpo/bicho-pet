@@ -27,22 +27,22 @@ export async function POST(request: NextRequest) {
     const input = createSaleSchema.parse(payload);
     const branchId = requireSelectedBranch(session.user.currentBranchId);
     const sale = await commerceService.createSale(session.user.currentTenantId, branchId, session.user.id, input);
-    const branch = await prisma.branch.findFirst({ where: { id: branchId, tenantId: session.user.currentTenantId }, select: { fiscalEmissionEnabled: true } });
+    const branch = await prisma.branch.findFirst({ where: { id: branchId, tenantId: session.user.currentTenantId }, select: { name: true, fiscalEmissionEnabled: true } });
     if (!branch?.fiscalEmissionEnabled) {
-      return created({ ...sale, fiscal: { status: "DISABLED", message: "Venda registrada. A emissão de NFC-e está desabilitada nesta loja." } });
+      return created({ ...sale, fiscal: { status: "DISABLED", branchName: branch?.name ?? "Loja selecionada", message: `A emissão de NFC-e está desabilitada na loja ${branch?.name ?? "selecionada"}. Nenhuma nota foi gerada nem ficou pendente.` } });
     }
     try {
       const document = await fiscalService.issue(session.user.currentTenantId, branchId, session.user.id, { saleId: sale.id, type: "NFCE", series: 1, contingency: false });
       if (document.status === "AUTHORIZED" || document.status === "CONTINGENCY_PENDING") {
-        return created({ ...sale, fiscal: { status: "AUTHORIZED", message: "NFC-e emitida automaticamente." } });
+        return created({ ...sale, fiscal: { status: "AUTHORIZED", branchName: branch.name, message: `NFC-e emitida automaticamente para a loja ${branch.name}.` } });
       }
       const message = document.rejectionReason ?? "A Secretaria da Fazenda rejeitou a NFC-e. Revise os dados fiscais.";
       await prisma.sale.update({ where: { id: sale.id }, data: { fiscalPendingAt: new Date(), fiscalPendingReason: message } });
-      return created({ ...sale, fiscal: { status: "PENDING_CORRECTION", message } });
+      return created({ ...sale, fiscal: { status: "PENDING_CORRECTION", branchName: branch.name, message } });
     } catch (fiscalError) {
       const message = fiscalError instanceof Error ? fiscalError.message : "A NFC-e precisa de correção antes da emissão.";
       await prisma.sale.update({ where: { id: sale.id }, data: { fiscalPendingAt: new Date(), fiscalPendingReason: message } });
-      return created({ ...sale, fiscal: { status: "PENDING_CORRECTION", message } });
+      return created({ ...sale, fiscal: { status: "PENDING_CORRECTION", branchName: branch.name, message } });
     }
   } catch (error) {
     return errorResponse(error);
