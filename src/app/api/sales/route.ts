@@ -27,9 +27,20 @@ export async function POST(request: NextRequest) {
     const input = createSaleSchema.parse(payload);
     const branchId = requireSelectedBranch(session.user.currentBranchId);
     const sale = await commerceService.createSale(session.user.currentTenantId, branchId, session.user.id, input);
-    const branch = await prisma.branch.findFirst({ where: { id: branchId, tenantId: session.user.currentTenantId }, select: { name: true, fiscalEmissionEnabled: true } });
+    const [branch, soldItems] = await Promise.all([
+      prisma.branch.findFirst({ where: { id: branchId, tenantId: session.user.currentTenantId }, select: { name: true, fiscalEmissionEnabled: true } }),
+      prisma.saleItem.findMany({ where: { saleId: sale.id }, select: { product: { select: { name: true, supplier: true, fiscalItemType: true } } } })
+    ]);
     if (!branch?.fiscalEmissionEnabled) {
       return created({ ...sale, fiscal: { status: "DISABLED", branchName: branch?.name ?? "Loja selecionada", message: `A emissão de NFC-e está desabilitada na loja ${branch?.name ?? "selecionada"}. Nenhuma nota foi gerada nem ficou pendente.` } });
+    }
+    const serviceItems = soldItems.flatMap((item) => {
+      if (!item.product) return [];
+      const normalizedSupplier = item.product.supplier?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR") ?? "";
+      return item.product.fiscalItemType === "SERVICE" || normalizedSupplier.includes("banho e tosa") ? [item.product.name] : [];
+    });
+    if (serviceItems.length) {
+      return created({ ...sale, fiscal: { status: "SKIPPED_SERVICE", branchName: branch.name, message: `Venda registrada sem NFC-e porque contém serviço: ${serviceItems.join(", ")}. Nenhuma pendência fiscal foi criada.` } });
     }
     try {
       const document = await fiscalService.issue(session.user.currentTenantId, branchId, session.user.id, { saleId: sale.id, type: "NFCE", series: 1, contingency: false });
