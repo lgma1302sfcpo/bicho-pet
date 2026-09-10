@@ -13,6 +13,9 @@ export type FiscalProviderRequest = {
   sale: {
     code: string;
     total: number;
+    soldAt: Date;
+    operatorName?: string | null;
+    notes?: string | null;
     customerName: string;
     customerDocument?: string | null;
     customerStateRegistration?: string | null;

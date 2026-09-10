@@ -47,6 +47,8 @@ function request(contingency = false): FiscalProviderRequest {
     sale: {
       code: "VENDA-TESTE",
       total: 49.9,
+      soldAt: new Date("2026-08-24T15:00:00-03:00"),
+      operatorName: "Operador Teste",
       customerName: "Consumidor final",
       paymentMethod: "PIX",
       discount: 0,

@@ -91,14 +91,29 @@ export function SalesReportPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  const periodSales = useMemo(() => (salesQuery.data ?? []).filter((sale) => {
+  const suppliers = useMemo(() => Array.from(new Set((salesQuery.data ?? [])
+    .flatMap((sale) => sale.items.map((item) => item.supplier?.trim()))
+    .filter((supplier): supplier is string => Boolean(supplier))))
+    .sort((a, b) => a.localeCompare(b, "pt-BR")), [salesQuery.data]);
+
+  const periodSales = useMemo(() => (salesQuery.data ?? []).flatMap((sale) => {
     const soldAt = new Date(sale.soldAt);
-    const term = `${sale.code} ${sale.branchName} ${sale.customerName ?? ""} ${sale.items.map((item) => `${item.description} ${speciesLabels[item.species ?? ""] ?? ""}`).join(" ")}`.toLowerCase();
     const periodStart = getPeriodStart(period);
     const yesterdayEnd = period === "yesterday" ? new Date(startOfDay(new Date()).getTime() - 1) : null;
     const matchesFrom = period !== "custom" || !from || soldAt >= new Date(`${from}T00:00:00`);
     const matchesTo = period !== "custom" || !to || soldAt <= new Date(`${to}T23:59:59`);
-    return (!search || term.includes(search.toLowerCase())) && (!periodStart || soldAt >= periodStart) && (!yesterdayEnd || soldAt <= yesterdayEnd) && matchesFrom && matchesTo;
+    if ((periodStart && soldAt < periodStart) || (yesterdayEnd && soldAt > yesterdayEnd) || !matchesFrom || !matchesTo) return [];
+
+    const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
+    if (!normalizedSearch) return [sale];
+    const saleMatches = `${sale.code} ${sale.branchName} ${sale.customerName ?? ""}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch);
+    if (saleMatches) return [sale];
+
+    const filteredItems = sale.items.filter((item) => `${item.description} ${item.supplier ?? ""} ${item.brand ?? ""} ${item.category ?? ""} ${speciesLabels[item.species ?? ""] ?? ""}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
+    if (!filteredItems.length) return [];
+    const filteredSubtotal = filteredItems.reduce((sum, item) => sum + item.total, 0);
+    const revenueFactor = sale.subtotal > 0 ? sale.total / sale.subtotal : 1;
+    return [{ ...sale, items: filteredItems, itemsCount: filteredItems.length, subtotal: filteredSubtotal, discount: 0, surcharge: 0, total: filteredSubtotal * revenueFactor }];
   }), [from, period, salesQuery.data, search, to]);
 
   const sales = useMemo(() => {
@@ -151,6 +166,7 @@ export function SalesReportPage() {
       { name: "Vendas", rows: sales.map((sale) => ({ Loja: sale.branchName, Código: sale.code, Data: new Date(sale.soldAt).toLocaleString("pt-BR"), Cliente: sale.customerName ?? "Consumidor final", Pagamento: paymentLabels[sale.paymentMethod] ?? sale.paymentMethod, Itens: sale.itemsCount, Custo: sale.items.reduce((sum, item) => sum + item.costPrice * item.quantity, 0), Total: sale.total })) },
       { name: "Pagamentos", rows: byPayment },
       { name: "Categoria e produto", rows: byCategory },
+      { name: "Produtos vendidos", rows: byProduct },
       { name: "Espécies", rows: bySpecies },
       { name: "Fornecedores", rows: bySupplier }
     ]);
@@ -175,7 +191,8 @@ export function SalesReportPage() {
         <div className="mb-4 flex items-center gap-2"><FileBarChart size={18} className="text-brand-700" /><h2 className="font-semibold">Período e busca</h2></div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <Select label="Período" value={period} onChange={(event) => setPeriod(event.target.value)}><option value="all">Todo o período</option><option value="today">Hoje</option><option value="yesterday">Ontem</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="year">Este ano</option><option value="custom">Escolher período</option></Select>
-          <Input label="Buscar" placeholder="venda, cliente ou produto" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Input label="Buscar" placeholder="venda, cliente, produto ou fornecedor" list="report-suppliers" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <datalist id="report-suppliers">{suppliers.map((supplier) => <option key={supplier} value={supplier} />)}</datalist>
           <Select label="Espécie" value={species} onChange={(event) => setSpecies(event.target.value)}><option value="">Todas as espécies</option>{Object.entries(speciesLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
           <Input label="De" type="date" disabled={period !== "custom"} value={from} onChange={(event) => setFrom(event.target.value)} />
           <Input label="Até" type="date" disabled={period !== "custom"} value={to} onChange={(event) => setTo(event.target.value)} />
