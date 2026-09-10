@@ -515,7 +515,7 @@ export class FiscalService {
         customerStateRegistration: sale.customer?.stateRegistration, customerStreet: sale.customer?.street, customerNumber: sale.customer?.addressNumber, customerComplement: sale.customer?.complement, customerDistrict: sale.customer?.district, customerCity: sale.customer?.city, customerCityCode: sale.customer?.cityCode, customerState: sale.customer?.state, customerZipCode: sale.customer?.zipCode,
         paymentMethod: sale.paymentMethod, payments: sale.payments.map((payment) => ({ method: payment.method, amount: number(payment.amount) })), discount: number(sale.discount), surcharge: number(sale.surcharge),
         items: sale.items.map((item) => ({
-          code: item.product?.code || item.product?.sku || item.id, barcode: item.product?.barcode, description: item.description, quantity: number(item.quantity), unitPrice: number(item.unitPrice), discount: number(item.discount), unit: item.product?.unit || "UN",
+          code: item.product?.code || item.product?.sku || item.product?.barcode || "SEM-CODIGO", barcode: item.product?.barcode, description: item.description, quantity: number(item.quantity), unitPrice: number(item.unitPrice), discount: number(item.discount), unit: item.product?.unit || "UN",
           ncm: item.product?.ncm, cest: item.product?.cest, originCode: "0", cfop: item.product?.defaultCfop, icmsCode: "102", serviceCode: item.product?.serviceCode
         }))
       }

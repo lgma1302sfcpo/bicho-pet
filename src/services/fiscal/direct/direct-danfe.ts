@@ -28,6 +28,13 @@ export async function createDirectDanfe(input: { request: FiscalProviderRequest;
   const contentWidth = right - left;
   let y = 6;
 
+  function fitSingleLine(value: string, maxWidth: number) {
+    if (pdf.getTextWidth(value) <= maxWidth) return value;
+    let shortened = value;
+    while (shortened.length > 1 && pdf.getTextWidth(`${shortened}...`) > maxWidth) shortened = shortened.slice(0, -1);
+    return `${shortened}...`;
+  }
+
   if (consumer) {
     try {
       const logo = await readFile(join(process.cwd(), "public", "casa-dos-bichos-logo.jpg"));
@@ -81,22 +88,22 @@ export async function createDirectDanfe(input: { request: FiscalProviderRequest;
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(5.5);
   pdf.text("CÓD.", left, y);
-  pdf.text("DESCRIÇÃO", left + 11, y);
-  pdf.text("QTD.", right - 25, y, { align: "right" });
+  pdf.text("DESCRIÇÃO", left + 15, y);
+  pdf.text("QTD.", right - 22, y, { align: "right" });
   pdf.text("TOTAL", right, y, { align: "right" });
   y += 3;
   pdf.line(left, y, right, y);
   y += 4;
   pdf.setFont("helvetica", "normal");
   for (const item of input.request.sale.items) {
-    const descriptionLines = pdf.splitTextToSize(item.description, contentWidth - 36);
-    pdf.text(item.code || "-", left, y);
-    pdf.text(descriptionLines, left + 11, y);
-    pdf.text(`${quantity(item.quantity)} ${item.unit}`, right - 25, y, { align: "right" });
+    const descriptionLines = pdf.splitTextToSize(item.description, contentWidth - 41);
+    pdf.text(fitSingleLine(item.code || "-", 13), left, y);
+    pdf.text(descriptionLines, left + 15, y);
+    pdf.text(`${quantity(item.quantity)} ${item.unit}`, right - 22, y, { align: "right" });
     pdf.text(money(item.quantity * item.unitPrice - item.discount), right, y, { align: "right" });
     y += descriptionLines.length * 3;
     pdf.setTextColor(90);
-    pdf.text(`${quantity(item.quantity)} x ${money(item.unitPrice)}${item.discount > 0 ? ` - desc. ${money(item.discount)}` : ""}`, left + 11, y);
+    pdf.text(`${quantity(item.quantity)} x ${money(item.unitPrice)}${item.discount > 0 ? ` - desc. ${money(item.discount)}` : ""}`, left + 15, y);
     pdf.setTextColor(0);
     y += 4;
   }
