@@ -66,6 +66,29 @@ function aggregateItems(sales: SaleListItemDTO[], key: (item: SaleListItemDTO["i
   return Array.from(rows.values()).sort((a, b) => b.revenue - a.revenue);
 }
 
+function financialExportRows(rows: AnalyticRow[]) {
+  return rows.map((row) => {
+    const unitCost = row.quantity > 0 ? row.cost / row.quantity : 0;
+    const unitRevenue = row.quantity > 0 ? row.revenue / row.quantity : 0;
+    const profit = Math.max(row.profit, 0);
+    const loss = Math.max(-row.profit, 0);
+    const margin = row.revenue > 0 ? (row.profit / row.revenue) * 100 : 0;
+
+    return {
+      Produto: row.name,
+      Quantidade: row.quantity,
+      "Custo Un. (R$)": unitCost,
+      "Total Custo (R$)": row.cost,
+      "Vendas Un. (R$)": unitRevenue,
+      "Total Vendas (R$)": row.revenue,
+      "Lucro (R$)": profit,
+      "Lucro (%)": profit > 0 ? margin : 0,
+      "Prejuizo (R$)": loss,
+      "Prejuizo (%)": loss > 0 ? Math.abs(margin) : 0
+    };
+  });
+}
+
 function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) {
   return (
     <Card className="erp-table-card overflow-hidden">
@@ -165,10 +188,10 @@ export function SalesReportPage() {
     downloadXlsx(`relatorios-gerenciais-${new Date().toISOString().slice(0, 10)}.xlsx`, [
       { name: "Vendas", rows: sales.map((sale) => ({ Loja: sale.branchName, Código: sale.code, Data: new Date(sale.soldAt).toLocaleString("pt-BR"), Cliente: sale.customerName ?? "Consumidor final", Pagamento: paymentLabels[sale.paymentMethod] ?? sale.paymentMethod, Itens: sale.itemsCount, Custo: sale.items.reduce((sum, item) => sum + item.costPrice * item.quantity, 0), Total: sale.total })) },
       { name: "Pagamentos", rows: byPayment },
-      { name: "Categoria e produto", rows: byCategory },
-      { name: "Produtos vendidos", rows: byProduct },
-      { name: "Espécies", rows: bySpecies },
-      { name: "Fornecedores", rows: bySupplier }
+      { name: "Categoria e produto", rows: financialExportRows(byCategory) },
+      { name: "Produtos vendidos", rows: financialExportRows(byProduct) },
+      { name: "Espécies", rows: financialExportRows(bySpecies) },
+      { name: "Fornecedores", rows: financialExportRows(bySupplier) }
     ]);
   }
 

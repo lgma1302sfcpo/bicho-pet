@@ -25,7 +25,21 @@ function safeSheetName(value: string, index: number) {
 function worksheetXml(sheet: SpreadsheetSheet) {
   const headers = sheet.rows.length ? Object.keys(sheet.rows[0]) : [];
   const rows = [headers.reduce<Record<string, CellValue>>((result, header) => ({ ...result, [header]: header }), {}), ...sheet.rows];
-  const moneyHeaders = new Set(["Custo", "Total", "Receita", "Lucro", "revenue", "cost", "profit"]);
+  const moneyHeaders = new Set([
+    "Custo",
+    "Total",
+    "Receita",
+    "Lucro",
+    "revenue",
+    "cost",
+    "profit",
+    "Custo Un. (R$)",
+    "Total Custo (R$)",
+    "Vendas Un. (R$)",
+    "Total Vendas (R$)",
+    "Lucro (R$)",
+    "Prejuizo (R$)"
+  ]);
   const rowXml = rows.map((row, rowIndex) => {
     const cells = headers.map((header, columnIndex) => {
       const reference = `${columnName(columnIndex)}${rowIndex + 1}`;
