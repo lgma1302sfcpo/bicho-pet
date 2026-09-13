@@ -23,6 +23,18 @@ const initialConfig = {
   enableNfe: false, enableNfce: true, enableNfse: false, autoEmail: false, fiscalEmissionEnabled: false, directTransmissionEnabled: false, accountantApproved: false
 };
 
+type FeedbackTarget =
+  | "header"
+  | "config"
+  | "issue"
+  | "sequence"
+  | "void"
+  | "documents"
+  | "pending"
+  | "cancel-modal"
+  | `pending-${string}`;
+type FeedbackMessage = { kind: "success" | "error"; text: string; target: FeedbackTarget };
+
 function money(value: number) { return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
 function date(value?: string | null) { return value ? new Date(value).toLocaleString("pt-BR") : "Não informado"; }
 
@@ -46,7 +58,7 @@ export function FiscalManagementPage() {
   const [nextFiscalNumber, setNextFiscalNumber] = useState("");
   const [contingency, setContingency] = useState(false);
   const [contingencyReason, setContingencyReason] = useState("");
-  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<FeedbackMessage | null>(null);
   const [configHydrated, setConfigHydrated] = useState(false);
   const [documentToCancel, setDocumentToCancel] = useState<{ id: string; type: string; series: number; number: number; environment: string } | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
@@ -71,21 +83,24 @@ export function FiscalManagementPage() {
   }, [overview.data?.sales, saleSearch]);
 
   function field(name: string, value: unknown) { setConfig((current) => ({ ...current, [name]: value })); }
-  async function run(operation: () => Promise<unknown>, success: string) {
+  async function run(target: FeedbackTarget, operation: () => Promise<unknown>, success: string) {
     setMessage(null);
-    try { await operation(); setMessage({ kind: "success", text: success }); }
-    catch (error) { setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível concluir." }); }
+    try { await operation(); setMessage({ kind: "success", text: success, target }); }
+    catch (error) { setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível concluir.", target }); }
+  }
+  function feedback(target: FeedbackTarget) {
+    return message?.target === target ? <Feedback message={message} /> : null;
   }
   async function cancelDocument() {
     if (!documentToCancel || cancellationReason.trim().length < 15) return;
     setMessage(null);
     try {
       await action.mutateAsync({ id: documentToCancel.id, action: "cancel", reason: cancellationReason.trim() });
-      setMessage({ kind: "success", text: `NFC-e cancelada ${documentToCancel.environment === "HOMOLOGATION" ? "em homologação" : "em produção"} pela SEFAZ.` });
+      setMessage({ kind: "success", text: `NFC-e cancelada ${documentToCancel.environment === "HOMOLOGATION" ? "em homologação" : "em produção"} pela SEFAZ.`, target: "documents" });
       setDocumentToCancel(null);
       setCancellationReason("");
     } catch (error) {
-      setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível cancelar a NFC-e." });
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível cancelar a NFC-e.", target: "cancel-modal" });
     }
   }
   async function readCertificate(file?: File) {
@@ -99,9 +114,9 @@ export function FiscalManagementPage() {
     setMessage(null);
     try {
       const result = await sefazStatus.mutateAsync(documentType === "NFE" ? "NFE" : "NFCE");
-      setMessage({ kind: result.available ? "success" : "error", text: `Secretaria da Fazenda: ${result.message} (código ${result.code}).` });
+      setMessage({ kind: result.available ? "success" : "error", text: `Secretaria da Fazenda: ${result.message} (código ${result.code}).`, target: "header" });
     } catch (error) {
-      setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível consultar a Secretaria da Fazenda." });
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : "Não foi possível consultar a Secretaria da Fazenda.", target: "header" });
     }
   }
 
@@ -118,13 +133,12 @@ export function FiscalManagementPage() {
       <div><h1 className="text-2xl font-semibold">Gestão fiscal</h1><p className="text-sm text-subdued">Configure, teste e acompanhe documentos fiscais sem misturar homologação com produção.</p></div>
       <div className="flex flex-wrap gap-2"><a className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-medium" href="/api/fiscal/backup"><DatabaseBackup size={18}/>Baixar backup</a>{config.provider === "DIRECT_SEFAZ_SP" ? <Button variant="secondary" disabled={sefazStatus.isPending} onClick={checkSefaz}>{sefazStatus.isPending ? <LoaderCircle className="animate-spin" size={18}/> : <RefreshCw size={18}/>}Testar Secretaria da Fazenda</Button> : null}<Button variant="secondary" disabled={overview.isFetching} onClick={() => overview.refetch()}>{overview.isFetching ? <LoaderCircle className="animate-spin" size={18}/> : <RefreshCw size={18}/>}Atualizar</Button></div>
     </div>
+    {feedback("header")}
     <div className="grid gap-3 md:grid-cols-3">
       <StatusCard ready={readiness.company} title="Cadastro da empresa" readyText="Dados minimos preenchidos" pendingText="Dados obrigatorios pendentes" />
       <StatusCard ready={readiness.accountant} title="Validação contábil" readyText="Marcada como aprovada" pendingText="Aguardando o contador" />
       <StatusCard ready={readiness.safeEnvironment} title="Ambiente atual" readyText="Homologação, sem validade fiscal" pendingText={config.directTransmissionEnabled ? "Produção liberada conscientemente" : "Produção bloqueada"} />
     </div>
-    {message ? <div className={`rounded-md border px-4 py-3 text-sm ${message.kind === "success" ? "border-emerald-200 bg-emerald-50 text-success" : "border-red-200 bg-red-50 text-danger"}`}>{message.text}</div> : null}
-
     <Card className="p-4">
       <div className="mb-4"><h2 className="font-semibold">Cadastro fiscal da empresa</h2><p className="text-sm text-subdued">Dados oficiais fornecidos pelo cliente e validados pelo contador.</p></div>
       <div className="grid gap-3 md:grid-cols-3">
@@ -169,12 +183,13 @@ export function FiscalManagementPage() {
         <BooleanSelect label="Liberação da transmissão direta em produção" name="directTransmissionEnabled" config={config} field={field} help="Mantenha bloqueada durante os testes. Ao habilitar em produção, os documentos transmitidos podem possuir validade jurídica." trueLabel="Liberada conscientemente" falseLabel="Bloqueada"/>
         <BooleanSelect label="Conferencia do contador" name="accountantApproved" config={config} field={field} help="Registre como aprovada somente depois de o contador conferir os dados." trueLabel="Dados conferidos pelo contador" falseLabel="Aguardando conferencia"/>
       </div>
-      <Button className="mt-4" disabled={save.isPending} onClick={() => run(() => save.mutateAsync(config), "Configuração fiscal salva com segurança.")}>{save.isPending ? <LoaderCircle className="animate-spin" size={18}/> : <Save size={18}/>}{save.isPending ? "Salvando..." : "Salvar configuração"}</Button>
+      {feedback("config")}
+      <Button className="mt-4" disabled={save.isPending} onClick={() => run("config", () => save.mutateAsync(config), "Configuração fiscal salva com segurança.")}>{save.isPending ? <LoaderCircle className="animate-spin" size={18}/> : <Save size={18}/>}{save.isPending ? "Salvando..." : "Salvar configuração"}</Button>
     </Card>
 
     {(overview.data?.sales ?? []).some((sale) => sale.fiscalPendingAt) ? <Card className="overflow-hidden border-amber-200">
       <div className="flex flex-col gap-1 border-b border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-semibold text-amber-950">NFC-e pendentes de correção</h2><p className="text-sm text-amber-900">Corrija os produtos indicados e tente emitir novamente. A venda, o estoque e o caixa já estão registrados.</p></div><Badge className="shrink-0 border-amber-300 bg-white text-amber-900">{(overview.data?.sales ?? []).filter((sale) => sale.fiscalPendingAt).length} pendente(s)</Badge></div>
-      <div className="max-h-[28rem] divide-y divide-border overflow-y-auto overscroll-contain">{(overview.data?.sales ?? []).filter((sale) => sale.fiscalPendingAt).map((sale) => <div key={sale.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0 flex-1"><p className="font-semibold">{sale.code} · {money(sale.total)}</p><div className="mt-2 space-y-2">{sale.products.map((product, index) => <div key={`${product.id ?? product.name}-${index}`} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-white p-2 text-sm"><span><strong>Produto:</strong> {product.name} · <strong>Código:</strong> {product.code ?? "Sem código cadastrado"}</span>{product.id ? <a className="font-semibold text-brand-700 underline" href={`/produtos?edit=${encodeURIComponent(product.id)}&search=${encodeURIComponent(product.name)}`}>Editar produto</a> : null}</div>)}</div><p className="mt-2 text-sm text-danger">{sale.fiscalPendingReason}</p><p className="mt-1 text-xs text-subdued">Pendente desde {date(sale.fiscalPendingAt)}</p></div><div className="flex flex-wrap gap-2"><Button disabled={issue.isPending || dismissPending.isPending} onClick={() => run(() => issue.mutateAsync({ saleId: sale.id, type: "NFCE", series }), "NFC-e emitida após a correção.")}><RefreshCw size={16}/>Tentar emitir novamente</Button><Button variant="danger" disabled={issue.isPending || dismissPending.isPending} onClick={() => { const reason = window.prompt("Informe por que esta pendência será removida da lista (pelo menos 5 caracteres):", "Teste de emissão fiscal"); if (reason === null) return; if (reason.trim().length < 5) { setMessage({ kind: "error", text: "Informe um motivo com pelo menos 5 caracteres." }); return; } void run(() => dismissPending.mutateAsync({ saleId: sale.id, reason: reason.trim() }), "Pendência removida da lista. A venda e o documento fiscal foram mantidos."); }}><Trash2 size={16}/>Remover pendência</Button></div></div>)}</div>
+      {feedback("pending")}<div className="max-h-[28rem] divide-y divide-border overflow-y-auto overscroll-contain">{(overview.data?.sales ?? []).filter((sale) => sale.fiscalPendingAt).map((sale) => <div key={sale.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0 flex-1"><p className="font-semibold">{sale.code} · {money(sale.total)}</p><div className="mt-2 space-y-2">{sale.products.map((product, index) => <div key={`${product.id ?? product.name}-${index}`} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-white p-2 text-sm"><span><strong>Produto:</strong> {product.name} · <strong>Código:</strong> {product.code ?? "Sem código cadastrado"}</span>{product.id ? <a className="font-semibold text-brand-700 underline" href={`/produtos?edit=${encodeURIComponent(product.id)}&search=${encodeURIComponent(product.name)}`}>Editar produto</a> : null}</div>)}</div><p className="mt-2 text-sm text-danger">{sale.fiscalPendingReason}</p><p className="mt-1 text-xs text-subdued">Pendente desde {date(sale.fiscalPendingAt)}</p></div><div className="flex flex-wrap gap-2"><Button disabled={issue.isPending || dismissPending.isPending} onClick={() => run("pending", () => issue.mutateAsync({ saleId: sale.id, type: "NFCE", series }), "NFC-e emitida após a correção.")}><RefreshCw size={16}/>Tentar emitir novamente</Button><Button variant="danger" disabled={issue.isPending || dismissPending.isPending} onClick={() => { const reason = window.prompt("Informe por que esta pendência será removida da lista (pelo menos 5 caracteres):", "Teste de emissão fiscal"); if (reason === null) return; if (reason.trim().length < 5) { setMessage({ kind: "error", text: "Informe um motivo com pelo menos 5 caracteres.", target: "pending" }); return; } void run("pending", () => dismissPending.mutateAsync({ saleId: sale.id, reason: reason.trim() }), "Pendência removida da lista. A venda e o documento fiscal foram mantidos."); }}><Trash2 size={16}/>Remover pendência</Button></div></div>)}</div>
     </Card> : null}
 
     <section className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -204,14 +219,15 @@ export function FiscalManagementPage() {
         </div>
         {saleId ? <div className="mt-3 min-w-0 rounded-md border border-border bg-muted p-3 text-sm"><strong>Venda selecionada:</strong>{(overview.data?.sales ?? []).find((sale) => sale.id === saleId)?.products.map((product) => <p className="break-words" key={product.id ?? product.name}>{product.name} · Código: {product.code ?? "Sem código cadastrado"}</p>)}</div> : null}
         {!config.fiscalEmissionEnabled ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">A emissão fiscal está desabilitada para a loja {overview.data.selectedBranch?.name ?? "selecionada"}. Habilite e salve a configuração para emitir uma nota desta loja.</p> : null}
-        <Button className="mt-4" disabled={!config.fiscalEmissionEnabled || !saleId || issue.isPending || (contingency && contingencyReason.trim().length < 15)} onClick={() => run(() => issue.mutateAsync({ saleId, type: documentType, series, contingency, contingencyReason: contingency ? contingencyReason : undefined }), contingency ? "Documento assinado e guardado para transmissão assim que o serviço voltar." : config.environment === "HOMOLOGATION" ? "Documento processado em homologação." : "Documento transmitido em produção.")}>{issue.isPending && issue.variables?.saleId === saleId ? <LoaderCircle className="animate-spin" size={18}/> : <Send size={18}/>} {issue.isPending && issue.variables?.saleId === saleId ? "Processando..." : contingency ? "Gerar em contingência" : config.environment === "HOMOLOGATION" ? "Emitir em homologação" : "Emitir em produção"}</Button>
+        {feedback("issue")}
+        <Button className="mt-4" disabled={!config.fiscalEmissionEnabled || !saleId || issue.isPending || (contingency && contingencyReason.trim().length < 15)} onClick={() => run("issue", () => issue.mutateAsync({ saleId, type: documentType, series, contingency, contingencyReason: contingency ? contingencyReason : undefined }), contingency ? "Documento assinado e guardado para transmissão assim que o serviço voltar." : config.environment === "HOMOLOGATION" ? "Documento processado em homologação." : "Documento transmitido em produção.")}>{issue.isPending && issue.variables?.saleId === saleId ? <LoaderCircle className="animate-spin" size={18}/> : <Send size={18}/>} {issue.isPending && issue.variables?.saleId === saleId ? "Processando..." : contingency ? "Gerar em contingência" : config.environment === "HOMOLOGATION" ? "Emitir em homologação" : "Emitir em produção"}</Button>
       </Card>
-      <Card className="p-4"><h2 className="font-semibold">Próximas numerações</h2><div className="mt-3 space-y-2">{(overview.data?.sequences ?? []).map((sequence) => <div key={sequence.id} className="flex justify-between rounded-md border border-border p-3 text-sm"><span>{typeLabels[sequence.type]}<br/><span className="text-xs text-subdued">Série {sequence.series}</span></span><strong>{sequence.nextNumber}</strong></div>)}{!overview.data?.sequences.length ? <p className="text-sm text-subdued">Nenhuma sequência utilizada.</p> : null}</div><div className="mt-4 border-t border-border pt-4"><h3 className="text-sm font-semibold">Ajustar próxima numeração</h3><p className="mt-1 text-xs text-subdued">Use o número seguinte ao da última NFC-e autorizada no sistema anterior. Não escolha um número já utilizado.</p><Input className="mt-2" label="Próximo número" mask="integer" placeholder="Exemplo: 7844" value={nextFiscalNumber} onChange={(event) => setNextFiscalNumber(event.target.value)}/><Button className="mt-2 w-full" variant="secondary" disabled={adjustSequence.isPending || !nextFiscalNumber || documentType === "NFSE"} onClick={() => run(() => adjustSequence.mutateAsync({ type: documentType as "NFE" | "NFCE", series, nextNumber: Number(nextFiscalNumber) }), "Próxima numeração fiscal ajustada.")}>Salvar próxima numeração</Button></div><div className="mt-4 border-t border-border pt-4"><h3 className="text-sm font-semibold">Inutilizar intervalo</h3><div className="mt-2 grid grid-cols-2 gap-2"><Input label="Número inicial" mask="integer" value={voidFrom} onChange={(event) => setVoidFrom(Number(event.target.value || 1))}/><Input label="Número final" mask="integer" value={voidTo} onChange={(event) => setVoidTo(Number(event.target.value || 1))}/></div><Input className="mt-2" label="Motivo" value={voidReason} onChange={(event) => setVoidReason(event.target.value)}/><Button className="mt-2 w-full" variant="secondary" disabled={voidNumber.isPending || voidReason.length < 15 || documentType === "NFSE"} onClick={() => run(() => voidNumber.mutateAsync({ type: documentType, series, numberFrom: voidFrom, numberTo: voidTo, reason: voidReason }), config.provider === "DIRECT_SEFAZ_SP" ? "Numeração inutilizada pela Secretaria da Fazenda." : "Numeração inutilizada no simulador.")}>Inutilizar numeração</Button></div></Card>
+      <Card className="p-4"><h2 className="font-semibold">Próximas numerações</h2><div className="mt-3 space-y-2">{(overview.data?.sequences ?? []).map((sequence) => <div key={sequence.id} className="flex justify-between rounded-md border border-border p-3 text-sm"><span>{typeLabels[sequence.type]}<br/><span className="text-xs text-subdued">Série {sequence.series}</span></span><strong>{sequence.nextNumber}</strong></div>)}{!overview.data?.sequences.length ? <p className="text-sm text-subdued">Nenhuma sequência utilizada.</p> : null}</div><div className="mt-4 border-t border-border pt-4"><h3 className="text-sm font-semibold">Ajustar próxima numeração</h3><p className="mt-1 text-xs text-subdued">Use o número seguinte ao da última NFC-e autorizada no sistema anterior. Não escolha um número já utilizado.</p><Input className="mt-2" label="Próximo número" mask="integer" placeholder="Exemplo: 7844" value={nextFiscalNumber} onChange={(event) => setNextFiscalNumber(event.target.value)}/>{feedback("sequence")}<Button className="mt-2 w-full" variant="secondary" disabled={adjustSequence.isPending || !nextFiscalNumber || documentType === "NFSE"} onClick={() => run("sequence", () => adjustSequence.mutateAsync({ type: documentType as "NFE" | "NFCE", series, nextNumber: Number(nextFiscalNumber) }), "Próxima numeração fiscal ajustada.")}>Salvar próxima numeração</Button></div><div className="mt-4 border-t border-border pt-4"><h3 className="text-sm font-semibold">Inutilizar intervalo</h3><div className="mt-2 grid grid-cols-2 gap-2"><Input label="Número inicial" mask="integer" value={voidFrom} onChange={(event) => setVoidFrom(Number(event.target.value || 1))}/><Input label="Número final" mask="integer" value={voidTo} onChange={(event) => setVoidTo(Number(event.target.value || 1))}/></div><Input className="mt-2" label="Motivo" value={voidReason} onChange={(event) => setVoidReason(event.target.value)}/>{feedback("void")}<Button className="mt-2 w-full" variant="secondary" disabled={voidNumber.isPending || voidReason.length < 15 || documentType === "NFSE"} onClick={() => run("void", () => voidNumber.mutateAsync({ type: documentType, series, numberFrom: voidFrom, numberTo: voidTo, reason: voidReason }), config.provider === "DIRECT_SEFAZ_SP" ? "Numeração inutilizada pela Secretaria da Fazenda." : "Numeração inutilizada no simulador.")}>Inutilizar numeração</Button></div></Card>
     </section>
 
     <Card className="overflow-hidden">
       <div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Documentos e histórico</h2></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm">
+      {feedback("documents")}<div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm">
         <thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Documento</th><th className="px-4 py-3">Venda</th><th className="px-4 py-3">Situação</th><th className="px-4 py-3">Ambiente</th><th className="px-4 py-3">Último evento</th><th className="px-4 py-3">Ações</th></tr></thead>
         <tbody className="divide-y divide-border">{(overview.data?.documents ?? []).map((document) => <tr key={document.id}>
           <td className="px-4 py-3 font-medium">{typeLabels[document.type]}<br/><span className="text-xs text-subdued">Série {document.series}, número {document.number}</span></td>
@@ -222,16 +238,17 @@ export function FiscalManagementPage() {
           <td className="px-4 py-3"><div className="flex flex-wrap gap-1">
             {document.hasPdf ? <a className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-2" href={`/api/fiscal/documents/${document.id}/artifacts/pdf`}><Download size={15}/>Documento</a> : null}
             {document.hasXml ? <a className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-2" href={`/api/fiscal/documents/${document.id}/artifacts/xml`}><FileKey2 size={15}/>XML</a> : null}
-            {document.status !== "CONTINGENCY_PENDING" ? <Button variant="ghost" title="Consultar" disabled={action.isPending} onClick={() => run(() => action.mutateAsync({ id: document.id, action: "query" }), "Situação consultada.")}>{action.isPending && action.variables?.id === document.id && action.variables.action === "query" ? <LoaderCircle className="animate-spin" size={15}/> : <RefreshCw size={15}/>}</Button> : null}
-            {document.status === "CONTINGENCY_PENDING" ? <Button variant="secondary" title="Transmitir documento pendente" disabled={action.isPending} onClick={() => run(() => action.mutateAsync({ id: document.id, action: "transmit" }), "Documento pendente processado.")}>{action.isPending && action.variables?.id === document.id && action.variables.action === "transmit" ? <LoaderCircle className="animate-spin" size={15}/> : <Send size={15}/>}Transmitir</Button> : null}
-            {document.status === "AUTHORIZED" ? <><Button variant="ghost" title="Enviar por e-mail" disabled={action.isPending} onClick={() => run(() => action.mutateAsync({ id: document.id, action: "email" }), "Documento enviado por e-mail.")}>{action.isPending && action.variables?.id === document.id && action.variables.action === "email" ? <LoaderCircle className="animate-spin" size={15}/> : <Mail size={15}/>}</Button><Button variant="danger" disabled={action.isPending} onClick={() => { setCancellationReason(""); setDocumentToCancel({ id: document.id, type: document.type, series: document.series, number: document.number, environment: document.environment }); }}><XCircle size={15}/>Cancelar NFC-e</Button></> : null}
-            {document.status === "ERROR" || document.status === "REJECTED" ? <Button variant="danger" title="Remover nota com falha da lista" disabled={action.isPending} onClick={() => { const reason = window.prompt("Informe o motivo da exclusão da nota com falha (pelo menos 5 caracteres):"); if (reason === null) return; if (reason.trim().length < 5) { setMessage({ kind: "error", text: "Informe um motivo com pelo menos 5 caracteres." }); return; } void run(() => action.mutateAsync({ id: document.id, action: "archive", reason: reason.trim() }), "Nota com falha removida da lista."); }}>{action.isPending && action.variables?.id === document.id && action.variables.action === "archive" ? <LoaderCircle className="animate-spin" size={15}/> : <Trash2 size={15}/>}{action.isPending && action.variables?.id === document.id && action.variables.action === "archive" ? "Excluindo..." : "Excluir"}</Button> : null}
+            {document.status !== "CONTINGENCY_PENDING" ? <Button variant="ghost" title="Consultar" disabled={action.isPending} onClick={() => run("documents", () => action.mutateAsync({ id: document.id, action: "query" }), "Situação consultada.")}>{action.isPending && action.variables?.id === document.id && action.variables.action === "query" ? <LoaderCircle className="animate-spin" size={15}/> : <RefreshCw size={15}/>}</Button> : null}
+            {document.status === "CONTINGENCY_PENDING" ? <Button variant="secondary" title="Transmitir documento pendente" disabled={action.isPending} onClick={() => run("documents", () => action.mutateAsync({ id: document.id, action: "transmit" }), "Documento pendente processado.")}>{action.isPending && action.variables?.id === document.id && action.variables.action === "transmit" ? <LoaderCircle className="animate-spin" size={15}/> : <Send size={15}/>}Transmitir</Button> : null}
+            {document.status === "AUTHORIZED" ? <><Button variant="ghost" title="Enviar por e-mail" disabled={action.isPending} onClick={() => run("documents", () => action.mutateAsync({ id: document.id, action: "email" }), "Documento enviado por e-mail.")}>{action.isPending && action.variables?.id === document.id && action.variables.action === "email" ? <LoaderCircle className="animate-spin" size={15}/> : <Mail size={15}/>}</Button><Button variant="danger" disabled={action.isPending} onClick={() => { setCancellationReason(""); setDocumentToCancel({ id: document.id, type: document.type, series: document.series, number: document.number, environment: document.environment }); }}><XCircle size={15}/>Cancelar NFC-e</Button></> : null}
+            {document.status === "ERROR" || document.status === "REJECTED" ? <Button variant="danger" title="Remover nota com falha da lista" disabled={action.isPending} onClick={() => { const reason = window.prompt("Informe o motivo da exclusão da nota com falha (pelo menos 5 caracteres):"); if (reason === null) return; if (reason.trim().length < 5) { setMessage({ kind: "error", text: "Informe um motivo com pelo menos 5 caracteres.", target: "documents" }); return; } void run("documents", () => action.mutateAsync({ id: document.id, action: "archive", reason: reason.trim() }), "Nota com falha removida da lista."); }}>{action.isPending && action.variables?.id === document.id && action.variables.action === "archive" ? <LoaderCircle className="animate-spin" size={15}/> : <Trash2 size={15}/>}{action.isPending && action.variables?.id === document.id && action.variables.action === "archive" ? "Excluindo..." : "Excluir"}</Button> : null}
           </div></td>
         </tr>)}{overview.data?.documents.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-subdued">Nenhum documento fiscal processado.</td></tr> : null}</tbody>
       </table></div>
     </Card>
     <Modal open={documentToCancel !== null} onClose={() => { if (!action.isPending) setDocumentToCancel(null); }} className="max-w-lg" title="Cancelar NFC-e na SEFAZ" description={documentToCancel ? `${typeLabels[documentToCancel.type]} · Série ${documentToCancel.series}, número ${documentToCancel.number}` : undefined}>
       <div className="space-y-4">
+        {feedback("cancel-modal")}
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
           {documentToCancel?.environment === "PRODUCTION" ? "Esta nota tem validade fiscal. O pedido será enviado à SEFAZ em produção e não poderá ser desfeito pelo sistema." : "Este cancelamento será enviado ao ambiente de homologação da SEFAZ."}
         </div>
@@ -248,6 +265,9 @@ export function FiscalManagementPage() {
 }
 
 type FieldProps = { name: string; label: string; config: Record<string, unknown>; field: (name: string, value: unknown) => void; help?: string };
+function Feedback({ message }: { message: FeedbackMessage }) {
+  return <div className={`my-3 rounded-md border px-4 py-3 text-sm ${message.kind === "success" ? "border-emerald-200 bg-emerald-50 text-success" : "border-red-200 bg-red-50 text-danger"}`}>{message.text}</div>;
+}
 function TextField({ name, label, config, field, help }: FieldProps) { return <Input label={label} help={help} value={String(config[name] ?? "")} onChange={(event) => field(name, event.target.value)}/>; }
 function BooleanSelect({ name, label, config, field, help, trueLabel = "Habilitada", falseLabel = "Desabilitada" }: FieldProps & { trueLabel?: string; falseLabel?: string }) { return <Select label={label} help={help} value={String(Boolean(config[name]))} onChange={(event) => field(name, event.target.value === "true")}><option value="false">{falseLabel}</option><option value="true">{trueLabel}</option></Select>; }
 function StatusCard({ ready, title, readyText, pendingText }: { ready: boolean; title: string; readyText: string; pendingText: string }) { return <Card className="flex items-center gap-3 p-4">{ready ? <CheckCircle2 className="text-success"/> : <AlertTriangle className="text-amber-600"/>}<div><p className="font-semibold">{title}</p><p className="text-xs text-subdued">{ready ? readyText : pendingText}</p></div></Card>; }

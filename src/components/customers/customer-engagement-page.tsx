@@ -57,10 +57,25 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
   const [whatsappCustomer, setWhatsappCustomer] = useState<CustomerListItemDTO | null>(null);
   const [whatsappMessageType, setWhatsappMessageType] = useState<WhatsAppMessageType>("AUTOMATIC");
   const [whatsappMessage, setWhatsappMessage] = useState("");
-  const customers = customersQuery.data?.customers ?? [];
+  const [search, setSearch] = useState("");
+  const queryCustomers = customersQuery.data?.customers ?? [];
+  const customers = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
+    if (!normalizedSearch) return queryCustomers;
+
+    return queryCustomers.filter((customer) => [
+      customer.name,
+      customer.phone,
+      customer.whatsapp,
+      customer.document,
+      customer.email,
+      customer.branchName,
+      ...(customer.pets ?? []).map((pet) => pet.name)
+    ].some((value) => String(value ?? "").toLocaleLowerCase("pt-BR").includes(normalizedSearch)));
+  }, [queryCustomers, search]);
   const summary = customersQuery.data?.summary;
   const activeFilterLabels = [
-    filters.search ? `Busca: ${filters.search}` : null,
+    search ? `Busca: ${search}` : null,
     filters.inactiveDays ? `Sem comprar há ${filters.inactiveDays} dias` : null,
     filters.contactableOnly ? "Somente com contato" : null,
     filters.minTotalSpent !== undefined ? `Gasto mínimo: ${formatCurrency(filters.minTotalSpent)}` : null,
@@ -90,6 +105,7 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
   }
 
   function applyPreset(nextFilters: CustomerFiltersDTO) {
+    setSearch("");
     setFilters(nextFilters);
   }
 
@@ -138,7 +154,7 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
       <section className="erp-metrics erp-metrics--five grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
           ["Clientes", summary?.totalCustomers ?? 0],
-          ["Filtrados", summary?.totalFiltered ?? 0],
+          ["Filtrados", customers.length],
           ["Nunca compraram", summary?.neverPurchased ?? 0],
           ["Inativos há 30 dias", summary?.inactive30 ?? 0],
           ["Inativos há 90 dias", summary?.inactive90 ?? 0]
@@ -158,7 +174,7 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
               <SlidersHorizontal size={18} className="text-brand-700" />
               <h2 className="text-base font-semibold">Filtros de reativação</h2>
               </div>
-              <Button variant="ghost" onClick={() => setFilters({ includeNeverPurchased: true, contactableOnly: false })}>Limpar filtros</Button>
+              <Button variant="ghost" onClick={() => { setSearch(""); setFilters({ includeNeverPurchased: true, contactableOnly: false }); }}>Limpar filtros</Button>
             </div>
             <div className="erp-filter-presets mb-4 flex flex-wrap gap-2">
               {canAssignBranches ? (
@@ -212,8 +228,8 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
               <Input
                 label="Buscar"
                 placeholder="nome, telefone, documento"
-                value={filters.search ?? ""}
-                onChange={(event) => updateFilter("search", event.target.value)}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
               />
               <Select
                 label="Sem comprar há"
