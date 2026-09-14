@@ -25,5 +25,6 @@ export const financialEntrySchema = z.object({
 });
 
 export const financialStatusSchema = z.object({
-  status: z.enum(["PENDING", "PAID", "CANCELLED"])
+  status: z.enum(["PENDING", "PAID", "CANCELLED"]),
+  paymentMethod: z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "STORE_CREDIT", "VOUCHER", "MIXED"]).optional()
 });

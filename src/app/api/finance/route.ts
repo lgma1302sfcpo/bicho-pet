@@ -13,8 +13,28 @@ export async function GET() {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.FINANCE_READ);
     const branchId = session.user.currentBranchId ?? null;
-    const entries = await prisma.financialEntry.findMany({ where: { tenantId: session.user.currentTenantId, ...(branchId ? { branchId } : {}) }, include: { branch: { select: { name: true } } }, orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }], take: 300 });
-    return ok(entries.map((entry) => ({ ...entry, amount: number(entry.amount), dueDate: entry.dueDate.toISOString(), paidAt: entry.paidAt?.toISOString() ?? null, createdAt: entry.createdAt.toISOString(), updatedAt: entry.updatedAt.toISOString() })));
+    const entries = await prisma.financialEntry.findMany({
+      where: { tenantId: session.user.currentTenantId, ...(branchId ? { branchId } : {}) },
+      include: {
+        branch: { select: { name: true } },
+        sale: { select: { code: true, soldAt: true, customer: { select: { name: true, phone: true, whatsapp: true } } } }
+      },
+      orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+      take: 300
+    });
+    return ok(entries.map((entry) => ({
+      ...entry,
+      amount: number(entry.amount),
+      dueDate: entry.dueDate.toISOString(),
+      paidAt: entry.paidAt?.toISOString() ?? null,
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString(),
+      saleCode: entry.sale?.code ?? null,
+      saleSoldAt: entry.sale?.soldAt.toISOString() ?? null,
+      customerName: entry.sale?.customer?.name ?? null,
+      customerPhone: entry.sale?.customer?.whatsapp ?? entry.sale?.customer?.phone ?? null,
+      sale: undefined
+    })));
   } catch (error) { return errorResponse(error); }
 }
 

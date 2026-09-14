@@ -7,7 +7,23 @@ export type InventoryData = {
   movements: Array<{ id: string; productName: string; unit: string; userName: string; type: "ENTRY" | "EXIT" | "ADJUSTMENT"; quantity: number; previousBalance: number; newBalance: number; reason: string; reference?: string | null; createdAt: string }>;
 };
 
-export type FinancialEntry = { id: string; saleId?: string | null; type: "REVENUE" | "EXPENSE"; status: "PENDING" | "PAID" | "CANCELLED"; description: string; category: string; amount: number; dueDate: string; paidAt?: string | null; paymentMethod?: string | null; notes?: string | null };
+export type FinancialEntry = {
+  id: string;
+  saleId?: string | null;
+  saleCode?: string | null;
+  saleSoldAt?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  type: "REVENUE" | "EXPENSE";
+  status: "PENDING" | "PAID" | "CANCELLED";
+  description: string;
+  category: string;
+  amount: number;
+  dueDate: string;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
+  notes?: string | null;
+};
 export type DashboardFilters = { period?: 7 | 30 | 90 | 365; paymentMethod?: string; category?: string; brand?: string };
 export type DashboardData = { metrics: { revenue: number; grossProfit: number; margin: number; pendingExpenses: number; lowStock: number }; cashFlow: Array<{ day: string; revenue: number; expense: number }>; topProducts: Array<{ name: string; quantity: number }>; latestSales: Array<{ id: string; code: string; customerName: string; paymentMethod: string; total: number; soldAt: string }>; upcomingExpenses: Array<{ id: string; description: string; amount: number; dueDate: string }>; filterOptions: { categories: string[]; brands: string[]; paymentMethods: Array<{ value: string; label: string }> } };
 
@@ -44,7 +60,7 @@ export function useCreateFinancialEntry() {
 
 export function useUpdateFinancialStatus() {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: ({ id, status }: { id: string; status: FinancialEntry["status"] }) => api(`/api/finance/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["finance"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); } });
+  return useMutation({ mutationFn: ({ id, status, paymentMethod }: { id: string; status: FinancialEntry["status"]; paymentMethod?: string }) => api(`/api/finance/${id}`, { method: "PATCH", body: JSON.stringify({ status, paymentMethod }) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["finance"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["cash-register"] }); } });
 }
 
 export function useDeleteFinancialEntry() {
