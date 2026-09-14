@@ -7,7 +7,7 @@ export const cashRegisterInclude = {
   closedBy: { select: { name: true } },
   reopenedBy: { select: { name: true } },
   movements: {
-    include: { user: { select: { name: true } } },
+    include: { user: { select: { name: true } }, sale: { select: { paymentMethod: true } } },
     orderBy: { createdAt: "desc" }
   },
   sales: { where: { status: { in: ["COMPLETED", "CANCELLED"] } }, select: { status: true, paymentMethod: true, total: true, payments: { select: { method: true, amount: true } } } }
@@ -37,7 +37,15 @@ export function serializeCashRegister(item: CashRegisterWithDetails) {
     }
     return acc;
   }, { CASH: 0, PIX: 0, CREDIT_CARD: 0, DEBIT_CARD: 0, STORE_CREDIT: 0, VOUCHER: 0, MIXED: 0 });
-  const totals = { cashSales: paymentBreakdown.CASH, supplies: movementTotals.supplies, withdrawals: movementTotals.withdrawals };
+  const receivedStoreCreditInCash = item.movements.reduce((sum, movement) => {
+    if (movement.type !== "CASH_SALE" || movement.sale?.paymentMethod !== "STORE_CREDIT") return sum;
+    return sum + number(movement.amount);
+  }, 0);
+  const totals = {
+    cashSales: paymentBreakdown.CASH + receivedStoreCreditInCash,
+    supplies: movementTotals.supplies,
+    withdrawals: movementTotals.withdrawals
+  };
   const expectedAmount = item.status === "OPEN" || item.expectedClosingAmount == null
     ? calculateExpectedCash(number(item.openingAmount), totals)
     : number(item.expectedClosingAmount);
