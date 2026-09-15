@@ -272,6 +272,9 @@ export class PrismaCommerceRepository implements CommerceRepository {
         where: { tenantId: data.tenantId, branchId: data.branchId, status: "OPEN" },
         select: { id: true }
       });
+      if (data.sale.offlineCashRegisterSessionId && cashRegister?.id !== data.sale.offlineCashRegisterSessionId) {
+        throw new AppError("Reabra o caixa original desta venda offline antes de sincronizar.", "OFFLINE_CASH_REGISTER_MISMATCH", 409);
+      }
       if (!cashRegister) {
         throw new AppError("Abra o caixa desta loja antes de concluir a venda.", "CASH_REGISTER_NOT_OPEN", 409);
       }
@@ -288,6 +291,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
           cashRegisterSessionId: cashRegister?.id,
           customerId: data.sale.customerId || undefined,
           code: data.code,
+          offlineId: data.sale.offlineId,
           paymentMethod: data.sale.paymentMethod,
           subtotal: data.subtotal,
           discount: data.sale.discount,

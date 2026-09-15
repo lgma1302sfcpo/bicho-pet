@@ -15,6 +15,7 @@ import {
   Users,
   WalletCards,
   Banknote,
+  WifiOff,
   X
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -59,6 +60,7 @@ const navItems: EnabledNavItem[] = [
   { href: "/clientes", label: "Clientes", icon: Users, permission: AUTH_PERMISSIONS.CUSTOMERS_READ, enabled: true },
   { href: "/produtos", label: "Produtos", icon: Package, permission: AUTH_PERMISSIONS.PRODUCTS_READ, enabled: true },
   { href: "/vendas/nova", label: "Vendas", icon: ReceiptText, permission: [AUTH_PERMISSIONS.SALES_WRITE, AUTH_PERMISSIONS.SALES_PDV], enabled: true },
+  { href: "/vendas/offline" as Route, label: "Vendas offline", icon: WifiOff, permission: [AUTH_PERMISSIONS.SALES_WRITE, AUTH_PERMISSIONS.SALES_PDV], enabled: true },
   { href: "/caixa" as Route, label: "Caixa", icon: Banknote, permission: AUTH_PERMISSIONS.CASH_READ, enabled: true },
   { href: "/banho-e-tosa" as Route, label: "Banho e Tosa", icon: CalendarDays, permission: AUTH_PERMISSIONS.GROOMING_READ, enabled: true },
   { href: "/estoque", label: "Estoque", icon: Boxes, permission: AUTH_PERMISSIONS.INVENTORY_READ, enabled: true },
@@ -161,6 +163,10 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
                 <span>{item.label}</span>
               </>
             );
+
+            if (item.href === "/vendas/offline") {
+              return <a key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)} className={cn("erp-nav__item inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition lg:flex", active ? "bg-brand-50 text-brand-700" : "text-subdued hover:bg-muted hover:text-ink")}>{content}</a>;
+            }
 
             return (
               <Link

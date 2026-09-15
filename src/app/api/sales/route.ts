@@ -8,6 +8,7 @@ import { createSaleSchema } from "@/schemas/commerce/sale.schemas";
 import { commerceService } from "@/services/commerce";
 import { fiscalService } from "@/services/fiscal";
 import { prisma } from "@/lib/prisma";
+import { AppError } from "@/lib/errors";
 
 export async function GET() {
   try {
@@ -21,11 +22,25 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  let retryContext: { offlineId: string; tenantId: string; branchId: string } | null = null;
   try {
     const session = await requirePermission([AUTH_PERMISSIONS.SALES_WRITE, AUTH_PERMISSIONS.SALES_PDV]);
     const payload = await request.json();
     const input = createSaleSchema.parse(payload);
     const branchId = requireSelectedBranch(session.user.currentBranchId);
+    if (input.offlineId) retryContext = { offlineId: input.offlineId, tenantId: session.user.currentTenantId, branchId };
+    if (input.offlineId) {
+      const existing = await prisma.sale.findUnique({
+        where: { offlineId: input.offlineId },
+        select: { id: true, code: true, total: true, customerId: true, tenantId: true, branchId: true }
+      });
+      if (existing) {
+        if (existing.tenantId !== session.user.currentTenantId || existing.branchId !== branchId) {
+          throw new AppError("Venda offline vinculada a outra loja.", "OFFLINE_SALE_SCOPE_MISMATCH", 409);
+        }
+        return created({ id: existing.id, code: existing.code, total: Number(existing.total), customerId: existing.customerId });
+      }
+    }
     const sale = await commerceService.createSale(session.user.currentTenantId, branchId, session.user.id, input);
     const [branch, soldItems] = await Promise.all([
       prisma.branch.findFirst({ where: { id: branchId, tenantId: session.user.currentTenantId }, select: { name: true, fiscalEmissionEnabled: true } }),
@@ -56,6 +71,15 @@ export async function POST(request: NextRequest) {
       return created({ ...sale, fiscal: { status: "PENDING_CORRECTION", branchName: branch.name, message } });
     }
   } catch (error) {
+    if (retryContext && error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      const existing = await prisma.sale.findUnique({ where: { offlineId: retryContext.offlineId }, select: { id: true, code: true, total: true, customerId: true, tenantId: true, branchId: true } });
+      if (existing) {
+        if (existing.tenantId !== retryContext.tenantId || existing.branchId !== retryContext.branchId) {
+          return errorResponse(new AppError("Venda offline vinculada a outra loja.", "OFFLINE_SALE_SCOPE_MISMATCH", 409));
+        }
+        return created({ id: existing.id, code: existing.code, total: Number(existing.total), customerId: existing.customerId });
+      }
+    }
     return errorResponse(error);
   }
 }

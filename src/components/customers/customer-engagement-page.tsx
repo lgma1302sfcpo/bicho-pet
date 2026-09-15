@@ -58,8 +58,8 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
   const [whatsappMessageType, setWhatsappMessageType] = useState<WhatsAppMessageType>("AUTOMATIC");
   const [whatsappMessage, setWhatsappMessage] = useState("");
   const [search, setSearch] = useState("");
-  const queryCustomers = customersQuery.data?.customers ?? [];
   const customers = useMemo(() => {
+    const queryCustomers = customersQuery.data?.customers ?? [];
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
     if (!normalizedSearch) return queryCustomers;
 
@@ -72,7 +72,7 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
       customer.branchName,
       ...(customer.pets ?? []).map((pet) => pet.name)
     ].some((value) => String(value ?? "").toLocaleLowerCase("pt-BR").includes(normalizedSearch)));
-  }, [queryCustomers, search]);
+  }, [customersQuery.data?.customers, search]);
   const summary = customersQuery.data?.summary;
   const activeFilterLabels = [
     search ? `Busca: ${search}` : null,

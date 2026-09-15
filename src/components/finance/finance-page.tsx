@@ -95,7 +95,7 @@ export function FinancePage() {
   }
 
   if (finance.isPending) {
-    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Financeiro</h1><p className="text-sm text-subdued">Controle de receitas, despesas, vencimentos e pagamentos.</p></div><DataLoadingState label="Carregando lancamentos financeiros..." /></div>;
+    return <div className="erp-page"><div><h1 className="text-2xl font-semibold">Financeiro</h1><p className="text-sm text-subdued">Controle de receitas, despesas, vencimentos e pagamentos.</p></div><DataLoadingState label="Carregando lançamentos financeiros..." /></div>;
   }
 
   if (finance.isError) {

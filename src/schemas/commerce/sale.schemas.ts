@@ -14,6 +14,8 @@ export const saleItemSchema = z.object({
 });
 
 export const createSaleSchema = z.object({
+  offlineId: z.string().uuid().optional(),
+  offlineCashRegisterSessionId: z.string().trim().min(1).optional(),
   customerId: z.string().trim().optional().or(z.literal("")),
   paymentMethod: z
     .string()
@@ -30,6 +32,9 @@ export const createSaleSchema = z.object({
   notes: z.string().trim().optional(),
   items: z.array(saleItemSchema).min(1, "Informe pelo menos um item.")
 }).superRefine((sale, context) => {
+  if (sale.offlineId && !sale.offlineCashRegisterSessionId) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["offlineCashRegisterSessionId"], message: "Informe o caixa original da venda offline." });
+  }
   if (sale.paymentMethod === "STORE_CREDIT" && !sale.customerId) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["customerId"], message: "Selecione o cliente para registrar uma venda fiada." });
   }
