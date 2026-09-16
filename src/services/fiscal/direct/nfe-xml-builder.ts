@@ -96,8 +96,9 @@ export function buildNfeXml(request: FiscalProviderRequest, privateKeyPem: strin
   const issuedAt = request.contingency?.startedAt ?? new Date();
   const key = buildNfeAccessKey({ issuedAt, cnpj: request.issuer.cnpj, model, series: request.series, number: request.number, emissionType });
   const timestamp = saoPauloTimestamp(issuedAt);
-  const itemGrossValues = request.sale.items.map((item) => Math.round(item.quantity * item.unitPrice * 100) / 100);
-  const productsTotal = itemGrossValues.reduce((sum, value) => sum + value, 0);
+  const rawItemValues = request.sale.items.map((item) => item.quantity * item.unitPrice);
+  const productsTotal = Math.round(rawItemValues.reduce((sum, value) => sum + value, 0) * 100) / 100;
+  const itemGrossValues = allocateMoney(productsTotal, rawItemValues);
   const invoiceTotal = Math.round((productsTotal - request.sale.discount + request.sale.surcharge) * 100) / 100;
   const endpoint = sefazSpEndpoints(request.type, request.environment);
   const destinationState = request.sale.customerState || request.issuer.state;
