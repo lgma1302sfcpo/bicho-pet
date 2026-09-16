@@ -27,7 +27,9 @@ export async function PATCH(request: Request, context: Context) {
         }
       });
       if (!sale) throw new AppError("Venda não encontrada nesta loja.", "SALE_NOT_FOUND", 404);
-      if (!sale.cashRegisterSession || sale.cashRegisterSession.status !== "OPEN") {
+      const oldPaymentMethod = sale.paymentMethod;
+      const isReceivingStoreCredit = oldPaymentMethod === "STORE_CREDIT" && input.paymentMethod !== "STORE_CREDIT";
+      if (!isReceivingStoreCredit && (!sale.cashRegisterSession || sale.cashRegisterSession.status !== "OPEN")) {
         throw new AppError("Reabra o caixa desta venda antes de corrigir o pagamento.", "CASH_REGISTER_CLOSED", 409);
       }
       if (sale.paymentMethod === input.paymentMethod) {
@@ -40,7 +42,12 @@ export async function PATCH(request: Request, context: Context) {
         throw new AppError("Esta venda possui documento fiscal em processamento ou autorizado. Regularize o documento fiscal antes de alterar o pagamento.", "ACTIVE_FISCAL_DOCUMENT", 409);
       }
 
-      const oldPaymentMethod = sale.paymentMethod;
+      let openSessionForReceipt: { id: string } | null = null;
+      if (isReceivingStoreCredit && input.paymentMethod === "CASH") {
+        openSessionForReceipt = await tx.cashRegisterSession.findFirst({ where: { tenantId, branchId, status: "OPEN" }, select: { id: true } });
+        if (!openSessionForReceipt) throw new AppError("Abra o caixa antes de receber uma venda fiada em dinheiro.", "CASH_REGISTER_NOT_OPEN", 409);
+      }
+
       await tx.sale.update({ where: { id: sale.id }, data: { paymentMethod: input.paymentMethod } });
       await tx.salePayment.deleteMany({ where: { saleId: sale.id } });
       await tx.salePayment.create({ data: { saleId: sale.id, method: input.paymentMethod, amount: sale.total } });
@@ -53,10 +60,25 @@ export async function PATCH(request: Request, context: Context) {
         }
       });
 
-      if (oldPaymentMethod === "CASH" && input.paymentMethod !== "CASH") {
+      if (isReceivingStoreCredit) {
+        if (openSessionForReceipt) {
+          await tx.cashRegisterMovement.create({
+            data: {
+              sessionId: openSessionForReceipt.id,
+              tenantId,
+              branchId,
+              userId: auth.user.id,
+              saleId: sale.id,
+              type: "CASH_SALE",
+              amount: sale.total,
+              description: `Recebimento fiado ${sale.code}`
+            }
+          });
+        }
+      } else if (oldPaymentMethod === "CASH" && input.paymentMethod !== "CASH") {
         await tx.cashRegisterMovement.deleteMany({
           where: {
-            sessionId: sale.cashRegisterSession.id,
+            sessionId: sale.cashRegisterSession!.id,
             type: "CASH_SALE",
             OR: [{ saleId: sale.id }, { saleId: null, description: `Venda ${sale.code}` }]
           }
@@ -64,7 +86,7 @@ export async function PATCH(request: Request, context: Context) {
       } else if (oldPaymentMethod !== "CASH" && input.paymentMethod === "CASH") {
         await tx.cashRegisterMovement.create({
           data: {
-            sessionId: sale.cashRegisterSession.id,
+            sessionId: sale.cashRegisterSession!.id,
             tenantId,
             branchId,
             userId: auth.user.id,
