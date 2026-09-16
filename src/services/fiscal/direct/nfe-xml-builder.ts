@@ -107,7 +107,7 @@ export function buildNfeXml(request: FiscalProviderRequest, privateKeyPem: strin
 
   const itemXml = request.sale.items.map((item, index) => {
     if (!item.ncm || !item.cfop) throw new AppError(`NCM e CFOP sao obrigatorios para ${item.description}.`, "FISCAL_PRODUCT_DATA_MISSING", 422);
-    const itemTotal = Math.round(item.quantity * item.unitPrice * 100) / 100;
+    const itemTotal = itemGrossValues[index];
     const itemDiscount = allocatedDiscounts[index];
     const itemSurcharge = allocatedSurcharges[index];
     const description = request.environment === "HOMOLOGATION" ? "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : cleanText(item.description, 120);
