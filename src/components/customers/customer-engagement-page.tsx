@@ -174,7 +174,7 @@ export function CustomerEngagementPage({ canManage = false, canAssignBranches = 
               <SlidersHorizontal size={18} className="text-brand-700" />
               <h2 className="text-base font-semibold">Filtros de reativação</h2>
               </div>
-              <Button variant="ghost" onClick={() => { setSearch(""); setFilters({ includeNeverPurchased: true, contactableOnly: false }); }}>Limpar filtros</Button>
+              <Button variant="ghost" disabled={activeFilterLabels.length === 0} onClick={() => { setSearch(""); setFilters({ includeNeverPurchased: true, contactableOnly: false }); }}>Limpar filtros</Button>
             </div>
             <div className="erp-filter-presets mb-4 flex flex-wrap gap-2">
               {canAssignBranches ? (

@@ -171,7 +171,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
               <SlidersHorizontal size={18} className="text-brand-700" />
               <h2 className="text-base font-semibold">Filtros</h2>
               </div>
-              <Button variant="ghost" onClick={() => { setSearchText(""); setFilters({ lowStockOnly: false }); }}>Limpar filtros</Button>
+              <Button variant="ghost" disabled={activeFilters.length === 0} onClick={() => { setSearchText(""); setFilters({ lowStockOnly: false }); }}>Limpar filtros</Button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               <Input
