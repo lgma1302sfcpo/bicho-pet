@@ -14,6 +14,7 @@ export type FinancialEntry = {
   saleSoldAt?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  productNames?: string | null;
   type: "REVENUE" | "EXPENSE";
   status: "PENDING" | "PAID" | "CANCELLED";
   description: string;

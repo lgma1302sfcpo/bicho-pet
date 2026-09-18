@@ -17,7 +17,7 @@ export async function GET() {
       where: { tenantId: session.user.currentTenantId, ...(branchId ? { branchId } : {}) },
       include: {
         branch: { select: { name: true } },
-        sale: { select: { code: true, soldAt: true, customer: { select: { name: true, phone: true, whatsapp: true } } } }
+        sale: { select: { code: true, soldAt: true, customer: { select: { name: true, phone: true, whatsapp: true } }, items: { select: { description: true } } } }
       },
       orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
       take: 300
@@ -33,6 +33,7 @@ export async function GET() {
       saleSoldAt: entry.sale?.soldAt.toISOString() ?? null,
       customerName: entry.sale?.customer?.name ?? null,
       customerPhone: entry.sale?.customer?.whatsapp ?? entry.sale?.customer?.phone ?? null,
+      productNames: entry.sale?.items.map((item) => item.description).join(", ") || null,
       sale: undefined
     })));
   } catch (error) { return errorResponse(error); }

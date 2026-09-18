@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, DatabaseBackup, Download, FileKey2, LoaderCircle, Mail, RefreshCw, Save, Send, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, DatabaseBackup, Download, FileKey2, LoaderCircle, Mail, RefreshCw, Save, Send, Trash2, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { useAdjustFiscalSequence, useDismissFiscalPending, useFiscalAction, useF
 const states = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 const typeLabels: Record<string, string> = { NFE: "Nota Fiscal Eletrônica", NFCE: "Nota Fiscal de Consumidor Eletrônica", NFSE: "Nota Fiscal de Serviço Eletrônica" };
 const statusLabels: Record<string, string> = { PROCESSING: "Processando", CONTINGENCY_PENDING: "Contingencia pendente", AUTHORIZED: "Autorizado", REJECTED: "Rejeitado", CANCELLED: "Cancelado", ERROR: "Erro" };
+const documentsPerPage = 20;
 const initialConfig = {
   legalName: "", tradeName: "", cnpj: "", stateRegistration: "", municipalRegistration: "", taxRegime: "", cnae: "",
   street: "", number: "", complement: "", district: "", city: "", cityCode: "", state: "SP", zipCode: "", phone: "", email: "",
@@ -62,12 +63,18 @@ export function FiscalManagementPage() {
   const [configHydrated, setConfigHydrated] = useState(false);
   const [documentToCancel, setDocumentToCancel] = useState<{ id: string; type: string; series: number; number: number; environment: string } | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
+  const [documentsPage, setDocumentsPage] = useState(1);
+  const documents = overview.data?.documents ?? [];
+  const documentsTotalPages = Math.max(1, Math.ceil(documents.length / documentsPerPage));
+  const paginatedDocuments = documents.slice((documentsPage - 1) * documentsPerPage, documentsPage * documentsPerPage);
 
   useEffect(() => {
     const refetch = () => overview.refetch();
     window.addEventListener("focus", refetch);
     return () => window.removeEventListener("focus", refetch);
   }, [overview]);
+
+  useEffect(() => { if (documentsPage > documentsTotalPages) setDocumentsPage(documentsTotalPages); }, [documentsPage, documentsTotalPages]);
 
   useEffect(() => {
     if (!overview.data) return;
@@ -235,9 +242,9 @@ export function FiscalManagementPage() {
       <div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Documentos e histórico</h2></div>
       {feedback("documents")}<div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm">
         <thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Documento</th><th className="px-4 py-3">Venda</th><th className="px-4 py-3">Situação</th><th className="px-4 py-3">Ambiente</th><th className="px-4 py-3">Último evento</th><th className="px-4 py-3">Ações</th></tr></thead>
-        <tbody className="divide-y divide-border">{(overview.data?.documents ?? []).map((document) => <tr key={document.id}>
+        <tbody className="divide-y divide-border">{paginatedDocuments.map((document) => <tr key={document.id}>
           <td className="px-4 py-3 font-medium">{typeLabels[document.type]}<br/><span className="text-xs text-subdued">Série {document.series}, número {document.number}</span></td>
-          <td className="px-4 py-3">{document.sale.code}<br/><span className="text-xs text-subdued">{money(document.sale.total)}</span></td>
+          <td className="px-4 py-3">{document.sale.code}<br/><span className="text-xs text-subdued">{document.sale.customer?.name ?? "Consumidor final"} · {money(document.sale.total)}</span></td>
           <td className="px-4 py-3"><Badge className={document.status === "AUTHORIZED" ? "border-emerald-200 bg-emerald-50 text-success" : document.status === "CONTINGENCY_PENDING" ? "border-amber-200 bg-amber-50 text-amber-800" : document.status === "CANCELLED" ? "border-slate-300 bg-slate-100" : "border-red-200 bg-red-50 text-danger"}>{statusLabels[document.status] ?? document.status}</Badge>{document.rejectionReason ? <p className="mt-1 max-w-xs text-xs text-danger">{document.rejectionReason}</p> : null}</td>
           <td className="px-4 py-3">{document.environment === "HOMOLOGATION" ? "Homologação" : "Produção"}<br/><span className="text-xs text-subdued">{date(document.createdAt)}</span></td>
           <td className="max-w-xs px-4 py-3"><p>{document.events[0]?.message ?? "Sem eventos"}</p><span className="text-xs text-subdued">{date(document.events[0]?.createdAt)}</span></td>
@@ -249,8 +256,9 @@ export function FiscalManagementPage() {
             {document.status === "AUTHORIZED" ? <><Button variant="ghost" title="Enviar por e-mail" disabled={action.isPending} onClick={() => run("documents", () => action.mutateAsync({ id: document.id, action: "email" }), "Documento enviado por e-mail.")}>{action.isPending && action.variables?.id === document.id && action.variables.action === "email" ? <LoaderCircle className="animate-spin" size={15}/> : <Mail size={15}/>}</Button><Button variant="danger" disabled={action.isPending} onClick={() => { setCancellationReason(""); setDocumentToCancel({ id: document.id, type: document.type, series: document.series, number: document.number, environment: document.environment }); }}><XCircle size={15}/>Cancelar NFC-e</Button></> : null}
             {document.status === "ERROR" || document.status === "REJECTED" ? <Button variant="danger" title="Remover nota com falha da lista" disabled={action.isPending} onClick={() => { const reason = window.prompt("Informe o motivo da exclusão da nota com falha (pelo menos 5 caracteres):"); if (reason === null) return; if (reason.trim().length < 5) { setMessage({ kind: "error", text: "Informe um motivo com pelo menos 5 caracteres.", target: "documents" }); return; } void run("documents", () => action.mutateAsync({ id: document.id, action: "archive", reason: reason.trim() }), "Nota com falha removida da lista."); }}>{action.isPending && action.variables?.id === document.id && action.variables.action === "archive" ? <LoaderCircle className="animate-spin" size={15}/> : <Trash2 size={15}/>}{action.isPending && action.variables?.id === document.id && action.variables.action === "archive" ? "Excluindo..." : "Excluir"}</Button> : null}
           </div></td>
-        </tr>)}{overview.data?.documents.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-subdued">Nenhum documento fiscal processado.</td></tr> : null}</tbody>
+        </tr>)}{documents.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-subdued">Nenhum documento fiscal processado.</td></tr> : null}</tbody>
       </table></div>
+      {documents.length ? <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row"><p className="text-sm text-subdued">Exibindo {(documentsPage - 1) * documentsPerPage + 1} a {Math.min(documentsPage * documentsPerPage, documents.length)} de {documents.length} documentos</p><div className="flex items-center gap-2"><Button variant="secondary" disabled={documentsPage === 1} onClick={() => setDocumentsPage((page) => Math.max(1, page - 1))}><ChevronLeft size={16}/>Anterior</Button><span className="min-w-24 text-center text-sm font-medium">Página {documentsPage} de {documentsTotalPages}</span><Button variant="secondary" disabled={documentsPage === documentsTotalPages} onClick={() => setDocumentsPage((page) => Math.min(documentsTotalPages, page + 1))}>Próxima<ChevronRight size={16}/></Button></div></div> : null}
     </Card>
     <Modal open={documentToCancel !== null} onClose={() => { if (!action.isPending) setDocumentToCancel(null); }} className="max-w-lg" title="Cancelar NFC-e na SEFAZ" description={documentToCancel ? `${typeLabels[documentToCancel.type]} · Série ${documentToCancel.series}, número ${documentToCancel.number}` : undefined}>
       <div className="space-y-4">

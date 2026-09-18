@@ -1,7 +1,7 @@
 "use client";
 
-import { CheckCircle2, CircleDollarSign, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const paymentLabels: Record<string, string> = {
   MIXED: "Pagamento combinado"
 };
 const receivePaymentOptions = ["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "VOUCHER"];
+const entriesPerPage = 20;
 const categories = ["Vendas", "Fornecedores", "Aluguel", "Energia eletrica", "Agua", "Internet", "Impostos", "Salarios", "Manutencao", "Marketing", "Outras receitas", "Outras despesas"];
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
@@ -58,12 +59,17 @@ export function FinancePage() {
   const [receivePaymentMethod, setReceivePaymentMethod] = useState("CASH");
   const entries = useMemo(() => finance.data ?? [], [finance.data]);
   const filtered = useMemo(() => entries.filter((entry) => {
-    const haystack = `${entry.description} ${entry.category} ${entry.customerName ?? ""} ${entry.customerPhone ?? ""} ${entry.saleCode ?? ""}`.toLowerCase();
+    const haystack = `${entry.description} ${entry.category} ${entry.customerName ?? ""} ${entry.customerPhone ?? ""} ${entry.saleCode ?? ""} ${entry.productNames ?? ""}`.toLowerCase();
     return (!search || haystack.includes(search.toLowerCase())) &&
       (filterType === "ALL" || entry.type === filterType) &&
       (filterStatus === "ALL" || entry.status === filterStatus);
   }), [entries, filterStatus, filterType, search]);
   const filtersActive = Boolean(search || filterType !== "ALL" || filterStatus !== "ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / entriesPerPage));
+  const paginatedEntries = filtered.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
+  useEffect(() => { setCurrentPage(1); }, [search, filterType, filterStatus]);
+  useEffect(() => { if (currentPage > totalPages) setCurrentPage(totalPages); }, [currentPage, totalPages]);
   const paidRevenue = entries.filter((entry) => entry.type === "REVENUE" && entry.status === "PAID").reduce((sum, entry) => sum + entry.amount, 0);
   const paidExpense = entries.filter((entry) => entry.type === "EXPENSE" && entry.status === "PAID").reduce((sum, entry) => sum + entry.amount, 0);
   const pending = entries.filter((entry) => entry.status === "PENDING").reduce((sum, entry) => sum + entry.amount, 0);
@@ -146,9 +152,9 @@ export function FinancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((entry) => (
+                {paginatedEntries.map((entry) => (
                   <tr key={entry.id}>
-                    <td className="px-4 py-3"><p className="font-medium">{entry.description}</p><p className="text-xs text-subdued">{entry.category}{entry.paymentMethod ? ` - ${paymentLabels[entry.paymentMethod] ?? entry.paymentMethod}` : ""}{entry.saleCode ? ` - Venda ${entry.saleCode}` : ""}</p></td>
+                    <td className="px-4 py-3"><p className="font-medium">{entry.description}</p><p className="text-xs text-subdued">{entry.category}{entry.paymentMethod ? ` - ${paymentLabels[entry.paymentMethod] ?? entry.paymentMethod}` : ""}{entry.saleCode ? ` - Venda ${entry.saleCode}` : ""}</p>{entry.productNames ? <p className="mt-1 text-xs text-subdued"><strong>Produtos:</strong> {entry.productNames}</p> : null}</td>
                     <td className="px-4 py-3"><p className="font-medium">{entry.customerName ?? "-"}</p>{entry.customerPhone ? <p className="text-xs text-subdued">{entry.customerPhone}</p> : null}</td>
                     <td className="px-4 py-3">{typeLabels[entry.type]}</td>
                     <td className="px-4 py-3">{formatDate(entry.dueDate)}</td>
@@ -162,6 +168,7 @@ export function FinancePage() {
               </tbody>
             </table>
           </div>
+          {filtered.length ? <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row"><p className="text-sm text-subdued">Exibindo {(currentPage - 1) * entriesPerPage + 1} a {Math.min(currentPage * entriesPerPage, filtered.length)} de {filtered.length} lancamentos</p><div className="flex items-center gap-2"><Button variant="secondary" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}><ChevronLeft size={16}/>Anterior</Button><span className="min-w-24 text-center text-sm font-medium">Página {currentPage} de {totalPages}</span><Button variant="secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>Próxima<ChevronRight size={16}/></Button></div></div> : null}
         </Card>
       </div>
       <Card className="h-fit p-4"><div className="mb-4 flex items-center gap-2"><CircleDollarSign size={19} className="text-brand-700" /><h2 className="font-semibold">Novo lancamento</h2></div><div className="space-y-3"><Select label="Tipo" help="Receita representa dinheiro que entra. Despesa representa dinheiro que sai." value={type} onChange={(event) => setType(event.target.value as keyof typeof typeLabels)}><option value="REVENUE">Receita</option><option value="EXPENSE">Despesa</option></Select><Input label="Descricao" mask="letters" placeholder="Exemplo: compra de racoes" value={description} onChange={(event) => setDescription(event.target.value)} /><Select label="Categoria" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</Select><Input label="Valor" help="Valor total que sera recebido ou pago." mask="currency" value={amount} onChange={(event) => setAmount(event.target.value)} /><Input label="Data de vencimento" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /><Select label="Situacao" value={status} onChange={(event) => setStatus(event.target.value as keyof typeof statusLabels)}><option value="PENDING">Pendente</option><option value="PAID">Pago</option><option value="CANCELLED">Cancelado</option></Select><Select label="Meio de pagamento" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>{Object.entries(paymentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><Input label="Observacoes" value={notes} onChange={(event) => setNotes(event.target.value)} /><Button className="w-full" disabled={createEntry.isPending || !description || !amount} onClick={submit}><Plus size={17} />Cadastrar lancamento</Button></div></Card>
