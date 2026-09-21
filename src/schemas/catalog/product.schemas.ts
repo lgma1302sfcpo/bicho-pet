@@ -41,6 +41,11 @@ export const createProductSchema = z.object({
   stockQuantity: numeric.pipe(z.number().min(0, "O estoque não pode ser negativo.")).default(0),
   minStock: numeric.pipe(z.number().min(0, "O estoque mínimo não pode ser negativo.")).default(0),
   maxStock: numeric.pipe(z.number().min(0, "O estoque máximo não pode ser negativo.")).default(0),
+  useBranchPrice: z.boolean().default(false),
+  branchSalePrice: z.preprocess(
+    (value) => value === '' || value === undefined || value === null ? undefined : parseBrazilianNumber(value),
+    z.number().min(0.01).optional()
+  ),
   location: optionalText,
   imageUrl: optionalText,
   fiscalItemType: z.enum(["GOOD", "SERVICE"]).default("GOOD"),
@@ -60,6 +65,10 @@ export const createProductSchema = z.object({
   ),
   fiscalApproved: z.boolean().default(false)
 }).superRefine((product, context) => {
+  if (product.useBranchPrice && product.branchSalePrice === undefined) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['branchSalePrice'], message: 'Informe o preco diferenciado desta loja.' });
+  }
+
   if (!product.fiscalApproved) return;
 
   const requireField = (field: keyof typeof product, message: string) => {

@@ -15,6 +15,9 @@ export type ProductRecord = {
   description?: string | null;
   costPrice: number;
   salePrice: number;
+  defaultSalePrice?: number;
+  branchSalePrice?: number | null;
+  useBranchPrice?: boolean;
   marginPercent: number;
   stockQuantity: number;
   minStock: number;

@@ -86,6 +86,9 @@ export class ProductService {
   private mapProduct(product: ProductRecord): ProductListItemDTO {
     return {
       ...product,
+      defaultSalePrice: product.defaultSalePrice ?? product.salePrice,
+      branchSalePrice: product.branchSalePrice ?? null,
+      useBranchPrice: product.useBranchPrice ?? false,
       fiscalItemType: product.fiscalItemType ?? "GOOD",
       fiscalApproved: product.fiscalApproved ?? false,
       isLowStock: product.minStock > 0 && product.stockQuantity <= product.minStock

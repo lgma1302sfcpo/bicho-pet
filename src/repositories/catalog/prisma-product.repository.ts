@@ -131,7 +131,8 @@ export class PrismaProductRepository implements ProductRepository {
             stockQuantity: stock.stockQuantity,
             minStock: stock.minStock,
             maxStock: stock.maxStock,
-            location: stock.location
+            location: stock.location,
+            salePrice: stock.branchId === branchId && data.useBranchPrice ? data.branchSalePrice : null
           }))
         }
       },
@@ -210,13 +211,15 @@ export class PrismaProductRepository implements ProductRepository {
             stockQuantity: data.stockQuantity,
             minStock: data.minStock,
             maxStock: data.maxStock,
-            location: data.location ?? null
+            location: data.location ?? null,
+            salePrice: data.useBranchPrice ? data.branchSalePrice : null
           },
           update: {
             stockQuantity: data.stockQuantity,
             minStock: data.minStock,
             maxStock: data.maxStock,
-            location: data.location ?? null
+            location: data.location ?? null,
+            salePrice: data.useBranchPrice ? data.branchSalePrice : null
           }
         });
       }
@@ -371,6 +374,7 @@ export class PrismaProductRepository implements ProductRepository {
       minStock: Prisma.Decimal;
       maxStock: Prisma.Decimal;
       location: string | null;
+      salePrice: Prisma.Decimal | null;
     }>;
   }) {
     const stocks = product.branchStocks ?? [];
@@ -380,6 +384,12 @@ export class PrismaProductRepository implements ProductRepository {
       maxStock: stocks.reduce((total, stock) => total + toNumber(stock.maxStock), 0),
       location: stocks.length === 1 ? stocks[0].location : null
     };
+    const branchSalePrice = stocks.length === 1 && stocks[0].salePrice !== null
+      ? toNumber(stocks[0].salePrice)
+      : null;
+    const defaultSalePrice = toNumber(product.salePrice);
+    const effectiveSalePrice = branchSalePrice ?? defaultSalePrice;
+    const costPrice = toNumber(product.costPrice);
     return {
       id: product.id,
       name: product.name,
@@ -393,9 +403,12 @@ export class PrismaProductRepository implements ProductRepository {
       unit: product.unit,
       species: product.species,
       description: product.description,
-      costPrice: toNumber(product.costPrice),
-      salePrice: toNumber(product.salePrice),
-      marginPercent: toNumber(product.marginPercent),
+      costPrice,
+      salePrice: effectiveSalePrice,
+      defaultSalePrice,
+      branchSalePrice,
+      useBranchPrice: branchSalePrice !== null,
+      marginPercent: costPrice > 0 ? Math.round(((effectiveSalePrice - costPrice) / costPrice) * 10000) / 100 : 0,
       stockQuantity: branchStock.stockQuantity,
       minStock: branchStock.minStock,
       maxStock: branchStock.maxStock,

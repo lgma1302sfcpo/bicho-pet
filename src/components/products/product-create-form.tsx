@@ -52,7 +52,7 @@ const emptyProduct: UpdateProductDTO = {
   minStock: 0, maxStock: 0, location: "", imageUrl: "", status: "ACTIVE",
   fiscalItemType: "GOOD", ncm: "", cest: "", originCode: "0", defaultCfop: "", icmsCode: "",
   pisCode: "", cofinsCode: "", ibsCbsCode: "", taxClassificationCode: "", serviceCode: "",
-  issRate: undefined, fiscalApproved: false
+  issRate: undefined, fiscalApproved: false, useBranchPrice: false, branchSalePrice: undefined
 };
 
 export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess }: ProductFormProps) {
@@ -68,6 +68,7 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
   const watchedCost = Number(parseBrazilianNumber(form.watch("costPrice")) ?? 0);
   const watchedSale = Number(parseBrazilianNumber(form.watch("salePrice")) ?? 0);
   const fiscalItemType = form.watch("fiscalItemType");
+  const useBranchPrice = form.watch('useBranchPrice');
   const markup = watchedCost > 0 ? ((watchedSale - watchedCost) / watchedCost) * 100 : 0;
   const grossProfit = watchedSale - watchedCost;
   const categories = product?.category && !categorySuggestions.includes(product.category)
@@ -76,6 +77,11 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
 
   useEffect(() => {
     form.reset(product ? ({ ...product, status: product.status as UpdateProductDTO["status"] } as unknown as UpdateProductDTO) : emptyProduct);
+    if (product) {
+      form.setValue('salePrice', product.defaultSalePrice);
+      form.setValue('useBranchPrice', product.useBranchPrice);
+      form.setValue('branchSalePrice', product.branchSalePrice ?? undefined);
+    }
     setError(null);
     setEditingMarkup(false);
     setMarkupInput("");
@@ -163,6 +169,20 @@ export function ProductCreateForm({ product, suppliers = [], onCancel, onSuccess
             error={form.formState.errors.salePrice?.message}
             {...form.register("salePrice")}
           />
+        </div>
+        <div className='rounded-md border border-blue-200 bg-blue-50 p-3'>
+          <label className='flex cursor-pointer items-start gap-3 text-sm text-blue-950'>
+            <input className='mt-1 h-4 w-4' type='checkbox' {...form.register('useBranchPrice')} />
+            <span>
+              <strong className='block'>Usar preço diferenciado nesta loja</strong>
+              <span className='text-xs text-blue-800'>Ative somente para os poucos produtos que precisam ter outro valor nesta loja. As demais lojas continuarão usando o preço padrão.</span>
+            </span>
+          </label>
+          {useBranchPrice ? (
+            <div className='mt-3 max-w-sm'>
+              <Input label='Preço nesta loja' help='Este valor será usado automaticamente nas vendas feitas nesta loja.' mask='currency' required error={form.formState.errors.branchSalePrice?.message} {...form.register('branchSalePrice')} />
+            </div>
+          ) : null}
         </div>
         <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 md:grid-cols-2">
           <div><p className="text-xs font-medium text-emerald-800">Lucro bruto por unidade</p><p className="text-lg font-semibold text-emerald-900">{grossProfit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p></div>

@@ -101,4 +101,29 @@ describe("product schemas", () => {
       expect(fields).not.toContain("ibsCbsCode");
     }
   });
+  it('aceita preco diferenciado para a loja selecionada', () => {
+    const parsed = createProductSchema.parse({
+      name: 'Magnus',
+      category: 'Racao',
+      salePrice: 11,
+      useBranchPrice: true,
+      branchSalePrice: '10,00'
+    });
+
+    expect(parsed.salePrice).toBe(11);
+    expect(parsed.branchSalePrice).toBe(10);
+    expect(parsed.useBranchPrice).toBe(true);
+  });
+
+  it('exige o valor quando o preco diferenciado esta ativo', () => {
+    const result = createProductSchema.safeParse({
+      name: 'Magnus',
+      category: 'Racao',
+      salePrice: 11,
+      useBranchPrice: true
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.flatten().fieldErrors.branchSalePrice).toBeDefined();
+  });
 });

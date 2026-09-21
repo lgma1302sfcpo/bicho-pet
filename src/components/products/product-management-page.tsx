@@ -259,7 +259,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Preço de custo</p><p className="font-semibold">{formatCurrency(product.costPrice)}</p></div>
-                    <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Preço de venda</p><p className="font-semibold">{formatCurrency(product.salePrice)}</p></div>
+                    <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Preço de venda</p><p className="font-semibold">{formatCurrency(product.salePrice)}</p>{product.useBranchPrice ? <span className='text-xs font-medium text-blue-700'>Preço desta loja</span> : null}</div>
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Estoque</p><p className="font-semibold">{product.stockQuantity} {unitLabels[product.unit] ?? product.unit}</p></div>
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Markup</p><p className="font-semibold">{product.marginPercent.toFixed(2)}%</p></div>
                     <div className="rounded-md bg-muted p-2"><p className="text-xs text-subdued">Lucro unitário</p><p className="font-semibold">{formatCurrency(product.salePrice - product.costPrice)}</p></div>
@@ -302,7 +302,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
                       <td className="px-4 py-3">{product.supplier ?? "Não informado"}</td>
                       <td className="px-4 py-3">{speciesLabels[product.species] ?? product.species}</td>
                       <td className="px-4 py-3 font-semibold">{formatCurrency(product.costPrice)}</td>
-                      <td className="px-4 py-3 font-semibold">{formatCurrency(product.salePrice)}</td>
+                      <td className="px-4 py-3 font-semibold">{formatCurrency(product.salePrice)}{product.useBranchPrice ? <div className='text-xs font-medium text-blue-700'>Preço desta loja</div> : null}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span>
