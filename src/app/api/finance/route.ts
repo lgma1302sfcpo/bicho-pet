@@ -19,7 +19,7 @@ export async function GET() {
         branch: { select: { name: true } },
         sale: { select: { code: true, soldAt: true, customer: { select: { name: true, phone: true, whatsapp: true } }, items: { select: { description: true } } } }
       },
-      orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+      orderBy: [{ dueDate: "desc" }, { createdAt: "desc" }],
       take: 300
     });
     return ok(entries.map((entry) => ({
