@@ -1,6 +1,7 @@
 "use client";
 
-import { Boxes, ChevronLeft, ChevronRight, FileUp, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Boxes, ChevronLeft, ChevronRight, Download, FileUp, PackageSearch, Pencil, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useEffect, useState } from "react";
 
 import { ProductCreateForm } from "@/components/products/product-create-form";
@@ -50,6 +51,7 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importPending, setImportPending] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItemDTO | null>(null);
+  const [exportingProducts, setExportingProducts] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const visibleProductData = productsQuery.data ?? lastProductData;
   const products = visibleProductData?.products ?? [];
@@ -96,6 +98,34 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
       ...current,
       [key]: value
     }));
+  }
+
+  function exportToExcel() {
+    const data = products.map((product) => ({
+      "Código": product.code ?? product.sku ?? product.barcode ?? "",
+      "Nome": product.name,
+      "Categoria": product.category,
+      "Subcategoria": product.subcategory ?? "",
+      "Marca": product.brand ?? "",
+      "Fornecedor": product.supplier ?? "",
+      "Espécie": speciesLabels[product.species] ?? product.species,
+      "Unidade": product.unit,
+      "Preço de Custo": product.costPrice,
+      "Preço de Venda": product.salePrice,
+      "Markup (%)": product.marginPercent,
+      "Estoque Atual": product.stockQuantity,
+      "Estoque Mínimo": product.minStock,
+      "Estoque Máximo": product.maxStock,
+      "Status": product.status === "ACTIVE" ? "Ativo" : product.status === "INACTIVE" ? "Inativo" : "Descontinuado"
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Produtos");
+    const fileName = filters.category
+      ? `produtos-${filters.category.toLowerCase().replace(/\s+/g, "-")}.xlsx`
+      : "produtos.xlsx";
+    XLSX.writeFile(workbook, fileName);
+    setExportingProducts(false);
   }
 
   async function submitImport() {
@@ -147,7 +177,10 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
           <h1 className="text-2xl font-semibold text-ink">Produtos</h1>
           <p className="text-sm text-subdued">Cadastre produtos, acompanhe preços e identifique itens com estoque baixo.</p>
         </div>
-        {canManage ? <div className="erp-page-header__actions"><Button variant="secondary" onClick={() => setImportingProducts(true)}><FileUp size={18} />Importar planilha</Button><Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button></div> : null}
+        <div className="erp-page-header__actions">
+          <Button variant="secondary" onClick={() => setExportingProducts(true)}><Download size={18} />Exportar planilha</Button>
+          {canManage ? <><Button variant="secondary" onClick={() => setImportingProducts(true)}><FileUp size={18} />Importar planilha</Button><Button onClick={() => setCreatingProduct(true)}><Plus size={18} />Cadastrar produto</Button></> : null}
+        </div>
       </div>
 
       <section className="erp-metrics grid gap-3 sm:grid-cols-3">
@@ -423,6 +456,37 @@ export function ProductManagementPage({ canManage = false }: { canManage?: boole
           {importError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{importError}</p> : null}
           {importResult ? <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-success">{importResult}</p> : null}
           <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setImportingProducts(false)}>Fechar</Button><Button disabled={(!importFile && !stockImportFile) || importPending} onClick={() => void submitImport()}><FileUp size={17}/>{importPending ? "Importando..." : "Importar e atualizar"}</Button></div>
+        </div>
+      </Modal>
+      <Modal
+        open={exportingProducts}
+        className="max-w-md"
+        title="Exportar produtos"
+        description="Confirme a exportação dos produtos para uma planilha Excel."
+        onClose={() => setExportingProducts(false)}
+      >
+        <div className="space-y-4">
+          <div className="rounded-md border border-brand-200 bg-brand-50 p-4">
+            <p className="text-sm font-medium text-brand-900">
+              {filters.category ? (
+                <>Categoria selecionada: <strong>{filters.category}</strong></>
+              ) : (
+                <>Nenhuma categoria específica selecionada. <strong>Todos os produtos</strong> serão exportados.</>
+              )}
+            </p>
+            <p className="mt-2 text-sm text-brand-700">
+              Total de {products.length} produto(s) será(ão) exportado(s).
+            </p>
+          </div>
+          {activeFilters.length > 0 ? (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <strong>Filtros aplicados:</strong> {activeFilters.join(" · ")}
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setExportingProducts(false)}>Cancelar</Button>
+            <Button onClick={exportToExcel}><Download size={17} />Exportar</Button>
+          </div>
         </div>
       </Modal>
     </div>
