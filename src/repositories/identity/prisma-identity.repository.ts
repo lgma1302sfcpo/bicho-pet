@@ -189,7 +189,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
           name: role.name
         }
       };
-    });
+    }, { maxWait: 10_000, timeout: 30_000 });
   }
 
   async createPasswordResetToken(data: { userId: string; tokenHash: string; expiresAt: Date }) {
