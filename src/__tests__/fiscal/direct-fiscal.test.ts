@@ -32,7 +32,7 @@ function request(contingency = false): FiscalProviderRequest {
     contingency: contingency ? { mode: "OFFLINE", startedAt: new Date("2026-08-24T15:00:00-03:00"), reason: "Servico fiscal temporariamente indisponivel" } : undefined,
     issuer: {
       legalName: "Marcelo Vazquez de Oliveira Pet Shop",
-      tradeName: "Pet Shop Casa dos Bichos",
+      tradeName: "Bicho Pet",
       cnpj: "55742132000180",
       stateRegistration: "558897276110",
       taxRegime: "SIMPLES_NACIONAL",

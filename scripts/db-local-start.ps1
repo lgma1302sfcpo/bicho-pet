@@ -9,9 +9,9 @@ if (-not (Test-Path $postgresBin)) {
 }
 
 if (-not (Test-Path $dataDir)) {
-  & "C:\Program Files\PostgreSQL\17\bin\initdb.exe" -D $dataDir -U erp --auth=trust --encoding=UTF8 --locale=C
+  & "C:\Program Files\PostgreSQL\17\bin\initdb.exe" -D $dataDir -U bichopet --auth=trust --encoding=UTF8 --locale=C
 }
 
-Write-Host "PostgreSQL local do projeto em 127.0.0.1:5433"
+Write-Host "PostgreSQL local do Bicho Pet em 127.0.0.1:5434"
 Write-Host "Mantenha esta janela aberta enquanto usar o ERP."
-& $postgresBin -D $dataDir -p 5433
+& $postgresBin -D $dataDir -p 5434

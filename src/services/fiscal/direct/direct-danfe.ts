@@ -37,8 +37,8 @@ export async function createDirectDanfe(input: { request: FiscalProviderRequest;
 
   if (consumer) {
     try {
-      const logo = await readFile(join(process.cwd(), "public", "casa-dos-bichos-logo.jpg"));
-      pdf.addImage(new Uint8Array(logo), "JPEG", left, y, 22, 15);
+      const logo = await readFile(join(process.cwd(), "public", "bicho-pet-logo.png"));
+      pdf.addImage(new Uint8Array(logo), "PNG", left, y, 22, 15);
     } catch {
       // O documento continua disponível mesmo sem o arquivo visual da marca.
     }

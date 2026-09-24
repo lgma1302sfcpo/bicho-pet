@@ -56,6 +56,7 @@ describe("ProductService", () => {
       species: "DOG",
       costPrice: 100,
       salePrice: 150,
+      useBranchPrice: false,
       stockQuantity: 4,
       minStock: 5,
       maxStock: 20
@@ -81,6 +82,7 @@ describe("ProductService", () => {
         species: "ALL",
         costPrice: 5,
         salePrice: 9,
+        useBranchPrice: false,
         stockQuantity: 10,
         minStock: 2,
         maxStock: 20
@@ -103,6 +105,7 @@ describe("ProductService", () => {
       species: "DOG",
       costPrice: 80,
       salePrice: 120,
+      useBranchPrice: false,
       stockQuantity: 8,
       minStock: 3,
       maxStock: 20,

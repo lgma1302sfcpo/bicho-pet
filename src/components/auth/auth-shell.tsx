@@ -22,7 +22,7 @@ export function AuthShell({ title, subtitle, children }: AuthShellProps) {
             <BrandLogo className="h-16 w-16" priority />
           </div>
           <div>
-            <p className="text-xl font-extrabold tracking-tight">Casa dos Bichos</p>
+            <p className="text-xl font-extrabold tracking-tight">Bicho Pet</p>
             <p className="text-sm font-medium text-blue-100">Gestão do pet shop</p>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function AuthShell({ title, subtitle, children }: AuthShellProps) {
               <BrandLogo className="h-14 w-14" priority />
             </div>
             <div>
-              <p className="font-extrabold tracking-tight text-brand-700">Casa dos Bichos</p>
+              <p className="font-extrabold tracking-tight text-brand-700">Bicho Pet</p>
               <p className="text-xs font-medium text-subdued">Gestão do pet shop</p>
             </div>
           </div>
@@ -85,7 +85,7 @@ export function AuthShell({ title, subtitle, children }: AuthShellProps) {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            © {new Date().getFullYear()} Pet Shop Casa dos Bichos
+            © {new Date().getFullYear()} Bicho Pet
           </p>
         </div>
       </section>

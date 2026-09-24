@@ -6,14 +6,14 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Casa dos Bichos",
-    template: "%s | Casa dos Bichos"
+    default: "Bicho Pet",
+    template: "%s | Bicho Pet"
   },
-  description: "Sistema de gestão da Pet Shop Casa dos Bichos.",
+  description: "Sistema de gestão da Bicho Pet.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/casa-dos-bichos-logo.jpg",
-    apple: "/casa-dos-bichos-logo.jpg"
+    icon: "/bicho-pet-logo.png",
+    apple: "/bicho-pet-logo.png"
   }
 };
 

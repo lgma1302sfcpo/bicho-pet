@@ -28,6 +28,8 @@ const golden: ProductListItemDTO = {
   species: "DOG",
   costPrice: 15,
   salePrice: 22.5,
+  defaultSalePrice: 22.5,
+  useBranchPrice: false,
   marginPercent: 50,
   stockQuantity: -2,
   minStock: 0,

@@ -118,7 +118,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
               <BrandLogo className="h-10 w-10" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">Casa dos Bichos</p>
+              <p className="truncate text-sm font-semibold">Bicho Pet</p>
               <p className="truncate text-xs text-subdued">{user.currentTenantName}</p>
             </div>
           </div>

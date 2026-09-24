@@ -10,11 +10,11 @@ if (-not (Test-Path $createdb)) {
 
 Push-Location $projectRoot
 try {
-  & $createdb -h 127.0.0.1 -p 5433 -U erp erp_comercial 2>$null
+  & $createdb -h 127.0.0.1 -p 5434 -U bichopet bichopet 2>$null
   if ($LASTEXITCODE -ne 0) {
-    & $psql -h 127.0.0.1 -p 5433 -U erp -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'erp_comercial';" | Select-String "1" | Out-Null
+    & $psql -h 127.0.0.1 -p 5434 -U bichopet -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'bichopet';" | Select-String "1" | Out-Null
     if ($LASTEXITCODE -ne 0) {
-      throw "Nao foi possivel criar ou localizar o banco erp_comercial."
+      throw "Nao foi possivel criar ou localizar o banco bichopet."
     }
   }
 

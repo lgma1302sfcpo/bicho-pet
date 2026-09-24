@@ -29,7 +29,7 @@ Implementado no código:
 - Cadastro Nacional da Pessoa Jurídica: `55.742.132/0001-80`;
 - Inscrição Estadual: `558.897.276.110`;
 - Razão social: `Marcelo Vazquez de Oliveira Pet Shop`;
-- nome fantasia: `Pet Shop Casa dos Bichos`;
+- nome fantasia: `Bicho Pet`;
 - regime tributário: Simples Nacional;
 - estado: São Paulo;
 - ambiente: homologação;

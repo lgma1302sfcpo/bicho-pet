@@ -1,5 +1,5 @@
-const CACHE_NAME = "erp-comercial-v3";
-const APP_SHELL = ["/", "/login", "/manifest.json", "/casa-dos-bichos-logo.jpg"];
+const CACHE_NAME = "bichopet-v1";
+const APP_SHELL = ["/", "/login", "/manifest.json", "/bicho-pet-logo.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));

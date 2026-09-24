@@ -1,16 +1,16 @@
 {
-  "name": "Casa dos Bichos",
-  "short_name": "Casa dos Bichos",
-  "description": "Sistema de gestão da Pet Shop Casa dos Bichos.",
+  "name": "Bicho Pet",
+  "short_name": "Bicho Pet",
+  "description": "Sistema de gestão da Bicho Pet.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#f6f8fc",
   "theme_color": "#173e91",
   "icons": [
     {
-      "src": "/casa-dos-bichos-logo.jpg",
-      "sizes": "100x100",
-      "type": "image/jpeg",
+      "src": "/bicho-pet-logo.png",
+      "sizes": "1250x1250",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

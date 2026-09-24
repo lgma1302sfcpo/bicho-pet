@@ -1,4 +1,4 @@
-# Auditoria e orçamento — Sistema Casa dos Bichos
+# Auditoria e orçamento — Sistema Bicho Pet
 
 Data da auditoria: 24/08/2026.
 

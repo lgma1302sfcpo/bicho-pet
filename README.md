@@ -1,4 +1,4 @@
-# Sistema Casa dos Bichos
+# Sistema Bicho Pet
 
 Sistema web comercial inspirado no fluxo do Nex, construído com Next.js 15, TypeScript, TailwindCSS, Prisma, PostgreSQL e NextAuth.
 
@@ -48,5 +48,5 @@ Se preferir usar Docker, suba o PostgreSQL com `docker compose up -d` e ajuste `
 - `npm run test`: testes unitários.
 - `npm run prisma:migrate`: cria/aplica migrations em desenvolvimento.
 - `npm run prisma:deploy`: aplica migrations em produção.
-- `npm run db:local:start`: inicia o PostgreSQL isolado do projeto em `.postgres-data` na porta `5433`.
+- `npm run db:local:start`: inicia o PostgreSQL isolado do projeto em `.postgres-data` na porta `5434`.
 - `npm run db:local:setup`: cria o banco local, aplica migrations e executa seed.

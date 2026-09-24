@@ -10,7 +10,7 @@ export default async function RegisterPage() {
   if (await prisma.tenant.count() > 0) redirect("/login");
 
   return (
-    <AuthShell title="Configuração inicial" subtitle="Crie o único administrador da Casa dos Bichos.">
+    <AuthShell title="Configuração inicial" subtitle="Crie o administrador da Bicho Pet.">
       <RegisterForm />
     </AuthShell>
   );

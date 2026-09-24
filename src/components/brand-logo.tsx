@@ -10,8 +10,8 @@ type BrandLogoProps = {
 export function BrandLogo({ className, priority = false }: BrandLogoProps) {
   return (
     <Image
-      src="/casa-dos-bichos-logo.jpg"
-      alt="Logo da Pet Shop Casa dos Bichos"
+      src="/bicho-pet-logo.png"
+      alt="Logo da Bicho Pet"
       width={100}
       height={100}
       priority={priority}

@@ -13,7 +13,7 @@ try {
     prisma.tenant.update({
       where: { id: tenant.id },
       data: {
-        name: "Pet Shop Casa dos Bichos",
+        name: "Bicho Pet",
         legalName: "Marcelo Vazquez de Oliveira Pet Shop",
         document: cnpj,
         email: null,
@@ -25,7 +25,7 @@ try {
       create: {
         tenantId: tenant.id,
         legalName: "Marcelo Vazquez de Oliveira Pet Shop",
-        tradeName: "Pet Shop Casa dos Bichos",
+        tradeName: "Bicho Pet",
         cnpj,
         stateRegistration: "558897276110",
         taxRegime: "SIMPLES_NACIONAL",
@@ -41,7 +41,7 @@ try {
       },
       update: {
         legalName: "Marcelo Vazquez de Oliveira Pet Shop",
-        tradeName: "Pet Shop Casa dos Bichos",
+        tradeName: "Bicho Pet",
         cnpj,
         stateRegistration: "558897276110",
         taxRegime: "SIMPLES_NACIONAL",
@@ -56,7 +56,7 @@ try {
       }
     })
   ]);
-  console.log("Dados empresariais conhecidos aplicados a Pet Shop Casa dos Bichos; campos desconhecidos permaneceram vazios.");
+  console.log("Dados empresariais conhecidos aplicados a Bicho Pet; campos desconhecidos permaneceram vazios.");
 } finally {
   await prisma.$disconnect();
 }

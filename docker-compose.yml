@@ -1,21 +1,21 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: erp-comercial-postgres
+    container_name: bichopet-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: erp_comercial
-      POSTGRES_USER: erp
-      POSTGRES_PASSWORD: erp
+      POSTGRES_DB: bichopet
+      POSTGRES_USER: bichopet
+      POSTGRES_PASSWORD: bichopet_local
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - bichopet_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U erp -d erp_comercial"]
+      test: ["CMD-SHELL", "pg_isready -U bichopet -d bichopet"]
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  postgres_data:
+  bichopet_postgres_data:
