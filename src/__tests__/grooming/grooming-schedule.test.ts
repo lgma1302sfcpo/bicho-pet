@@ -42,7 +42,7 @@ describe("agenda de banho e tosa", () => {
 
   it("valida serviço, profissional e agendamento", () => {
     expect(groomingServiceSchema.parse({ name: "Banho e tosa completa", durationMinutes: 90, defaultPrice: "R$ 110,00" }).defaultPrice).toBe(110);
-    expect(groomingProfessionalSchema.parse({ name: "Stefanne", commissionPercent: "35" }).commissionPercent).toBe(35);
+    expect(groomingProfessionalSchema.parse({ name: "Stefanne", commissionPercent: "35" }).commissionPercent).toBe(0);
     expect(createGroomingAppointmentSchema.parse({ customerId: "c1", petId: "p1", serviceId: "s1", professionalId: "g1", startAt: "2026-09-01T09:00:00-03:00", price: "85", isPackage: false }).startAt).toBeInstanceOf(Date);
   });
 

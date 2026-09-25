@@ -5,7 +5,7 @@ import { KeyRound, LogIn } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ export function LoginForm() {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+    <form className="space-y-4" method="post" onSubmit={handleSubmit(onSubmit)}>
       <Input
         label="Usuário ou e-mail"
         type="text"

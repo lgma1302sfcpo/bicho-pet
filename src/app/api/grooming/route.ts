@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       throw new AppError("Este profissional já possui dois pets nesse período. Escolha outro horário.", "GROOMING_TIME_CAPACITY_FULL", 409);
     }
 
-    const commissionAmount = Math.round(input.price * number(professional.commissionPercent) * 100) / 10_000;
+    const commissionAmount = 0;
     const appointment = await prisma.groomingAppointment.create({
       data: {
         tenantId,

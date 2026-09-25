@@ -9,7 +9,7 @@ export const groomingDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Infor
 
 export const groomingProfessionalSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do profissional.").max(100),
-  commissionPercent: numeric.pipe(z.number().min(0).max(100)).default(0)
+  commissionPercent: numeric.pipe(z.number().min(0).max(100)).default(0).transform(() => 0)
 });
 
 export const groomingServiceSchema = z.object({

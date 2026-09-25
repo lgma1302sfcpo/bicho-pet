@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { SaleListItemDTO } from "@/dtos/commerce/sale.dto";
 import { useSales } from "@/hooks/commerce/use-commerce";
+import { getAllocatedItemRevenue, getSaleRevenueFactor } from "@/lib/sales-report";
 import { downloadXlsx } from "@/lib/xlsx-export";
 
 const paymentLabels: Record<string, string> = {
@@ -52,12 +53,11 @@ function getPeriodStart(period: string) {
 function aggregateItems(sales: SaleListItemDTO[], key: (item: SaleListItemDTO["items"][number]) => string) {
   const rows = new Map<string, AnalyticRow>();
   for (const sale of sales) {
-    const revenueFactor = sale.subtotal > 0 ? sale.total / sale.subtotal : 1;
     for (const item of sale.items) {
       const name = key(item) || "Não informado";
       const current = rows.get(name) ?? { name, quantity: 0, revenue: 0, cost: 0, profit: 0 };
       current.quantity += item.quantity;
-      current.revenue += item.total * revenueFactor;
+      current.revenue += getAllocatedItemRevenue(sale, item);
       current.cost += item.costPrice * item.quantity;
       current.profit = current.revenue - current.cost;
       rows.set(name, current);
@@ -135,7 +135,7 @@ export function SalesReportPage() {
     const filteredItems = sale.items.filter((item) => `${item.description} ${item.supplier ?? ""} ${item.brand ?? ""} ${item.category ?? ""} ${speciesLabels[item.species ?? ""] ?? ""}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
     if (!filteredItems.length) return [];
     const filteredSubtotal = filteredItems.reduce((sum, item) => sum + item.total, 0);
-    const revenueFactor = sale.subtotal > 0 ? sale.total / sale.subtotal : 1;
+    const revenueFactor = getSaleRevenueFactor(sale);
     return [{ ...sale, items: filteredItems, itemsCount: filteredItems.length, subtotal: filteredSubtotal, discount: 0, surcharge: 0, total: filteredSubtotal * revenueFactor }];
   }), [from, period, salesQuery.data, search, to]);
 
@@ -145,7 +145,7 @@ export function SalesReportPage() {
       const filteredItems = sale.items.filter((item) => item.species === species);
       if (!filteredItems.length) return [];
       const filteredSubtotal = filteredItems.reduce((sum, item) => sum + item.total, 0);
-      const revenueFactor = sale.subtotal > 0 ? sale.total / sale.subtotal : 1;
+      const revenueFactor = getSaleRevenueFactor(sale);
       return [{
         ...sale,
         items: filteredItems,

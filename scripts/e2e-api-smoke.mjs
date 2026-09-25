@@ -106,7 +106,9 @@ async function login() {
     }),
     headers: { "content-type": "application/json" }
   });
-  assert([201, 409].includes(registration.response.status), "Nao foi possivel preparar usuario QA", registration.body);
+  const registrationReady = [201, 409].includes(registration.response.status)
+    || (registration.response.status === 403 && registration.body?.error?.code === "REGISTRATION_CLOSED");
+  assert(registrationReady, "Nao foi possivel preparar usuario QA", registration.body);
 
   return loginCredentials(email, password);
 }
@@ -289,6 +291,16 @@ async function main() {
   const mainStoreStillIndependent = await api(`/api/products?search=${productCode}`);
   assert(mainStoreStillIndependent.products[0].stockQuantity === 10, "Movimento da segunda loja alterou o estoque principal", mainStoreStillIndependent);
 
+  let cashRegisterBeforeSale = await api("/api/cash-register");
+  if (!cashRegisterBeforeSale.current) {
+    await api("/api/cash-register/open", {
+      method: "POST",
+      body: { openingAmount: 100, notes: "Caixa aberto pelo teste automatizado" }
+    }, 201);
+    cashRegisterBeforeSale = await api("/api/cash-register");
+  }
+  assert(cashRegisterBeforeSale.current, "Caixa nao ficou aberto para a venda", cashRegisterBeforeSale);
+
   const sale = await api("/api/sales", {
     method: "POST",
     body: {
@@ -314,6 +326,13 @@ async function main() {
   assert(!secondStoreDashboard.latestSales.some((item) => item.id === sale.id), "Dashboard da segunda loja exibiu venda da loja principal", secondStoreDashboard);
   const stockAfterSale = await api(`/api/products?search=${productCode}`);
   assert(stockAfterSale.products[0].stockQuantity === 8, "Estoque nao foi baixado pela venda", stockAfterSale);
+  const cashRegisterAfterSale = await api("/api/cash-register");
+  assert(
+    cashRegisterAfterSale.current?.salesCount === cashRegisterBeforeSale.current.salesCount + 1
+      && cashRegisterAfterSale.current.paymentBreakdown.PIX === cashRegisterBeforeSale.current.paymentBreakdown.PIX + sale.total,
+    "Venda nao atualizou corretamente o caixa aberto",
+    cashRegisterAfterSale
+  );
 
   const fiscalConfiguration = await api("/api/fiscal", {
     method: "PUT",
@@ -406,7 +425,7 @@ async function main() {
 
   console.log(JSON.stringify({
     status: "passed",
-    checks: ["cadastro", "edicao", "filtros", "email-config", "alternancia-administrador-entre-lojas", "alternancia-administrador-todas-as-lojas", "retorno-administrador-loja-principal", "convite-funcionario", "aceite-convite", "permissoes-limitadas", "pagina-permitida", "bloqueio-pagina-fiscal", "bloqueio-pagina-configuracoes", "bloqueio-acesso-nao-autorizado", "login-por-loja", "estoque-separado-por-loja", "relatorios-separados-por-loja", "financeiro-separado-por-loja", "dashboard-separada-por-loja", "venda", "baixa-estoque", "movimentacao-manual", "custo-historico", "fornecedor", "financeiro", "dashboard-real", "historico", "exclusao", "configuracao-fiscal", "emissao-homologacao", "bloqueio-duplicidade", "armazenamento-xml-pdf", "consulta-fiscal", "cancelamento-fiscal"],
+    checks: ["cadastro", "edicao", "filtros", "email-config", "alternancia-administrador-entre-lojas", "alternancia-administrador-todas-as-lojas", "retorno-administrador-loja-principal", "convite-funcionario", "aceite-convite", "permissoes-limitadas", "pagina-permitida", "bloqueio-pagina-fiscal", "bloqueio-pagina-configuracoes", "bloqueio-acesso-nao-autorizado", "login-por-loja", "estoque-separado-por-loja", "relatorios-separados-por-loja", "financeiro-separado-por-loja", "dashboard-separada-por-loja", "caixa-aberto", "venda", "caixa-atualizado", "baixa-estoque", "movimentacao-manual", "custo-historico", "fornecedor", "financeiro", "dashboard-real", "historico", "exclusao", "configuracao-fiscal", "emissao-homologacao", "bloqueio-duplicidade", "armazenamento-xml-pdf", "consulta-fiscal", "cancelamento-fiscal"],
     sale: { id: sale.id, code: sale.code, total: sale.total }
   }, null, 2));
 }
