@@ -415,7 +415,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
 
   async listSales(tenantId: string, branchId: string | null) {
     const sales = await this.db.sale.findMany({
-      where: { tenantId, ...(branchId ? { branchId } : {}) },
+      where: { tenantId, ...(branchId ? { branchId } : {}), status: "COMPLETED" },
       include: {
         branch: { select: { name: true } },
         customer: true,
