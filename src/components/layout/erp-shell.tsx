@@ -22,7 +22,7 @@ import { signOut, useSession } from "next-auth/react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState, type MouseEvent, type ReactNode } from "react";
+import React, { useState, type MouseEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
@@ -53,6 +53,7 @@ type EnabledNavItem = {
   icon: typeof BarChart3;
   permission: PermissionKey | PermissionKey[];
   enabled: true;
+  requiresUpgrade?: boolean;
 };
 
 const navItems: EnabledNavItem[] = [
@@ -66,7 +67,7 @@ const navItems: EnabledNavItem[] = [
   { href: "/estoque", label: "Estoque", icon: Boxes, permission: AUTH_PERMISSIONS.INVENTORY_READ, enabled: true },
   { href: "/financeiro", label: "Financeiro", icon: WalletCards, permission: AUTH_PERMISSIONS.FINANCE_READ, enabled: true },
   { href: "/relatorios", label: "Relatórios", icon: ClipboardList, permission: AUTH_PERMISSIONS.REPORTS_READ, enabled: true },
-  { href: "/fiscal", label: "Fiscal", icon: Landmark, permission: AUTH_PERMISSIONS.FISCAL_READ, enabled: true },
+  { href: "/fiscal", label: "Fiscal", icon: Landmark, permission: AUTH_PERMISSIONS.FISCAL_READ, enabled: true, requiresUpgrade: true },
   { href: "/configuracoes/usuarios", label: "Configurações", icon: Settings, permission: AUTH_PERMISSIONS.IDENTITY_USERS_READ, enabled: true }
 ];
 
@@ -77,6 +78,7 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
   const [switchingBranch, setSwitchingBranch] = useState(false);
   const [branchSwitchError, setBranchSwitchError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [upgradeTooltip, setUpgradeTooltip] = useState<{ x: number; y: number } | null>(null);
   const availableNavItems = navItems.filter((item) => Array.isArray(item.permission) ? item.permission.some((permission) => hasPermission(user.permissions, permission)) : hasPermission(user.permissions, item.permission));
   const isSaleWindow = pathname === "/vendas/nova" && searchParams.get("janela") === "1";
 
@@ -103,6 +105,15 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
       setSwitchingBranch(false);
       setBranchSwitchError("Não foi possível alterar a loja. Atualize a página e tente novamente.");
     }
+  }
+
+  function showUpgradeTooltip(event: MouseEvent<HTMLElement>) {
+    const tooltipWidth = 260;
+    const tooltipHeight = 48;
+    setUpgradeTooltip({
+      x: Math.max(8, Math.min(event.clientX + 14, window.innerWidth - tooltipWidth - 8)),
+      y: Math.max(8, Math.min(event.clientY + 14, window.innerHeight - tooltipHeight - 8))
+    });
   }
 
   if (isSaleWindow) {
@@ -168,6 +179,21 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
               return <a key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)} className={cn("erp-nav__item inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition lg:flex", active ? "bg-brand-50 text-brand-700" : "text-subdued hover:bg-muted hover:text-ink")}>{content}</a>;
             }
 
+            if (item.requiresUpgrade) {
+              return (
+                <span
+                  key={item.href}
+                  aria-disabled="true"
+                  onMouseEnter={showUpgradeTooltip}
+                  onMouseMove={showUpgradeTooltip}
+                  onMouseLeave={() => setUpgradeTooltip(null)}
+                  className="erp-nav__item inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-md px-3 text-sm font-medium text-subdued opacity-60 lg:flex"
+                >
+                  {content}
+                </span>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
@@ -186,6 +212,16 @@ export function ErpShell({ user, branches, children }: ErpShellProps) {
             <LogOut size={18} />Sair
           </Button>
         </nav>
+
+        {upgradeTooltip ? (
+          <div
+            role="tooltip"
+            className="pointer-events-none fixed z-50 max-w-[260px] rounded-md border border-border bg-white/95 px-3 py-2 text-xs font-medium text-ink shadow-md backdrop-blur-sm"
+            style={{ left: upgradeTooltip.x, top: upgradeTooltip.y }}
+          >
+            Faça upgrade do plano para testar o módulo Fiscal.
+          </div>
+        ) : null}
 
         <div className="erp-sidebar__footer hidden border-t border-border p-4 lg:block">
           <div className="mb-3 flex items-center gap-2 text-sm">
