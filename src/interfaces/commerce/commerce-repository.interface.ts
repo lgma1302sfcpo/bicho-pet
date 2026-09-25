@@ -79,6 +79,11 @@ export type SaleRecord = {
   }>;
 };
 
+export type SaleListOptions = {
+  limit?: number | null;
+  status?: "DRAFT" | "COMPLETED" | "CANCELLED";
+};
+
 export interface CommerceRepository {
   customerDocumentExists(tenantId: string, branchId: string, document: string, excludeCustomerId?: string): Promise<boolean>;
   customerBelongsToBranch(tenantId: string, branchId: string, customerId: string): Promise<boolean>;
@@ -97,5 +102,5 @@ export interface CommerceRepository {
     subtotal: number;
     total: number;
   }): Promise<{ id: string; code: string; total: number; customerId?: string | null }>;
-  listSales(tenantId: string, branchId: string | null): Promise<SaleRecord[]>;
+  listSales(tenantId: string, branchId: string | null, options?: SaleListOptions): Promise<SaleRecord[]>;
 }

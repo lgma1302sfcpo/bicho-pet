@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { CreateCustomerDTO, CustomerFiltersDTO, UpdateCustomerDTO } from "@/dtos/commerce/customer.dto";
-import type { CommerceRepository } from "@/interfaces/commerce/commerce-repository.interface";
+import type { CommerceRepository, SaleListOptions } from "@/interfaces/commerce/commerce-repository.interface";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 
@@ -413,9 +413,9 @@ export class PrismaCommerceRepository implements CommerceRepository {
     });
   }
 
-  async listSales(tenantId: string, branchId: string | null) {
+  async listSales(tenantId: string, branchId: string | null, options?: SaleListOptions) {
     const sales = await this.db.sale.findMany({
-      where: { tenantId, ...(branchId ? { branchId } : {}), status: "COMPLETED" },
+      where: { tenantId, ...(branchId ? { branchId } : {}), ...(options?.status ? { status: options.status } : {}) },
       include: {
         branch: { select: { name: true } },
         customer: true,
@@ -429,7 +429,7 @@ export class PrismaCommerceRepository implements CommerceRepository {
       orderBy: {
         soldAt: "desc"
       },
-      take: 500
+      ...(options?.limit === null ? {} : { take: options?.limit ?? 500 })
     });
 
     return sales.map((sale) => ({

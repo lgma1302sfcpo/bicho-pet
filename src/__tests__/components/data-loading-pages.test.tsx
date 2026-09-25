@@ -67,6 +67,7 @@ describe("carregamento das telas operacionais", () => {
 
   it("não apresenta relatório zerado antes de receber as vendas", () => {
     render(<SalesReportPage />);
+    expect(useSales).toHaveBeenCalledWith({ fullReport: true });
     expect(screen.getByText("Carregando vendas e indicadores do relatório...")).toBeInTheDocument();
     expect(screen.queryByText("Nenhuma venda encontrada.")).not.toBeInTheDocument();
   });

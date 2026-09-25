@@ -107,7 +107,7 @@ function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) 
 }
 
 export function SalesReportPage() {
-  const salesQuery = useSales();
+  const salesQuery = useSales({ fullReport: true });
   const [search, setSearch] = useState("");
   const [species, setSpecies] = useState("");
   const [period, setPeriod] = useState("30");

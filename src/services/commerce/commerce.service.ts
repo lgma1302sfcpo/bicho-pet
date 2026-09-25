@@ -6,7 +6,7 @@ import type {
   UpdateCustomerDTO
 } from "@/dtos/commerce/customer.dto";
 import type { CreateSaleDTO, SaleCreatedDTO, SaleListItemDTO } from "@/dtos/commerce/sale.dto";
-import type { CommerceRepository, CustomerRecord } from "@/interfaces/commerce/commerce-repository.interface";
+import type { CommerceRepository, CustomerRecord, SaleListOptions } from "@/interfaces/commerce/commerce-repository.interface";
 import { AppError } from "@/lib/errors";
 
 export class CommerceService {
@@ -122,8 +122,8 @@ export class CommerceService {
     });
   }
 
-  async listSales(tenantId: string, branchId: string | null): Promise<SaleListItemDTO[]> {
-    const sales = await this.repository.listSales(tenantId, branchId);
+  async listSales(tenantId: string, branchId: string | null, options?: SaleListOptions): Promise<SaleListItemDTO[]> {
+    const sales = await this.repository.listSales(tenantId, branchId, options);
 
     return sales.map((sale) => ({
       id: sale.id,

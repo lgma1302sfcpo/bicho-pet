@@ -123,10 +123,10 @@ export function useSendCustomerEmail() {
   });
 }
 
-export function useSales() {
+export function useSales(options: { fullReport?: boolean } = {}) {
   return useQuery({
-    queryKey: ["commerce", "sales"],
-    queryFn: () => apiFetch<SaleListItemDTO[]>("/api/sales"),
+    queryKey: ["commerce", "sales", options.fullReport ? "full-report" : "recent"],
+    queryFn: () => apiFetch<SaleListItemDTO[]>(options.fullReport ? "/api/sales?scope=report" : "/api/sales"),
     refetchOnMount: "always"
   });
 }

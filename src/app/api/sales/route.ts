@@ -10,10 +10,15 @@ import { fiscalService } from "@/services/fiscal";
 import { prisma } from "@/lib/prisma";
 import { AppError } from "@/lib/errors";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await requirePermission(AUTH_PERMISSIONS.SALES_READ);
-    const sales = await commerceService.listSales(session.user.currentTenantId, session.user.currentBranchId ?? null);
+    const isFullReport = request.nextUrl.searchParams.get("scope") === "report";
+    const sales = await commerceService.listSales(
+      session.user.currentTenantId,
+      session.user.currentBranchId ?? null,
+      isFullReport ? { limit: null, status: "COMPLETED" } : undefined
+    );
 
     return ok(sales);
   } catch (error) {
