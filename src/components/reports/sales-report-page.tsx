@@ -1,7 +1,7 @@
 "use client";
 
-import { Download, FileBarChart, TrendingUp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronDown, Download, FileBarChart, TrendingUp } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,10 +89,23 @@ function financialExportRows(rows: AnalyticRow[]) {
   });
 }
 
-function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) {
+function ReportSection({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <Card className="erp-table-card overflow-hidden">
-      <div className="border-b border-border px-4 py-3"><h2 className="font-semibold">{title}</h2></div>
+      <details name="sales-report-sections" className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-700 [&::-webkit-details-marker]:hidden">
+          <h2 className="flex items-center gap-2 font-semibold">{icon}{title}</h2>
+          <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-subdued group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-border">{children}</div>
+      </details>
+    </Card>
+  );
+}
+
+function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) {
+  return (
+    <ReportSection title={title}>
       <div className="erp-table-scroll overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Grupo</th><th className="px-4 py-3">Quantidade</th><th className="px-4 py-3">Custo</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Lucro</th><th className="px-4 py-3">Margem</th></tr></thead>
@@ -102,7 +115,7 @@ function AnalyticTable({ title, rows }: { title: string; rows: AnalyticRow[] }) 
           </tbody>
         </table>
       </div>
-    </Card>
+    </ReportSection>
   );
 }
 
@@ -226,19 +239,17 @@ export function SalesReportPage() {
         {[["Vendas", sales.length.toLocaleString("pt-BR")], ["Faturamento", money(revenue)], ["Custo", money(cost)], ["Lucro bruto", money(profit)], ["Ticket médio", money(ticket)]].map(([label, value]) => <Card key={label} className="p-4"><p className="text-sm text-subdued">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></Card>)}
       </section>
 
-      <Card className="erp-table-card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3"><TrendingUp size={18} className="text-brand-700" /><h2 className="font-semibold">Vendas por meio de pagamento</h2></div>
+      <ReportSection title="Vendas por meio de pagamento" icon={<TrendingUp size={18} aria-hidden="true" className="text-brand-700" />}>
         <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Meio de pagamento</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Total</th></tr></thead><tbody className="divide-y divide-border">{byPayment.map((row) => <tr key={row.name}><td className="px-4 py-3"><Badge>{row.name}</Badge></td><td className="px-4 py-3">{row.sales}</td><td className="px-4 py-3 font-semibold">{money(row.revenue)}</td></tr>)}{!byPayment.length ? <tr><td colSpan={3} className="px-4 py-8 text-center text-subdued">Nenhuma venda encontrada.</td></tr> : null}</tbody></table></div>
-      </Card>
+      </ReportSection>
 
       <AnalyticTable title="Vendas por espécie (ordenado por quantidade)" rows={bySpecies} />
       <AnalyticTable title="Vendas por categoria e produto" rows={byCategory} />
       <AnalyticTable title="Produtos vendidos" rows={byProduct} />
       <AnalyticTable title="Lucratividade por fornecedor" rows={bySupplier} />
-      <Card className="erp-table-card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3"><TrendingUp size={18} className="text-brand-700" /><h2 className="font-semibold">Horários de pico</h2></div>
+      <ReportSection title="Horários de pico" icon={<TrendingUp size={18} aria-hidden="true" className="text-brand-700" />}>
         <div className="erp-table-scroll overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-muted text-xs uppercase text-subdued"><tr><th className="px-4 py-3">Horário</th><th className="px-4 py-3">Vendas</th><th className="px-4 py-3">Faturamento</th><th className="px-4 py-3">Ticket médio</th></tr></thead><tbody className="divide-y divide-border">{byHour.map((row) => <tr key={row.name}><td className="px-4 py-3 font-medium">{row.name}</td><td className="px-4 py-3">{row.sales}</td><td className="px-4 py-3">{money(row.revenue)}</td><td className="px-4 py-3">{money(row.revenue / row.sales)}</td></tr>)}{!byHour.length ? <tr><td colSpan={4} className="px-4 py-8 text-center text-subdued">Nenhuma venda encontrada.</td></tr> : null}</tbody></table></div>
-      </Card>
+      </ReportSection>
       <p className="text-xs text-subdued">Lucro gerencial calculado pelo custo registrado no momento da venda. Descontos e acréscimos são rateados proporcionalmente entre os itens. Não substitui documentos fiscais nem a apuração contábil.</p>
     </div>
   );
