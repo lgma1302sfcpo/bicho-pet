@@ -40,7 +40,7 @@ export function useCreateGroomingAppointment() {
 export function useUpdateGroomingAppointment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: { id: string; status?: string; purchasedProducts?: boolean; photoTaken?: boolean; reminderSent?: boolean; notes?: string }) =>
+    mutationFn: ({ id, ...payload }: { id: string; startAt?: string; status?: string; purchasedProducts?: boolean; photoTaken?: boolean; reminderSent?: boolean; notes?: string }) =>
       apiFetch(`/api/grooming/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["grooming"] })
   });

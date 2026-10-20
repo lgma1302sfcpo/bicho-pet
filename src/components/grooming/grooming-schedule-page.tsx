@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CalendarDays, Camera, Check, ChevronLeft, ChevronRight, Clock3, MessageCircle, PackageCheck, Plus, Scissors, Settings2, ShoppingBag, UserPlus, UserRound, X } from "lucide-react";
+import { Ban, CalendarDays, Camera, Check, ChevronLeft, ChevronRight, Clock3, MessageCircle, PackageCheck, Pencil, Plus, Scissors, Settings2, ShoppingBag, UserPlus, UserRound, X } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +108,10 @@ export function GroomingSchedulePage({ canManage, canManageCustomers }: { canMan
   const [form, setForm] = useState<AppointmentForm>(emptyAppointment);
   const [formError, setFormError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<GroomingAppointmentDTO | null>(null);
+  const [timeForm, setTimeForm] = useState({ date: "", time: "" });
+  const [timeError, setTimeError] = useState<string | null>(null);
   const [professionalForm, setProfessionalForm] = useState({ id: "", name: "" });
   const [serviceForm, setServiceForm] = useState({ id: "", name: "", durationMinutes: "60", defaultPrice: "" });
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -126,6 +130,39 @@ export function GroomingSchedulePage({ canManage, canManageCustomers }: { canMan
   const previewEnd = selectedService && form.time ? timeLabel(new Date(new Date(isoAt(date, form.time)).getTime() + selectedService.durationMinutes * 60_000)) : "--:--";
   const dayRevenue = appointments.filter((item) => item.status !== "CANCELLED").reduce((sum, item) => sum + item.price, 0);
   const appointmentsByProfessional = new Map(professionals.map((professional) => [professional.id, appointments.filter((item) => item.professional.id === professional.id)]));
+  const editingDuration = editingAppointment ? (new Date(editingAppointment.endAt).getTime() - new Date(editingAppointment.startAt).getTime()) / 60_000 : 0;
+  const editedEnd = editingAppointment && timeForm.date && timeForm.time
+    ? new Date(new Date(isoAt(timeForm.date, timeForm.time)).getTime() + editingDuration * 60_000)
+    : null;
+
+  function openTimeEdit(appointment: GroomingAppointmentDTO) {
+    setEditingAppointment(appointment);
+    setTimeForm({ date: dateKey(appointment.startAt), time: timeLabel(appointment.startAt) });
+    setTimeError(null);
+    setActionSuccess(null);
+    setActionError(null);
+  }
+
+  function closeTimeEdit() {
+    if (!updateAppointment.isPending) setEditingAppointment(null);
+  }
+
+  async function submitTimeEdit() {
+    if (!editingAppointment || updateAppointment.isPending) return;
+    setTimeError(null);
+    if (!timeForm.date || !timeForm.time) {
+      setTimeError("Informe a data e o horário inicial.");
+      return;
+    }
+    try {
+      await updateAppointment.mutateAsync({ id: editingAppointment.id, startAt: isoAt(timeForm.date, timeForm.time) });
+      setDate(timeForm.date);
+      setEditingAppointment(null);
+      setActionSuccess("Horário do agendamento atualizado.");
+    } catch (error) {
+      setTimeError(error instanceof Error ? error.message : "Não foi possível alterar o horário.");
+    }
+  }
 
   function openAppointment(preselectedProfessionalId?: string, preselectedTime?: string) {
     const professional = professionals.find((item) => item.id === preselectedProfessionalId) ?? professionals[0];
@@ -227,10 +264,11 @@ export function GroomingSchedulePage({ canManage, canManageCustomers }: { canMan
       {agenda.isPending ? <Card className="p-8 text-center text-sm text-subdued">Carregando a agenda...</Card> : null}
       {agenda.isError ? <Card className="border-red-200 bg-red-50 p-4 text-sm text-danger">{agenda.error.message}</Card> : null}
       {actionError ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{actionError}</div> : null}
+      {actionSuccess ? <div role="status" className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{actionSuccess}</div> : null}
 
       {reminders.length ? <Card className="border-emerald-200 bg-emerald-50 p-4">
         <div className="mb-3 flex items-center gap-2"><MessageCircle size={20} className="text-emerald-700"/><div><h2 className="font-semibold text-emerald-900">Lembretes pendentes</h2><p className="text-xs text-emerald-800">Atendimentos de hoje e amanhã que ainda não receberam lembrete.</p></div></div>
-        <div className="grid gap-2 lg:grid-cols-2">{reminders.map((appointment) => <div key={appointment.id} className="flex flex-col gap-2 rounded-md border border-emerald-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><div><strong className="text-sm">{appointment.pet.name} · {appointment.customer.name}</strong><p className="text-xs text-subdued">{new Date(appointment.startAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às {timeLabel(appointment.startAt)} · {appointment.service.name}</p></div><Button className="h-9 shrink-0" onClick={() => sendReminder(appointment)}><MessageCircle size={16}/> Enviar WhatsApp</Button></div>)}</div>
+        <div className="grid gap-2 lg:grid-cols-2">{reminders.map((appointment) => <div key={appointment.id} className="flex min-w-0 flex-col gap-3 rounded-md border border-emerald-200 bg-white p-3"><div><strong className="text-sm">{appointment.pet.name} · {appointment.customer.name}</strong><p className="text-xs text-subdued">{new Date(appointment.startAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às {timeLabel(appointment.startAt)} · {appointment.service.name}</p></div><div className="flex flex-wrap gap-2">{canManage ? <Button className="h-9" variant="secondary" onClick={() => openTimeEdit(appointment)}><Pencil size={15}/> Editar horário</Button> : null}<Button className="h-9" onClick={() => sendReminder(appointment)}><MessageCircle size={16}/> Enviar WhatsApp</Button></div></div>)}</div>
       </Card> : null}
 
       <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -278,6 +316,7 @@ export function GroomingSchedulePage({ canManage, canManageCustomers }: { canMan
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-start gap-3"><div className="rounded-md bg-white/80 px-2 py-1 text-center shadow-sm"><strong className="block text-base">{timeLabel(appointment.startAt)}</strong><span className="text-[11px]">até {timeLabel(appointment.endAt)}</span></div><div><strong className="block">{appointment.pet.name}</strong><span className="text-xs">Tutor: {appointment.customer.name}</span><p className="mt-1 text-sm font-medium">{appointment.service.name} · {durationLabel(appointment.service.durationMinutes)}</p></div></div><div className="text-left sm:text-right"><Badge>{statusLabels[appointment.status]}</Badge><strong className="mt-1 block">{money(appointment.price)}</strong></div></div>
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs">{appointment.isPackage ? <Badge>Pacote</Badge> : null}{appointment.notes ? <span className="rounded bg-white/70 px-2 py-1">Obs.: {appointment.notes}</span> : null}</div>
                 {canManage && appointment.status !== "CANCELLED" ? <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-2">
+                  <Button className="h-8 px-2 text-xs" variant="secondary" onClick={() => openTimeEdit(appointment)}><Pencil size={14}/> Editar horário</Button>
                   {appointment.status === "SCHEDULED" ? <Button className="h-8 px-2 text-xs" variant="secondary" onClick={() => void changeAppointment(appointment.id, { status: "CONFIRMED" })}><Check size={14}/> Confirmar</Button> : null}
                   {appointment.status === "CONFIRMED" ? <Button className="h-8 px-2 text-xs" variant="secondary" onClick={() => void changeAppointment(appointment.id, { status: "IN_SERVICE" })}><Clock3 size={14}/> Iniciar</Button> : null}
                   {appointment.status === "IN_SERVICE" ? <Button className="h-8 px-2 text-xs" variant="secondary" onClick={() => void changeAppointment(appointment.id, { status: "COMPLETED" })}><PackageCheck size={14}/> Concluir</Button> : null}
@@ -292,6 +331,22 @@ export function GroomingSchedulePage({ canManage, canManageCustomers }: { canMan
           </Card>;
         })}
       </div> : null}
+
+      <Modal open={editingAppointment !== null} title="Editar horário" description="Altere a data ou o horário inicial. A duração do atendimento será mantida." onClose={closeTimeEdit} className="max-w-lg">
+        {editingAppointment ? <form onSubmit={(event) => { event.preventDefault(); void submitTimeEdit(); }}>
+          <div className="mb-4 rounded-md border border-border bg-muted p-3 text-sm"><strong>{editingAppointment.pet.name} · {editingAppointment.customer.name}</strong><p className="mt-1 text-subdued">{editingAppointment.service.name} · {editingAppointment.professional.name}</p></div>
+          <fieldset disabled={updateAppointment.isPending}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input id="grooming-edit-date" label="Data do atendimento" type="date" required value={timeForm.date} onChange={(event) => setTimeForm((current) => ({ ...current, date: event.target.value }))}/>
+              <Input id="grooming-edit-time" label="Horário inicial" type="time" required value={timeForm.time} onChange={(event) => setTimeForm((current) => ({ ...current, time: event.target.value }))}/>
+            </div>
+            {editedEnd ? <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800"><strong>{timeForm.time} até {timeLabel(editedEnd)}</strong>{dateKey(editedEnd) !== timeForm.date ? <span> de {editedEnd.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span> : null}<p className="mt-1 text-xs">Duração: {durationLabel(editingDuration)}.</p></div> : null}
+            {editingAppointment.reminderSentAt ? <p className="mt-3 text-sm text-subdued">Após alterar o horário, envie um novo lembrete para avisar o tutor.</p> : null}
+            {timeError ? <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{timeError}</p> : null}
+            <div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={closeTimeEdit}>Cancelar</Button><Button type="submit" disabled={updateAppointment.isPending || !timeForm.date || !timeForm.time}>{updateAppointment.isPending ? "Salvando..." : "Salvar horário"}</Button></div>
+          </fieldset>
+        </form> : null}
+      </Modal>
 
       <Modal open={appointmentOpen} title="Novo agendamento" description="O horário final será calculado conforme a duração do serviço." onClose={() => setAppointmentOpen(false)} className="max-w-2xl">
         <div className="grid gap-4 sm:grid-cols-2">

@@ -30,6 +30,7 @@ export const createGroomingAppointmentSchema = z.object({
 });
 
 export const updateGroomingAppointmentSchema = z.object({
+  startAt: z.string().datetime({ offset: true, message: "Informe uma data e horário válidos." }).transform((value) => new Date(value)).optional(),
   status: z.enum(["SCHEDULED", "CONFIRMED", "IN_SERVICE", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional(),
   purchasedProducts: z.boolean().optional(),
   photoTaken: z.boolean().optional(),
