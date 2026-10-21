@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import React, { useEffect, useId, useState, type ReactNode } from "react";
+import React, { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -16,26 +16,39 @@ type ModalProps = {
   className?: string;
 };
 
+const openModals: symbol[] = [];
+let originalBodyOverflow = "";
+
 export function Modal({ open, title, description, children, onClose, className }: ModalProps) {
   const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
+  const modalId = useRef(Symbol("modal")).current;
+  const onCloseRef = useRef(onClose);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     if (!open) return;
-    const previousOverflow = document.body.style.overflow;
+    // Only the last open dialog may restore page scrolling.
+    if (!openModals.length) originalBodyOverflow = document.body.style.overflow;
+    openModals.push(modalId);
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && openModals[openModals.length - 1] === modalId) onCloseRef.current();
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
+      const index = openModals.indexOf(modalId);
+      if (index !== -1) openModals.splice(index, 1);
+      if (!openModals.length) document.body.style.overflow = originalBodyOverflow;
     };
-  }, [onClose, open]);
+  }, [modalId, open]);
 
   if (!mounted || !open) return null;
 
