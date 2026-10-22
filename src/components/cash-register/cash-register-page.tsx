@@ -41,6 +41,11 @@ function CashReport({ report, open = false, canManage, onReopen }: { report: Cas
       <div><div className="flex items-center gap-2"><h3 className="font-semibold">Caixa de {dateTime.format(new Date(report.openedAt))} · {report.id.slice(0, 8)}</h3><Badge className={open ? "border-emerald-200 bg-emerald-50 text-success" : ""}>{open ? "Aberto" : "Fechado"}</Badge></div><p className="mt-1 text-sm text-subdued">Aberto por {report.openedByName ?? "usuário não identificado"}{report.closedAt ? ` • Fechado em ${dateTime.format(new Date(report.closedAt))}` : ""}{report.reopenedAt ? ` • Última reabertura em ${dateTime.format(new Date(report.reopenedAt))} por ${report.reopenedByName ?? "usuário não identificado"}` : ""}</p></div>
       <div className="flex items-center gap-3"><div className="text-left sm:text-right"><p className="text-xs text-subdued">Saldo esperado em dinheiro</p><p className="text-lg font-bold">{money.format(report.expectedAmount)}</p></div>{onReopen ? <Button variant="secondary" onClick={() => onReopen(report)}><RotateCcw size={16}/>Reabrir</Button> : null}</div>
     </div>
+    {!open ? <div className="border-b border-brand-200 bg-brand-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Fundo inicial + vendas</p>
+      <p className="mt-2 text-2xl font-bold text-brand-700">{money.format(report.openingAmount + Object.values(report.paymentBreakdown).reduce((total, value) => total + value, 0))}</p>
+      <p className="mt-1 text-sm text-subdued">Soma do fundo inicial com as vendas de todas as formas de pagamento deste caixa.</p>
+    </div> : null}
     <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-5">
       {[["Fundo inicial", report.openingAmount], ["Vendas em dinheiro", report.cashSales], ["Suprimentos", report.supplies], ["Sangrias", -report.withdrawals], ["Valor contado", report.actualAmount]].map(([label, value]) => <div key={String(label)} className="bg-white px-4 py-3"><p className="text-xs text-subdued">{label}</p><p className="mt-1 font-semibold">{value == null ? "—" : money.format(Number(value))}</p></div>)}
     </div>
