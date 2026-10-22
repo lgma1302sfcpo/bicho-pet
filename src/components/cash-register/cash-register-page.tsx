@@ -64,6 +64,7 @@ export function CashRegisterPage({ canManage }: { canManage: boolean }) {
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const current = query.data?.current;
+  const totalSales = current ? Object.values(current.paymentBreakdown).reduce((total, value) => total + value, 0) : 0;
 
   function showModal(next: typeof modal) { setAmount(next === "close" && current ? String(current.expectedAmount.toFixed(2)) : ""); setDescription(""); setFormError(null); setModal(next); }
   function showReopen(report: CashRegisterReport) { setSelectedReport(report); setFormError(null); setModal("reopen"); }
@@ -99,7 +100,19 @@ export function CashRegisterPage({ canManage }: { canManage: boolean }) {
 
     {view === "current" ? (!current ? <Card className="overflow-hidden border-brand-200"><div className="grid gap-6 p-5 md:grid-cols-[1fr_auto] md:items-center"><div><div className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-brand-50 text-brand-700"><LockKeyhole/></div><h2 className="text-xl font-semibold">O caixa desta loja está fechado</h2><p className="mt-2 max-w-2xl text-sm text-subdued">Informe o fundo de caixa disponível para troco. Depois disso, todas as vendas do turno serão organizadas por meio de pagamento.</p></div>{canManage ? <Button className="h-12 px-5" onClick={() => showModal("open")}><Wallet size={19}/>Abrir caixa</Button> : <Badge>Somente visualização</Badge>}</div></Card> : <>
       <div className={`rounded-xl border px-4 py-3 text-sm ${current.reopenedAt ? "border-amber-200 bg-amber-50 text-amber-950" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}><div className="flex items-center gap-2 font-semibold">{current.reopenedAt ? <RotateCcw size={18}/> : <CheckCircle2 size={18}/>} {current.reopenedAt ? `Caixa anterior reaberto em ${dateTime.format(new Date(current.reopenedAt))}. Selecione a data original ao lançar a venda atrasada.` : `Caixa aberto desde ${dateTime.format(new Date(current.openedAt))}`}</div></div>
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6"><SummaryCard label="Fundo inicial" value={current.openingAmount}/><SummaryCard label="Total de vendas" value={Object.values(current.paymentBreakdown).reduce((total, value) => total + value, 0)} tone="positive"/><SummaryCard label="Vendas em dinheiro" value={current.cashSales} tone="positive"/><SummaryCard label="Suprimentos" value={current.supplies} tone="positive"/><SummaryCard label="Sangrias" value={current.withdrawals} tone="negative"/><SummaryCard label="Saldo esperado" value={current.expectedAmount}/></section>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 sm:col-span-2 xl:col-span-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Fundo inicial + vendas</p>
+          <p className="mt-2 text-2xl font-bold text-brand-700">{money.format(current.openingAmount + totalSales)}</p>
+          <p className="mt-1 text-sm text-subdued">Soma do fundo inicial com as vendas de todas as formas de pagamento deste caixa.</p>
+        </div>
+        <SummaryCard label="Fundo inicial" value={current.openingAmount}/>
+        <SummaryCard label="Total de vendas" value={totalSales} tone="positive"/>
+        <SummaryCard label="Vendas em dinheiro" value={current.cashSales} tone="positive"/>
+        <SummaryCard label="Suprimentos" value={current.supplies} tone="positive"/>
+        <SummaryCard label="Sangrias" value={current.withdrawals} tone="negative"/>
+        <SummaryCard label="Saldo esperado em dinheiro" value={current.expectedAmount}/>
+      </section>
       {canManage ? <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => showModal("SUPPLY")}><ArrowDownToLine size={18}/>Adicionar dinheiro</Button><Button variant="secondary" onClick={() => showModal("WITHDRAWAL")}><ArrowUpFromLine size={18}/>Fazer sangria</Button><Button variant="danger" onClick={() => showModal("close")}><LockKeyhole size={18}/>Fechar caixa</Button></div> : null}
       <CashReport report={current} open canManage={canManage}/>
     </>) : null}
