@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, type Resolver } from "react-hook-form";
 
 import { PaymentDetailsFields } from "@/components/sales/payment-details-fields";
-import { calculatePaymentFee, isCardPayment } from "@/lib/payment-fees";
+import { calculatePaymentFee, isCardPayment, paymentSelectionValue, pixPaymentLabel } from "@/lib/payment-fees";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,7 +31,7 @@ function formatCurrency(value: number) {
 
 const unitLabels: Record<string, string> = { UN: "unidades", KG: "quilogramas", G: "gramas", L: "litros", ML: "mililitros", CX: "caixas", PC: "pacotes" };
 const paymentOptions = [
-  ["CASH", "Dinheiro"], ["PIX", "PIX"], ["CREDIT_CARD", "Cartão de crédito"],
+  ["CASH", "Dinheiro"], ["PIX", "Pix chave"], ["PIX_MACHINE", "Pix máquina"], ["CREDIT_CARD", "Cartão de crédito"],
   ["DEBIT_CARD", "Cartão de débito"], ["STORE_CREDIT", "Fiado"], ["VOUCHER", "Vale"]
 ] as const;
 
@@ -314,8 +314,8 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
     document.text(`Cliente: ${lastReceipt.customerName}`, 20, 36);
     document.text(`Data: ${new Date().toLocaleString("pt-BR")}`, 20, 42);
     const receiptPayment = lastReceipt.values.paymentMethod === "MIXED"
-      ? (lastReceipt.values.payments ?? []).map((payment) => `${payment.method}: ${formatCurrency(payment.amount)}`).join(" + ")
-      : lastReceipt.values.paymentMethod;
+      ? (lastReceipt.values.payments ?? []).map((payment) => `${pixPaymentLabel(payment.method, payment.details)}: ${formatCurrency(payment.amount)}`).join(" + ")
+      : pixPaymentLabel(lastReceipt.values.paymentMethod, lastReceipt.values.paymentDetails);
     document.text(`Pagamento: ${receiptPayment}`, 20, 48);
     let y = 60;
     for (const item of lastReceipt.values.items) {
@@ -373,12 +373,19 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
                 label="Pagamento"
                 required
                 error={form.formState.errors.paymentMethod?.message}
-                {...form.register("paymentMethod")}
-                onChange={(event) => { form.setValue("paymentMethod", event.target.value as CreateSaleDTO["paymentMethod"]); form.setValue("paymentDetails", event.target.value === "PIX" ? { pixType: "KEY" } : {}); }}
+                name="paymentMethod"
+                value={paymentSelectionValue(selectedPaymentMethod, watchedPaymentDetails)}
+                onChange={(event) => {
+                  const selection = event.target.value;
+                  const method = selection === "PIX_MACHINE" ? "PIX" : selection;
+                  form.setValue("paymentMethod", method as CreateSaleDTO["paymentMethod"], { shouldDirty: true });
+                  form.setValue("paymentDetails", method === "PIX" ? { pixType: selection === "PIX_MACHINE" ? "MACHINE" : "KEY" } : {}, { shouldValidate: true });
+                }}
               >
                 <option value="">Selecione o pagamento</option>
                 <option value="CASH">Dinheiro</option>
-                <option value="PIX">PIX</option>
+                <option value="PIX">Pix chave</option>
+                <option value="PIX_MACHINE">Pix máquina</option>
                 <option value="CREDIT_CARD">Cartão de crédito</option>
                 <option value="DEBIT_CARD">Cartão de débito</option>
                 <option value="STORE_CREDIT">Fiado</option>
@@ -398,7 +405,12 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
                 </div>
                 {paymentFields.map((payment, index) => (
                   <div key={payment.id} className="space-y-2"><div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                    <Select label={`Forma ${index + 1}`} error={form.formState.errors.payments?.[index]?.method?.message} {...form.register(`payments.${index}.method`)} onChange={(event) => { form.setValue(`payments.${index}.method`, event.target.value as NonNullable<CreateSaleDTO["payments"]>[number]["method"]); form.setValue(`payments.${index}.details`, event.target.value === "PIX" ? { pixType: "KEY" } : {}); }}>
+                    <Select label={`Forma ${index + 1}`} error={form.formState.errors.payments?.[index]?.method?.message} name={`payments.${index}.method`} value={paymentSelectionValue(watchedPayments[index]?.method, watchedPayments[index]?.details)} onChange={(event) => {
+                      const selection = event.target.value;
+                      const method = selection === "PIX_MACHINE" ? "PIX" : selection;
+                      form.setValue(`payments.${index}.method`, method as NonNullable<CreateSaleDTO["payments"]>[number]["method"], { shouldDirty: true });
+                      form.setValue(`payments.${index}.details`, method === "PIX" ? { pixType: selection === "PIX_MACHINE" ? "MACHINE" : "KEY" } : {}, { shouldValidate: true });
+                    }}>
                       {paymentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </Select>
                     <Input label="Valor" mask="currency" error={form.formState.errors.payments?.[index]?.amount?.message} {...form.register(`payments.${index}.amount`)} />

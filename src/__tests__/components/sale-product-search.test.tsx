@@ -59,6 +59,47 @@ function mockPage(product: ProductListItemDTO) {
 }
 
 describe("busca de produtos na venda", () => {
+  it.each([
+    { selection: "PIX", pixType: "KEY" },
+    { selection: "PIX_MACHINE", pixType: "MACHINE" }
+  ])("seleciona e envia o Pix diretamente no pagamento: $pixType", async ({ selection, pixType }) => {
+    mockPage(golden);
+    render(<SaleCreatePage />);
+    fireEvent.change(screen.getByLabelText("Descrição"), { target: { value: "Produto de teste Pix" } });
+    fireEvent.change(screen.getByLabelText("Preço unitário"), { target: { value: "100" } });
+    expect(screen.getByRole("option", { name: "Pix chave" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Pix máquina" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Pagamento"), { target: { value: selection } });
+    fireEvent.blur(screen.getByLabelText("Pagamento"));
+    expect(screen.getByLabelText("Pagamento")).toHaveValue(selection);
+    expect(screen.queryByLabelText("Tipo de Pix")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar venda" }));
+    await waitFor(() => expect(createSaleMutation).toHaveBeenCalledWith(expect.objectContaining({
+      paymentMethod: "PIX", paymentDetails: { pixType }
+    })));
+  });
+
+  it("permite dividir a venda entre Pix chave e Pix máquina", async () => {
+    mockPage(golden);
+    render(<SaleCreatePage />);
+    fireEvent.change(screen.getByLabelText("Descrição"), { target: { value: "Produto de teste Pix" } });
+    fireEvent.change(screen.getByLabelText("Preço unitário"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Pagamento"), { target: { value: "MIXED" } });
+    fireEvent.change(await screen.findByLabelText("Forma 1"), { target: { value: "PIX" } });
+    fireEvent.change(screen.getByLabelText("Forma 2"), { target: { value: "PIX_MACHINE" } });
+    fireEvent.blur(screen.getByLabelText("Forma 2"));
+    const amounts = screen.getAllByLabelText("Valor");
+    fireEvent.change(amounts[0], { target: { value: "40" } });
+    fireEvent.change(amounts[1], { target: { value: "60" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar venda" }));
+    await waitFor(() => expect(createSaleMutation).toHaveBeenCalledWith(expect.objectContaining({
+      paymentMethod: "MIXED", payments: [
+        { method: "PIX", amount: 40, details: { pixType: "KEY" } },
+        { method: "PIX", amount: 60, details: { pixType: "MACHINE" } }
+      ]
+    })));
+  });
+
   it("calcula e envia a taxa Stone selecionada no lançamento", async () => {
     mockPage(golden);
     render(<SaleCreatePage />);

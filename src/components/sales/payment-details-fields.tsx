@@ -10,20 +10,12 @@ export function PaymentDetailsFields({ method, amount, value = {}, onChange, err
   onChange: (value: PaymentDetails) => void;
   error?: string;
 }) {
-  if (method !== "PIX" && !isCardPayment(method)) return null;
+  if (!isCardPayment(method)) return null;
   const calculation = calculatePaymentFee(method!, amount, value);
   const currency = (number: number) => number.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const maxInstallments = value.machine === "STONE" && value.brand ? stoneRates[value.brand].credit.length : 12;
 
   return <div className="space-y-3 rounded-lg border border-border bg-slate-50 p-3">
-    {method === "PIX" ? <>
-      <Select label="Tipo de Pix" value={value.pixType ?? ""} onChange={(event) => onChange({ pixType: event.target.value as PaymentDetails["pixType"] })}>
-        <option value="">Selecione o tipo de Pix</option>
-        <option value="KEY">Pix chave</option>
-        <option value="MACHINE">Pix máquina</option>
-      </Select>
-      <p className="text-xs text-subdued">Sem taxa de Pix cadastrada.</p>
-    </> : <>
       <div className="grid gap-3 sm:grid-cols-3">
         <Select label="Maquininha" value={value.machine ?? ""} onChange={(event) => onChange({ machine: event.target.value as PaymentDetails["machine"], installments: 1 })}>
           <option value="">Selecione a maquininha</option>
@@ -39,7 +31,6 @@ export function PaymentDetailsFields({ method, amount, value = {}, onChange, err
       </div>
       {value.machine === "STONE" ? <p className="text-xs text-subdued">Taxas Stone para recebimento no mesmo dia. Parcelas disponíveis conforme as taxas informadas.</p> : null}
       {calculation.rate === undefined ? <p className="text-sm text-amber-800">Selecione os dados com taxa disponível para calcular o líquido.</p> : <p className="text-sm">Taxa: <strong>{calculation.rate.toLocaleString("pt-BR")}% ({currency(calculation.feeAmount)})</strong> · Líquido: <strong>{currency(calculation.netAmount)}</strong></p>}
-    </>}
     {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
   </div>;
 }

@@ -6,6 +6,14 @@ export type PaymentDetails = {
   pixType?: "KEY" | "MACHINE";
 };
 
+export function paymentSelectionValue(method?: string, details?: PaymentDetails) {
+  return method === "PIX" && details?.pixType === "MACHINE" ? "PIX_MACHINE" : method ?? "";
+}
+
+export function pixPaymentLabel(method: string, details?: PaymentDetails) {
+  return method === "PIX" ? details?.pixType === "MACHINE" ? "Pix máquina" : "Pix chave" : method;
+}
+
 export const stoneRates = {
   MASTERCARD: { debit: 2.09, credit: [6.92, 7.73, 9.10, 10.48] },
   VISA: { debit: 2.09, credit: [6.92, 7.73, 9.10, 10.48] },

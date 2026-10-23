@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { CreateSaleDTO, SaleCreatedDTO } from "@/dtos/commerce/sale.dto";
 import { createSaleSchema } from "@/schemas/commerce/sale.schemas";
+import { paymentSelectionValue } from "@/lib/payment-fees";
 import { getCatalog, getPendingSales, removePendingSale, saveCatalog, savePendingSale, type OfflineProduct, type PendingOfflineSale } from "@/lib/offline-sales";
 
 type Props = { tenantId: string; branchId: string; branchName: string; userId: string };
 type Line = { productId: string; quantity: number };
-const paymentLabels = { CASH: "Dinheiro", PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito" } as const;
+const paymentLabels = { CASH: "Dinheiro", PIX: "Pix chave", PIX_MACHINE: "Pix máquina", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito" } as const;
 type Payment = keyof typeof paymentLabels;
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
@@ -112,7 +113,8 @@ export function OfflineSalesPage({ tenantId, branchId, branchName, userId }: Pro
     if (payment !== "CASH" && !paymentRecorded) { setMessage("Confirme no terminal ou aplicativo que o pagamento foi recebido antes de registrar a venda."); return; }
     const offlineId = crypto.randomUUID();
     const payload: CreateSaleDTO = {
-      offlineId, offlineCashRegisterSessionId: cashRegisterSessionId, paymentMethod: payment, customerId: "", discount: 0, surcharge: 0,
+      offlineId, offlineCashRegisterSessionId: cashRegisterSessionId, paymentMethod: payment === "PIX_MACHINE" ? "PIX" : payment, customerId: "", discount: 0, surcharge: 0,
+      paymentDetails: payment === "PIX" || payment === "PIX_MACHINE" ? { pixType: payment === "PIX_MACHINE" ? "MACHINE" : "KEY" } : undefined,
       soldAt: new Date(), notes: `Venda registrada offline no aparelho. Pagamento ${paymentLabels[payment]} informado pelo operador.`,
       items: lines.map((line) => {
         const product = products.find((item) => item.id === line.productId)!;
@@ -141,7 +143,7 @@ export function OfflineSalesPage({ tenantId, branchId, branchName, userId }: Pro
       <div className="flex justify-between font-semibold"><span>Total</span><span>{money(total)}</span></div><label className="block text-sm font-medium">Pagamento<select className="mt-1 h-10 w-full rounded-md border border-border px-3" value={payment} onChange={(event) => { setPayment(event.target.value as Payment); setPaymentRecorded(false); }}>{Object.entries(paymentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       {payment !== "CASH" ? <label className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm"><input type="checkbox" checked={paymentRecorded} onChange={(event) => setPaymentRecorded(event.target.checked)} />Confirmo que recebi o Pix ou que o cartão foi aprovado no terminal. O ERP não verifica isso sem internet.</label> : null}
       <Button disabled={!branchId || !catalogAt || !cashRegisterSessionId || !lines.length || lines.some((line) => !Number.isFinite(line.quantity) || line.quantity <= 0)} onClick={() => void saveSale()}><Save size={16} /> Salvar como pendente</Button></Card>
-      <Card className="p-4"><h2 className="font-semibold">Pendentes neste computador ({pending.length})</h2><div className="mt-3 space-y-3">{pending.map((sale) => <div className="rounded-md border border-border p-3 text-sm" key={sale.id}><div className="flex justify-between gap-2"><strong>{sale.id.slice(0, 8)} · {money(sale.total)}</strong><span className={sale.status === "ERROR" ? "text-danger" : "text-amber-700"}>{sale.status === "ERROR" ? "Erro" : "Pendente"}</span></div><p className="text-subdued">{new Date(sale.createdAt).toLocaleString("pt-BR")} · Caixa {sale.payload.offlineCashRegisterSessionId?.slice(0, 8) ?? "não identificado"} · {paymentLabels[sale.payload.paymentMethod as Payment] ?? sale.payload.paymentMethod}</p>{sale.error ? <p className="mt-1 text-danger">{sale.error}</p> : null}</div>)}{!pending.length ? <p className="text-sm text-subdued">Nenhuma venda aguardando sincronização.</p> : null}</div></Card></div>
+      <Card className="p-4"><h2 className="font-semibold">Pendentes neste computador ({pending.length})</h2><div className="mt-3 space-y-3">{pending.map((sale) => <div className="rounded-md border border-border p-3 text-sm" key={sale.id}><div className="flex justify-between gap-2"><strong>{sale.id.slice(0, 8)} · {money(sale.total)}</strong><span className={sale.status === "ERROR" ? "text-danger" : "text-amber-700"}>{sale.status === "ERROR" ? "Erro" : "Pendente"}</span></div><p className="text-subdued">{new Date(sale.createdAt).toLocaleString("pt-BR")} · Caixa {sale.payload.offlineCashRegisterSessionId?.slice(0, 8) ?? "não identificado"} · {paymentLabels[paymentSelectionValue(sale.payload.paymentMethod, sale.payload.paymentDetails) as Payment] ?? sale.payload.paymentMethod}</p>{sale.error ? <p className="mt-1 text-danger">{sale.error}</p> : null}</div>)}{!pending.length ? <p className="text-sm text-subdued">Nenhuma venda aguardando sincronização.</p> : null}</div></Card></div>
     {message ? <p className="rounded-md border border-brand-200 bg-brand-50 p-3 text-sm">{message}</p> : null}
     <p className="text-xs text-subdued">O saldo mostrado é a última cópia recebida. A venda só atualiza caixa, estoque e situação fiscal após a confirmação do servidor. Este registro local não é documento fiscal.</p>
   </div>;
