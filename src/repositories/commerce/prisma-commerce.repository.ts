@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import type { CreateCustomerDTO, CustomerFiltersDTO, UpdateCustomerDTO } from "@/dtos/commerce/customer.dto";
 import type { CommerceRepository, SaleListOptions } from "@/interfaces/commerce/commerce-repository.interface";
 import { AppError } from "@/lib/errors";
+import { calculatePaymentFee, paymentSettlement } from "@/lib/payment-fees";
 import { prisma } from "@/lib/prisma";
 
 function toNumber(value: Prisma.Decimal | number | null | undefined) {
@@ -283,6 +284,9 @@ export class PrismaCommerceRepository implements CommerceRepository {
       for (const item of data.sale.items) {
         if (item.productId) quantitiesByProduct.set(item.productId, (quantitiesByProduct.get(item.productId) ?? 0) + item.quantity);
       }
+      const salePayments = data.sale.paymentMethod === "MIXED"
+        ? data.sale.payments ?? []
+        : [{ method: data.sale.paymentMethod, amount: data.total, details: data.sale.paymentDetails }];
       const sale = await tx.sale.create({
         data: {
           tenantId: data.tenantId,
@@ -317,9 +321,10 @@ export class PrismaCommerceRepository implements CommerceRepository {
             };})
           },
           payments: {
-            create: data.sale.paymentMethod === "MIXED"
-              ? (data.sale.payments ?? []).map((payment) => ({ method: payment.method, amount: payment.amount }))
-              : [{ method: data.sale.paymentMethod, amount: data.total }]
+            create: salePayments.map((payment) => ({
+              method: payment.method, amount: payment.amount,
+              details: paymentSettlement(payment.method, payment.amount, payment.details)
+            }))
           }
         }
       });
@@ -366,9 +371,6 @@ export class PrismaCommerceRepository implements CommerceRepository {
         });
       }
 
-      const salePayments = data.sale.paymentMethod === "MIXED"
-        ? data.sale.payments ?? []
-        : [{ method: data.sale.paymentMethod, amount: data.total }];
       await tx.financialEntry.createMany({
         data: salePayments.map((payment) => ({
           tenantId: data.tenantId,
@@ -384,6 +386,18 @@ export class PrismaCommerceRepository implements CommerceRepository {
           paymentMethod: payment.method
         }))
       });
+
+      const feeEntries = salePayments.flatMap((payment) => {
+        const { feeAmount } = calculatePaymentFee(payment.method, payment.amount, payment.details);
+        return feeAmount > 0 ? [{
+          tenantId: data.tenantId, branchId: data.branchId, saleId: sale.id,
+          type: "EXPENSE" as const, status: "PAID" as const,
+          description: `Taxa ${payment.details?.machine === "STONE" ? "Stone" : "maquininha"} - Venda ${sale.code}`,
+          category: "Taxas de cartão", amount: feeAmount,
+          dueDate: soldAt, paidAt: soldAt, paymentMethod: payment.method
+        }] : [];
+      });
+      if (feeEntries.length) await tx.financialEntry.createMany({ data: feeEntries });
 
       if (data.sale.customerId) {
         const current = await tx.customer.findUnique({

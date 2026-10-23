@@ -5,6 +5,8 @@ import { FileDown, LoaderCircle, Minus, Plus, ReceiptText, RefreshCw, Save, User
 import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, type Resolver } from "react-hook-form";
 
+import { PaymentDetailsFields } from "@/components/sales/payment-details-fields";
+import { calculatePaymentFee, isCardPayment } from "@/lib/payment-fees";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -80,6 +82,7 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
       discount: 0,
       surcharge: 0,
       notes: "",
+      paymentDetails: {},
       payments: [],
       items: [{ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0 }]
     }
@@ -90,6 +93,7 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
   });
   const { fields: paymentFields, append: appendPayment, remove: removePayment, replace: replacePayments } = useFieldArray({ control: form.control, name: "payments" });
   const selectedPaymentMethod = form.watch("paymentMethod");
+  const watchedPaymentDetails = form.watch("paymentDetails");
   const watchedPayments = form.watch("payments") ?? [];
   const customers = useMemo(() => {
     const queriedCustomers = customersQuery.data?.customers ?? [];
@@ -188,9 +192,16 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
   const total = Math.round((subtotal - appliedDiscount + appliedSurcharge) * 100) / 100;
   const allocatedPaymentTotal = Math.round(watchedPayments.reduce((sum, payment) => sum + Number(parseBrazilianNumber(payment.amount) ?? 0), 0) * 100) / 100;
 
+  const feePayments = selectedPaymentMethod === "MIXED"
+    ? watchedPayments.map((payment) => ({ method: payment.method, amount: Number(parseBrazilianNumber(payment.amount) ?? 0), details: payment.details }))
+    : [{ method: selectedPaymentMethod, amount: total, details: watchedPaymentDetails }];
+  const feeCalculations = feePayments.map((payment) => calculatePaymentFee(payment.method ?? "", payment.amount, payment.details));
+  const unknownPaymentFee = feePayments.some((payment, index) => isCardPayment(payment.method) && feeCalculations[index].rate === undefined);
+  const totalPaymentFees = Math.round(feeCalculations.reduce((sum, payment) => sum + payment.feeAmount, 0) * 100) / 100;
+
   useEffect(() => {
     if (selectedPaymentMethod === "MIXED" && paymentFields.length < 2) {
-      replacePayments([{ method: "CASH", amount: 0 }, { method: "DEBIT_CARD", amount: 0 }]);
+      replacePayments([{ method: "CASH", amount: 0, details: {} }, { method: "DEBIT_CARD", amount: 0, details: {} }]);
     }
   }, [selectedPaymentMethod, paymentFields.length, replacePayments]);
 
@@ -277,6 +288,7 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
         discount: 0,
         surcharge: 0,
         notes: "",
+        paymentDetails: {},
         payments: [],
         items: [{ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0 }]
       });
@@ -362,6 +374,7 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
                 required
                 error={form.formState.errors.paymentMethod?.message}
                 {...form.register("paymentMethod")}
+                onChange={(event) => { form.setValue("paymentMethod", event.target.value as CreateSaleDTO["paymentMethod"]); form.setValue("paymentDetails", event.target.value === "PIX" ? { pixType: "KEY" } : {}); }}
               >
                 <option value="">Selecione o pagamento</option>
                 <option value="CASH">Dinheiro</option>
@@ -375,20 +388,22 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
               <Input label="Data" type="datetime-local" {...form.register("soldAt")} />
             </div>
 
+            <PaymentDetailsFields method={selectedPaymentMethod} amount={total} value={watchedPaymentDetails} onChange={(value) => form.setValue("paymentDetails", value, { shouldValidate: true })} error={form.formState.errors.paymentDetails?.message} />
+
             {selectedPaymentMethod === "MIXED" ? (
               <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div><h2 className="font-semibold">Divisão do pagamento</h2><p className="text-sm text-subdued">Informe quanto foi pago em cada forma.</p></div>
-                  <Button type="button" variant="secondary" onClick={() => appendPayment({ method: "PIX", amount: 0 })}><Plus size={16}/>Forma</Button>
+                  <Button type="button" variant="secondary" onClick={() => appendPayment({ method: "PIX", amount: 0, details: { pixType: "KEY" } })}><Plus size={16}/>Forma</Button>
                 </div>
                 {paymentFields.map((payment, index) => (
-                  <div key={payment.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                    <Select label={`Forma ${index + 1}`} error={form.formState.errors.payments?.[index]?.method?.message} {...form.register(`payments.${index}.method`)}>
+                  <div key={payment.id} className="space-y-2"><div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                    <Select label={`Forma ${index + 1}`} error={form.formState.errors.payments?.[index]?.method?.message} {...form.register(`payments.${index}.method`)} onChange={(event) => { form.setValue(`payments.${index}.method`, event.target.value as NonNullable<CreateSaleDTO["payments"]>[number]["method"]); form.setValue(`payments.${index}.details`, event.target.value === "PIX" ? { pixType: "KEY" } : {}); }}>
                       {paymentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </Select>
                     <Input label="Valor" mask="currency" error={form.formState.errors.payments?.[index]?.amount?.message} {...form.register(`payments.${index}.amount`)} />
                     <Button type="button" variant="danger" aria-label={`Remover forma ${index + 1}`} disabled={paymentFields.length <= 2} onClick={() => removePayment(index)}><Minus size={17}/></Button>
-                  </div>
+                  </div><PaymentDetailsFields method={watchedPayments[index]?.method} amount={Number(parseBrazilianNumber(watchedPayments[index]?.amount) ?? 0)} value={watchedPayments[index]?.details} onChange={(value) => form.setValue(`payments.${index}.details`, value, { shouldValidate: true })} error={form.formState.errors.payments?.[index]?.details?.message} /></div>
                 ))}
                 {form.formState.errors.payments?.message ? <p className="text-sm font-medium text-danger">{form.formState.errors.payments.message}</p> : null}
                 <div className="flex justify-between rounded-md bg-white p-3 text-sm"><span>Total distribuído</span><strong className={allocatedPaymentTotal === total ? "text-success" : "text-danger"}>{formatCurrency(allocatedPaymentTotal)} de {formatCurrency(total)}</strong></div>
@@ -557,6 +572,9 @@ export function SaleCreatePage({ branchName = "Loja selecionada" }: { branchName
                 <span>Total</span>
                 <strong>{formatCurrency(total)}</strong>
               </div>
+              <div className="flex justify-between"><span className="text-subdued">Taxas de pagamento</span><strong>{unknownPaymentFee ? "Taxa pendente" : formatCurrency(totalPaymentFees)}</strong></div>
+              <div className="flex justify-between text-success"><span>Líquido a receber</span><strong>{unknownPaymentFee ? "Aguardando taxa" : formatCurrency(Math.round((total - totalPaymentFees) * 100) / 100)}</strong></div>
+              <p className="text-xs text-subdued">A taxa é descontada do recebimento da loja. O total cobrado do cliente permanece o valor da venda.</p>
             </div>
           </Card>
 

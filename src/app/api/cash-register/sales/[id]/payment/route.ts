@@ -52,12 +52,17 @@ export async function PATCH(request: Request, context: Context) {
       await tx.salePayment.deleteMany({ where: { saleId: sale.id } });
       await tx.salePayment.create({ data: { saleId: sale.id, method: input.paymentMethod, amount: sale.total } });
       await tx.financialEntry.updateMany({
-        where: { saleId: sale.id, status: { not: "CANCELLED" } },
+        where: { saleId: sale.id, type: "REVENUE", status: { not: "CANCELLED" } },
         data: {
           paymentMethod: input.paymentMethod,
           status: input.paymentMethod === "STORE_CREDIT" ? "PENDING" : "PAID",
           paidAt: input.paymentMethod === "STORE_CREDIT" ? null : new Date()
         }
+      });
+
+      await tx.financialEntry.updateMany({
+        where: { saleId: sale.id, type: "EXPENSE", category: "Taxas de cartão", status: { not: "CANCELLED" } },
+        data: { status: "CANCELLED", paidAt: null }
       });
 
       if (isReceivingStoreCredit) {

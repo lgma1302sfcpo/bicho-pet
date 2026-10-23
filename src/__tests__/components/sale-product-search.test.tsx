@@ -59,6 +59,26 @@ function mockPage(product: ProductListItemDTO) {
 }
 
 describe("busca de produtos na venda", () => {
+  it("calcula e envia a taxa Stone selecionada no lançamento", async () => {
+    mockPage(golden);
+    render(<SaleCreatePage />);
+    fireEvent.change(screen.getByLabelText("Descrição"), { target: { value: "Produto avulso" } });
+    fireEvent.change(screen.getByLabelText("Preço unitário"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Pagamento"), { target: { value: "CREDIT_CARD" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar venda" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Selecione a maquininha."));
+    expect(createSaleMutation).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Maquininha"), { target: { value: "STONE" } });
+    fireEvent.change(screen.getByLabelText("Bandeira"), { target: { value: "ELO" } });
+    fireEvent.change(screen.getByLabelText("Parcelas"), { target: { value: "3" } });
+    expect(screen.getByText(/9,62%/)).toBeInTheDocument();
+    expect(screen.getAllByText(/90,38/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Salvar venda" }));
+    await waitFor(() => expect(createSaleMutation).toHaveBeenCalledWith(expect.objectContaining({
+      paymentMethod: "CREDIT_CARD", paymentDetails: { machine: "STONE", brand: "ELO", installments: 3 }
+    })));
+  });
+
   it("mantém um desconto independente para cada produto adicionado", async () => {
     mockPage(golden);
     render(<SaleCreatePage />);
